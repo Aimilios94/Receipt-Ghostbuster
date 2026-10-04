@@ -8,6 +8,7 @@ pydantic-settings>=2.7
 python-multipart>=0.0.20
 supabase>=2.11
 anthropic>=0.42
+openai>=1.50            # alternative vision provider (LLM_PROVIDER=openai)
 rapidfuzz>=3.12
 PyJWT>=2.10
 pytest>=8.3
