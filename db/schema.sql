@@ -139,3 +139,69 @@ create policy receipts_owner_write on storage.objects
 -- NOT seed them here: in the SQL editor auth.uid() is NULL, which would violate
 -- the NOT NULL user_id and fail this whole script.
 -- ============================================================================
+
+
+-- ============================================================================
+-- Phase 2 — Refund Hunter
+-- Recurring-charge detection + draft cancel/refund actions (draft-only).
+-- ============================================================================
+
+-- subscriptions --------------------------------------------------------------
+-- One row per detected recurring charge (same vendor + same amount over time).
+-- Detection-derived columns are refreshed by POST /subscriptions/detect; the
+-- user-owned columns (status, usage_note) are preserved across re-detection.
+create table if not exists public.subscriptions (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  vendor        text not null,
+  amount        numeric(12,2) not null,                 -- per-charge amount
+  cadence       text not null default 'monthly'
+                  check (cadence in ('weekly','monthly','quarterly','yearly','unknown')),
+  annual_cost   numeric(12,2),                          -- amount x periods/year
+  occurrences   integer not null default 1,             -- distinct charge dates seen
+  first_seen    date,
+  last_seen     date,
+  source        text not null default 'bank'
+                  check (source in ('bank','card','mixed')),
+  status        text not null default 'active'          -- user-owned
+                  check (status in ('active','flagged','cancelled')),
+  usage_note    text,                                   -- user-owned
+  created_at    timestamptz not null default now(),
+  unique (user_id, vendor, amount)                      -- idempotent upsert key
+);
+
+-- refund_actions -------------------------------------------------------------
+-- A drafted cancel/refund email for a subscription. ALWAYS draft-only until the
+-- user approves and sends (Phase 2 T14). Gmail delivery is handled by n8n.
+create table if not exists public.refund_actions (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  subscription_id uuid not null references public.subscriptions (id) on delete cascade,
+  action          text not null default 'cancel' check (action in ('cancel','refund')),
+  recipient       text,                                 -- where the draft would go
+  subject         text,
+  email_draft     text,
+  status          text not null default 'draft'
+                    check (status in ('draft','sent','done')),
+  saved_amount    numeric(12,2),                        -- recorded on cancel (T15)
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists idx_subscriptions_user   on public.subscriptions (user_id, status);
+create index if not exists idx_refund_actions_user   on public.refund_actions (user_id, status);
+create index if not exists idx_refund_actions_sub    on public.refund_actions (subscription_id);
+
+alter table public.subscriptions  enable row level security;
+alter table public.refund_actions enable row level security;
+
+drop policy if exists subscriptions_owner on public.subscriptions;
+create policy subscriptions_owner on public.subscriptions
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists refund_actions_owner on public.refund_actions;
+create policy refund_actions_owner on public.refund_actions
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

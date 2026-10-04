@@ -117,6 +117,43 @@ def list_categories(user_id: str) -> list[dict[str, Any]]:
     return data
 
 
+# --- Phase 2: subscriptions (Refund Hunter) --------------------------------
+def list_subscriptions(user_id: str) -> list[dict[str, Any]]:
+    return (
+        get_supabase()
+        .table("subscriptions")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("annual_cost", desc=True)
+        .execute()
+        .data
+        or []
+    )
+
+
+def upsert_subscriptions(user_id: str, subs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Upsert detection-derived columns only, so user-owned fields (status,
+    usage_note) survive re-detection. Keyed on (user_id, vendor, amount)."""
+    if not subs:
+        return []
+    detection_cols = {
+        "vendor", "amount", "cadence", "annual_cost",
+        "occurrences", "first_seen", "last_seen", "source",
+    }
+    rows = [
+        {"user_id": user_id, **{k: v for k, v in s.items() if k in detection_cols}}
+        for s in subs
+    ]
+    return (
+        get_supabase()
+        .table("subscriptions")
+        .upsert(rows, on_conflict="user_id,vendor,amount")
+        .execute()
+        .data
+        or []
+    )
+
+
 def upload_receipt(user_id: str, filename: str, content: bytes, content_type: str) -> str:
     """Store a receipt image under '<user_id>/<filename>' and return a signed URL."""
     from .config import get_settings

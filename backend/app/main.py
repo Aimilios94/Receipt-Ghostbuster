@@ -11,7 +11,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import bank, close, exceptions, expenses, extract, health, reconcile
+from .routers import (
+    bank,
+    close,
+    exceptions,
+    expenses,
+    extract,
+    health,
+    reconcile,
+    subscriptions,
+)
 
 settings = get_settings()
 
@@ -36,6 +45,7 @@ app.include_router(bank.router)
 app.include_router(reconcile.router)
 app.include_router(exceptions.router)
 app.include_router(close.router)
+app.include_router(subscriptions.router)
 
 
 @app.get("/", tags=["health"])
