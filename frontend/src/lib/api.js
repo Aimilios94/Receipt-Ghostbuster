@@ -100,4 +100,11 @@ export const api = {
   listSubscriptions: () => request("/subscriptions").then((r) => r.subscriptions),
   updateSubscription: (id, patch) =>
     request(`/subscriptions/${id}`, { method: "POST", body: patch }).then((r) => r.subscription),
+  draftRefundEmail: (id, action = "cancel") =>
+    request(`/subscriptions/${id}/draft-email`, { method: "POST", body: { action } }).then(
+      (r) => r.refund_action
+    ),
+  listRefundActions: () => request("/refund-actions").then((r) => r.refund_actions),
+  updateRefundAction: (id, patch) =>
+    request(`/refund-actions/${id}`, { method: "POST", body: patch }).then((r) => r.refund_action),
 };

@@ -5,6 +5,7 @@ import { money } from "../lib/format.js";
 import { Card, Button, Badge, Loading, ErrorBanner, Empty } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import { useToast } from "../components/toast.jsx";
+import DraftEmailModal from "../components/DraftEmailModal.jsx";
 
 const CADENCE_LABEL = { weekly: "a week", monthly: "a month", quarterly: "a quarter", yearly: "a year", unknown: "" };
 
@@ -13,6 +14,7 @@ export default function RefundHunter() {
   const toast = useToast();
   const [running, setRunning] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [draftSub, setDraftSub] = useState(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["subscriptions"],
@@ -129,15 +131,17 @@ export default function RefundHunter() {
           </Empty>
         ) : (
           subs.map((s) => (
-            <SubRow key={s.id} sub={s} busy={busyId === s.id} onPatch={patch} />
+            <SubRow key={s.id} sub={s} busy={busyId === s.id} onPatch={patch} onDraft={setDraftSub} />
           ))
         )}
       </Card>
+
+      {draftSub && <DraftEmailModal sub={draftSub} onClose={() => setDraftSub(null)} />}
     </div>
   );
 }
 
-function SubRow({ sub, busy, onPatch }) {
+function SubRow({ sub, busy, onPatch, onDraft }) {
   const cancelled = sub.status === "cancelled";
   const flagged = sub.status === "flagged" || (sub.status === "active" && sub.stale);
 
@@ -193,9 +197,9 @@ function SubRow({ sub, busy, onPatch }) {
               Mark unused
             </Button>
           )}
-          <button className="btn btn-sm" disabled title="Draft email arrives in the next step (T14)">
-            <Icon.mail size={14} /> Draft email
-          </button>
+          <Button size="sm" icon={<Icon.mail size={14} />} onClick={() => onDraft(sub)} disabled={busy}>
+            Draft email
+          </Button>
           <Button
             size="sm"
             variant="danger-ghost"

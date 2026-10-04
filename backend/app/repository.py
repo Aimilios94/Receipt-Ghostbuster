@@ -154,6 +154,52 @@ def upsert_subscriptions(user_id: str, subs: list[dict[str, Any]]) -> list[dict[
     )
 
 
+def get_subscription(user_id: str, sub_id: str) -> dict[str, Any]:
+    data = (
+        get_supabase()
+        .table("subscriptions")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("id", sub_id)
+        .limit(1)
+        .execute()
+        .data
+    )
+    return data[0] if data else {}
+
+
+# --- Phase 2: refund actions (drafts) --------------------------------------
+def insert_refund_action(user_id: str, row: dict[str, Any]) -> dict[str, Any]:
+    row = {**row, "user_id": user_id}
+    return get_supabase().table("refund_actions").insert(row).execute().data[0]
+
+
+def list_refund_actions(user_id: str) -> list[dict[str, Any]]:
+    return (
+        get_supabase()
+        .table("refund_actions")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+        .data
+        or []
+    )
+
+
+def update_refund_action(user_id: str, action_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    data = (
+        get_supabase()
+        .table("refund_actions")
+        .update(patch)
+        .eq("user_id", user_id)
+        .eq("id", action_id)
+        .execute()
+        .data
+    )
+    return data[0] if data else {}
+
+
 def update_subscription(user_id: str, sub_id: str, patch: dict[str, Any]) -> dict[str, Any]:
     data = (
         get_supabase()

@@ -65,6 +65,20 @@ class SubscriptionUpdate(BaseModel):
     usage_note: str | None = None
 
 
+class RefundDraftRequest(BaseModel):
+    action: Literal["cancel", "refund"] = "cancel"
+    recipient: str | None = None           # where the user intends to send it
+
+
+class RefundActionUpdate(BaseModel):
+    """Approve/edit a draft. Nothing is ever auto-sent; 'done' = user handled it."""
+    subject: str | None = None
+    email_draft: str | None = None
+    recipient: str | None = None
+    status: Literal["draft", "sent", "done"] | None = None
+    saved_amount: float | None = None
+
+
 # --- Generic responses ------------------------------------------------------
 class Message(BaseModel):
     message: str

@@ -12,9 +12,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
+from fastapi import HTTPException
+
 from ..auth import get_current_user_id
-from ..models import SubscriptionUpdate
-from ..services import subscriptions as sub_service
+from ..config import Settings, get_settings
+from ..models import RefundActionUpdate, RefundDraftRequest, SubscriptionUpdate
+from ..services import refund_email, subscriptions as sub_service
 from .. import repository as repo
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
@@ -45,3 +48,30 @@ def update_subscription(
     patch = {k: v for k, v in body.model_dump().items() if v is not None}
     row = repo.update_subscription(user_id, sub_id, patch)
     return {"subscription": row}
+
+
+@router.post("/{sub_id}/draft-email")
+def draft_refund_email(
+    sub_id: str,
+    body: RefundDraftRequest,
+    user_id: str = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Generate a cancel/refund email DRAFT and persist it (status='draft').
+    Nothing is sent — the user reviews it and n8n later creates a Gmail draft."""
+    sub = repo.get_subscription(user_id, sub_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    draft = refund_email.draft_email(sub, body.action, settings)
+    row = repo.insert_refund_action(
+        user_id,
+        {
+            "subscription_id": sub_id,
+            "action": body.action,
+            "recipient": body.recipient,
+            "subject": draft["subject"],
+            "email_draft": draft["body"],
+            "status": "draft",
+        },
+    )
+    return {"refund_action": row}

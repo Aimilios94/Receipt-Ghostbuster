@@ -77,6 +77,8 @@ RECEIPT-GHOSTBUSTER/
 
 ![Refund Hunter](docs/screenshots/refund-hunter.png)
 
+![Draft cancellation email](docs/screenshots/draft-email.png)
+
 ---
 
 ## Run the demo
