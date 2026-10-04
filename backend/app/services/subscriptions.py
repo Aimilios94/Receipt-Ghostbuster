@@ -149,6 +149,29 @@ def _infer_cadence(gaps_days: list[int]) -> tuple[str, int]:
     return name, per_year
 
 
+def staleness(last_seen: Any, cadence: str, today: date | None = None) -> tuple[int, bool]:
+    """Return (days since last charge, is-stale) for a cadence."""
+    today = today or date.today()
+    days = (today - _as_date(last_seen)).days
+    return days, days > _STALE_DAYS.get(cadence, 60)
+
+
+def annotate(subs: list[dict[str, Any]], today: date | None = None) -> list[dict[str, Any]]:
+    """Add `days_since_last` + `stale` to stored subscription rows so the UI can
+    surface "not seen in N days" without re-running detection."""
+    today = today or date.today()
+    out: list[dict[str, Any]] = []
+    for s in subs:
+        row = dict(s)
+        if s.get("last_seen"):
+            days, stale = staleness(s["last_seen"], s.get("cadence", "monthly"), today)
+            row["days_since_last"], row["stale"] = days, stale
+        else:
+            row["days_since_last"], row["stale"] = None, False
+        out.append(row)
+    return out
+
+
 def detect_subscriptions(
     expenses: list[dict[str, Any]],
     bank_txns: list[dict[str, Any]],

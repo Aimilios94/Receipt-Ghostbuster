@@ -62,17 +62,20 @@ RECEIPT-GHOSTBUSTER/
 
 ---
 
-## The 5 screens
+## The screens
 
 | Screen | What it does |
 |---|---|
-| **Dashboard** | Month at a glance: total spent, VAT paid, card-vs-cash split, reconciled ratio, spending by category, plus live previews of the review queue, exceptions, monthly close and the ledger. |
+| **Dashboard** | Month at a glance: total spent, VAT paid, card-vs-cash split, reconciled ratio, spending by category, plus live previews of the review queue, exceptions, monthly close, recurring charges and the ledger. |
 | **Review queue** | Low-confidence receipts with a confidence meter. Post (confirm) or discard — nothing posts to the ledger until you say so. |
 | **Reconciliation** | Exceptions grouped by type (no receipt, no bank match, duplicate, amount differs, missing VAT) with a one-click **Run reconciliation**. |
 | **Monthly close** | Money in/out/net, VAT, bank cash-flow, and a gate that won't let you close while card expenses are still unreconciled. |
 | **Ledger** | The single source of truth. Filter by source / status / category; every total is calculated from here. |
+| **Refund Hunter** *(Phase 2)* | Detects recurring charges across the bank + ledger, infers cadence and annual cost, flags ones you haven't used, and tracks savings. Cancellation emails are draft-only (via n8n), never auto-sent. |
 
 ![Reconciliation](docs/screenshots/reconciliation.png)
+
+![Refund Hunter](docs/screenshots/refund-hunter.png)
 
 ---
 

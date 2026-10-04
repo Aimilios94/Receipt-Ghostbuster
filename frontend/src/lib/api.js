@@ -94,4 +94,10 @@ export const api = {
 
   // ----- categories -----
   categories: () => request("/categories").then((r) => r.categories),
+
+  // ----- subscriptions (Phase 2 — Refund Hunter) -----
+  detectSubscriptions: () => request("/subscriptions/detect", { method: "POST" }),
+  listSubscriptions: () => request("/subscriptions").then((r) => r.subscriptions),
+  updateSubscription: (id, patch) =>
+    request(`/subscriptions/${id}`, { method: "POST", body: patch }).then((r) => r.subscription),
 };

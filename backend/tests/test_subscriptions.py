@@ -96,6 +96,18 @@ def test_cash_is_never_a_subscription():
     assert sub.detect_subscriptions(expenses, [], today=date(2026, 9, 30)) == []
 
 
+def test_staleness_and_annotate():
+    days, stale = sub.staleness("2026-07-02", "monthly", today=date(2026, 9, 30))
+    assert days == 90 and stale is True
+    days, stale = sub.staleness("2026-09-20", "monthly", today=date(2026, 9, 30))
+    assert days == 10 and stale is False
+
+    rows = [{"vendor": "Gym Plus", "cadence": "monthly", "last_seen": "2026-07-02"}]
+    out = sub.annotate(rows, today=date(2026, 9, 30))
+    assert out[0]["days_since_last"] == 90
+    assert out[0]["stale"] is True
+
+
 def test_sorted_by_annual_cost_desc():
     bank = [
         _bank("b1", "NETFLIX", -13.99, "2026-08-12"),

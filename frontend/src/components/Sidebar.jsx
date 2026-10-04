@@ -9,6 +9,7 @@ const NAV = [
   { to: "/reconciliation", label: "Reconciliation", icon: Icon.reconcile, badge: "exc" },
   { to: "/close", label: "Monthly close", icon: Icon.close },
   { to: "/ledger", label: "Ledger", icon: Icon.ledger },
+  { to: "/refunds", label: "Refund Hunter", icon: Icon.refund, badge: "flagged" },
 ];
 
 export default function Sidebar() {
@@ -18,17 +19,23 @@ export default function Sidebar() {
     queryFn: api.reviewQueue,
   });
   const { data: exc } = useQuery({ queryKey: ["exceptions"], queryFn: api.exceptions });
+  const { data: subs } = useQuery({ queryKey: ["subscriptions"], queryFn: api.listSubscriptions });
 
   const reviewCount = review?.length || 0;
   const excCount = exc
     ? Object.values(exc.counts || {}).reduce((a, b) => a + b, 0)
     : 0;
+  const flaggedCount = (subs || []).filter(
+    (s) => s.status === "flagged" || (s.status === "active" && s.stale)
+  ).length;
 
   const badgeFor = (kind) => {
     if (kind === "review" && reviewCount)
       return <span className="nav-count">{reviewCount}</span>;
     if (kind === "exc" && excCount)
       return <span className="nav-count amber">{excCount}</span>;
+    if (kind === "flagged" && flaggedCount)
+      return <span className="nav-count amber">{flaggedCount}</span>;
     return null;
   };
 
@@ -64,13 +71,6 @@ export default function Sidebar() {
 
       <div className="nav-group">
         <div className="nav-label">Coming next</div>
-        <div className="nav-item disabled">
-          <span className="nav-ico">
-            <Icon.refund size={17} />
-          </span>
-          Refund Hunter
-          <span className="nav-phase">Phase 2</span>
-        </div>
         <div className="nav-item disabled">
           <span className="nav-ico">
             <Icon.advice size={17} />

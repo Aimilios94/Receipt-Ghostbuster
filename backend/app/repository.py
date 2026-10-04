@@ -154,6 +154,19 @@ def upsert_subscriptions(user_id: str, subs: list[dict[str, Any]]) -> list[dict[
     )
 
 
+def update_subscription(user_id: str, sub_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    data = (
+        get_supabase()
+        .table("subscriptions")
+        .update(patch)
+        .eq("user_id", user_id)
+        .eq("id", sub_id)
+        .execute()
+        .data
+    )
+    return data[0] if data else {}
+
+
 def upload_receipt(user_id: str, filename: str, content: bytes, content_type: str) -> str:
     """Store a receipt image under '<user_id>/<filename>' and return a signed URL."""
     from .config import get_settings

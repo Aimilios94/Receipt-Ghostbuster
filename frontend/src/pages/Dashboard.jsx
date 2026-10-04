@@ -207,7 +207,7 @@ export default function Dashboard() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <CloseChecklist close={close} reviewCount={review.length} excCount={excList.length} />
-          <RecurringPreview expenses={expenses} />
+          <RecurringPreview />
         </div>
       </div>
 
@@ -304,41 +304,41 @@ function CloseChecklist({ close, reviewCount, excCount }) {
   );
 }
 
-/* ---------- Recurring charges (Phase 2 preview) ---------- */
-function RecurringPreview({ expenses }) {
-  // Honest preview: surface subscription-category spend from the real ledger.
-  const subs = expenses.filter((e) => /subscription/i.test(e.category || ""));
-  const byVendor = {};
-  subs.forEach((e) => {
-    const v = e.vendor || "Subscription";
-    if (!byVendor[v]) byVendor[v] = e.amount;
-  });
-  const rows = Object.entries(byVendor).slice(0, 4);
+/* ---------- Recurring charges (Phase 2 — real data) ---------- */
+const CADENCE_SHORT = { weekly: "a week", monthly: "a month", quarterly: "a quarter", yearly: "a year" };
+
+function RecurringPreview() {
+  const { data } = useQuery({ queryKey: ["subscriptions"], queryFn: api.listSubscriptions });
+  const subs = (data || []).filter((s) => s.status !== "cancelled");
+  const rows = subs.slice(0, 4);
   return (
     <Card className="card-pad">
       <div className="card-head">
         <div>
           <div className="card-title">Recurring charges</div>
-          <div className="card-desc">A preview of Refund Hunter, coming in phase 2.</div>
+          <div className="card-desc">Subscriptions found across your bank and ledger.</div>
         </div>
-        <span className="badge badge-primary">Phase 2</span>
+        <span className="badge badge-primary">Refund Hunter</span>
       </div>
       {rows.length ? (
-        rows.map(([vendor, amt]) => (
-          <div className="rec" key={vendor}>
+        rows.map((s) => (
+          <div className="rec" key={s.id}>
             <div>
-              <div className="rec-name">{vendor}</div>
+              <div className="rec-name">{s.vendor}</div>
+              {s.stale ? <div className="rec-warn">Not seen in {s.days_since_last} days</div> : null}
             </div>
-            <div className="rec-amt num">{money(amt)} a month</div>
+            <div className="rec-amt num">
+              {money(s.amount)} {CADENCE_SHORT[s.cadence] || ""}
+            </div>
           </div>
         ))
       ) : (
         <Empty>No subscriptions detected yet.</Empty>
       )}
       <div style={{ marginTop: 14 }}>
-        <button className="btn" style={{ width: "100%", justifyContent: "center" }} disabled>
-          <Icon.mail size={14} /> Draft cancellation email
-        </button>
+        <Link to="/refunds" className="btn" style={{ width: "100%", justifyContent: "center" }}>
+          <Icon.refund size={14} /> Open Refund Hunter
+        </Link>
       </div>
     </Card>
   );

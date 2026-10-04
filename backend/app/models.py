@@ -57,6 +57,14 @@ class ColumnMapping(BaseModel):
     credit: str | None = None
 
 
+# --- Phase 2: subscriptions (Refund Hunter) --------------------------------
+class SubscriptionUpdate(BaseModel):
+    """User-owned fields on a detected subscription. (Realized savings are
+    recorded on a refund_action in T15, not here.)"""
+    status: Literal["active", "flagged", "cancelled"] | None = None
+    usage_note: str | None = None
+
+
 # --- Generic responses ------------------------------------------------------
 class Message(BaseModel):
     message: str
