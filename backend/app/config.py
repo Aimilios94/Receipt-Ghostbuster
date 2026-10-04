@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     default_currency: str = "EUR"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # --- n8n (Phase 2 delivery: push an approved draft to Gmail drafts) ---
+    # The webhook URL of the imported "refund-draft-to-gmail" workflow, e.g.
+    # http://localhost:5678/webhook/refund-draft . Draft-only; never sends.
+    n8n_webhook_url: str = ""
+
     @property
     def supabase_configured(self) -> bool:
         return bool(self.supabase_url and self.supabase_service_key)
@@ -63,6 +68,10 @@ class Settings(BaseSettings):
         if self.llm_provider == "openai":
             return bool(self.openai_api_key)
         return False
+
+    @property
+    def n8n_configured(self) -> bool:
+        return bool(self.n8n_webhook_url)
 
     @property
     def cors_origin_list(self) -> list[str]:

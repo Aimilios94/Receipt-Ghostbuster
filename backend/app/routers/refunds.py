@@ -9,9 +9,11 @@ subscription row.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import get_current_user_id
+from ..config import Settings, get_settings
 from ..models import RefundActionUpdate
 from .. import repository as repo
 
@@ -32,3 +34,39 @@ def update_refund_action(
     patch = {k: v for k, v in body.model_dump().items() if v is not None}
     row = repo.update_refund_action(user_id, action_id, patch)
     return {"refund_action": row}
+
+
+@router.post("/{action_id}/deliver")
+def deliver_to_gmail(
+    action_id: str,
+    user_id: str = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Push an approved draft to n8n, which creates a Gmail DRAFT (never sends).
+
+    n8n owns the Gmail credential; this just forwards subject/body/recipient to
+    the workflow's webhook. Marks the action 'sent' (= saved to Gmail drafts).
+    """
+    if not settings.n8n_configured:
+        raise HTTPException(
+            status_code=503,
+            detail="n8n is not connected. Set N8N_WEBHOOK_URL in backend/.env to the "
+            "imported workflow's webhook URL (e.g. http://localhost:5678/webhook/refund-draft).",
+        )
+    action = next((a for a in repo.list_refund_actions(user_id) if a["id"] == action_id), None)
+    if not action:
+        raise HTTPException(status_code=404, detail="Refund action not found")
+
+    payload = {
+        "to": action.get("recipient") or "",
+        "subject": action.get("subject") or "",
+        "message": action.get("email_draft") or "",
+    }
+    try:
+        resp = httpx.post(settings.n8n_webhook_url, json=payload, timeout=20)
+        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"n8n webhook call failed: {exc}") from exc
+
+    row = repo.update_refund_action(user_id, action_id, {"status": "sent"})
+    return {"refund_action": row, "delivered": True}

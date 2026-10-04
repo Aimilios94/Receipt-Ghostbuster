@@ -1,0 +1,51 @@
+{
+  "name": "Receipt Ghostbuster - Weekly subscription detection",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "b1b2c3d4-0001-4001-8001-000000000001",
+      "name": "Every week",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/subscriptions/detect",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4002-8002-000000000002",
+      "name": "Detect subscriptions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "Every week": {
+      "main": [
+        [
+          {
+            "node": "Detect subscriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

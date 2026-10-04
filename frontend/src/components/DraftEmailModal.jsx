@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Modal, Button } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
@@ -15,7 +15,11 @@ export default function DraftEmailModal({ sub, onClose }) {
   const [draft, setDraft] = useState(null); // { id, subject, email_draft, recipient }
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [delivering, setDelivering] = useState(false);
   const [err, setErr] = useState(null);
+
+  const { data: health } = useQuery({ queryKey: ["health"], queryFn: api.health });
+  const n8nReady = !!health?.config?.n8n_configured;
 
   const generate = async (act) => {
     setLoading(true);
@@ -60,6 +64,26 @@ export default function DraftEmailModal({ sub, onClose }) {
       toast(e.message, "err");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveToGmail = async () => {
+    setDelivering(true);
+    try {
+      // Persist any edits first, then have n8n create the Gmail draft.
+      await api.updateRefundAction(draft.id, {
+        subject: draft.subject,
+        email_draft: draft.email_draft,
+        recipient: draft.recipient || null,
+      });
+      await api.deliverRefundAction(draft.id);
+      qc.invalidateQueries({ queryKey: ["refund-actions"] });
+      toast(`Saved to your Gmail drafts — review and send it yourself`);
+      onClose();
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setDelivering(false);
     }
   };
 
@@ -138,8 +162,19 @@ export default function DraftEmailModal({ sub, onClose }) {
                 onChange={(e) => setDraft({ ...draft, email_draft: e.target.value })}
               />
             </div>
-            <button className="btn" style={{ justifyContent: "center" }} disabled title="Connect n8n to enable">
-              <Icon.mail size={14} /> Save to Gmail drafts (connect n8n)
+            <button
+              className="btn"
+              style={{ justifyContent: "center" }}
+              onClick={saveToGmail}
+              disabled={!n8nReady || delivering}
+              title={n8nReady ? "Create a Gmail draft via n8n" : "Connect n8n to enable (see /n8n/README.md)"}
+            >
+              <Icon.mail size={14} />{" "}
+              {delivering
+                ? "Saving…"
+                : n8nReady
+                ? "Save to Gmail drafts"
+                : "Save to Gmail drafts (connect n8n)"}
             </button>
           </>
         ) : null}
