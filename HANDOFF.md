@@ -6,18 +6,47 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-04, end of day)
+## 🟢 RESUME HERE — current status (as of 2026-10-04, end of day 2)
 
 **Where we are:** Phase 1 (Track & Reconcile) and Phase 2 (Refund Hunter) are **both complete,
-working end-to-end, and pushed to GitHub.** The app is a real, demoable product.
+working end-to-end, and pushed to GitHub.** The app is a real, demoable product. Day 2 also
+added: OpenAI as the live vision provider, real-receipt extraction verified, deterministic
+extraction guardrails, and an editable/deletable review queue.
 
 **GitHub:** https://github.com/Aimilios94/Receipt-Ghostbuster (branch `main`, all work pushed;
-`git status` clean). Latest commit `6c675a1`.
+`git status` clean). Latest commit `4432dc2`.
+
+### 👋 Message to tomorrow's agent (read this)
+Everything works and is committed. The user tested receipt upload, the guardrails, the editable
+review queue, and n8n→Gmail delivery — all confirmed working by the user. **Nothing is broken or
+mid-flight.** When you resume:
+1. Read this whole RESUME section + the auto-memory file (path at the bottom) — the memory file is
+   the most detailed source, including every debugging gotcha.
+2. Start the three servers (commands below). Backend reads OpenAI from `.env` now — no flags.
+3. The natural next step is **Phase 3 — Advice** (see "What's left"). Or the user may want small
+   polish items (LLM-assisted categorization, the cron workflow). Ask the user what they want first.
+Do NOT re-litigate settled decisions (stack, phasing, hybrid n8n approach). Confirm with the user
+before large new directions.
+
+### Day 2 additions (newest first)
+- **Editable/deletable review queue** (commit `4432dc2`): "Post" now works (was sending `{}` →
+  422); review items are **editable** (fix vendor/amount/date/category before posting, e.g. a
+  misread year); **Discard really deletes** now (was client-side only); **Ledger rows have a ×
+  delete** button. New `DELETE /expenses/{id}`.
+- **Extraction guardrails** (commit `5430614`): `services/validation.py` runs deterministic checks
+  regardless of model confidence → unreadable (no total) prompts a retake (no row created);
+  future/old date, low confidence, or line-items≠total → routed to review with reasons shown.
+  Caught a real misread (model read a 2026 receipt's date as 2023 at 0.9 confidence).
+- **OpenAI vision provider** (commit `8b729d8`): user added `OPENAI_API_KEY` + set
+  `LLM_PROVIDER=openai` in `.env`; `openai` pkg installed in venv and in requirements.txt. Real
+  receipt extraction VERIFIED (gpt-4o read vendor/total/date/VAT/line-items correctly). NOTE:
+  Anthropic key is OUT OF CREDITS — that's why we switched; drafts still have a template fallback.
+  pip in this sandbox needs `--trusted-host pypi.org --trusted-host files.pythonhosted.org` (SSL).
 
 **What's built & verified:**
 - **Phase 1 — backend:** FastAPI. Receipt extraction (vision LLM) + confidence gate, rules
   categorization, VAT math, bank CSV import, reconciliation engine, month-scoped exceptions,
-  monthly close. **40-ish pytest tests pass** (`cd backend && ./.venv/Scripts/python.exe -m pytest -q`).
+  monthly close + extraction guardrails. **46 pytest tests pass** (`cd backend && ./.venv/Scripts/python.exe -m pytest -q`).
 - **Phase 1 — frontend:** React + Vite + TanStack Query + Geist fonts. Dark dashboard built to
   the `Receipt Ghostbuster-selection.pdf` mockup. Screens: Dashboard, Review queue, Reconciliation
   (month picker), Monthly close, Ledger. Add-expense + Import-bank modals. Accessibility pass done.
@@ -52,8 +81,10 @@ September) and `scripts/load_phase2_demo.py` (Phase 2 multi-month recurring hist
   processes cause intermittent CORS/`ERR_FAILED` in the browser. To kill cleanly, use PowerShell:
   `Get-CimInstance Win32_Process -Filter "Name='python.exe'"` → `Stop-Process` the uvicorn ones,
   then start exactly ONE. Never run with `--reload` here.
-- **Anthropic API is OUT OF CREDITS** → email drafts fall back to the deterministic template
-  (works fine) and live receipt `/extract` will fail until topped up. Not a code bug.
+- **LLM provider = OpenAI (gpt-4o)** — set in `.env` (`LLM_PROVIDER=openai` + `OPENAI_API_KEY`).
+  **Anthropic is OUT OF CREDITS** (don't switch back unless the user tops it up). `openai` pkg is
+  installed in the venv. To `pip install` anything in THIS sandbox, add
+  `--trusted-host pypi.org --trusted-host files.pythonhosted.org` (SSL cert error otherwise).
 - **n8n container** is currently running with `-e N8N_LOG_LEVEL=debug` (turned on to debug Gmail).
   Fine to leave; recreate without it for quieter logs (volume persists the active workflow + creds).
 - The **weekly-detection cron** workflow (`/n8n/detect-subscriptions-cron.json`) is imported but
@@ -62,11 +93,14 @@ September) and `scripts/load_phase2_demo.py` (Phase 2 multi-month recurring hist
 - A few **test Gmail drafts** were created during verification — user may delete them.
 
 **What's left (all optional, pick up here tomorrow):**
-1. Fix the weekly-detection cron workflow publish (minor).
-2. T15 savings polish (savings already recorded on `refund_actions.saved_amount`).
-3. **Phase 3 — Advice:** budget vs actual (`categories.budget_amount`), rule-based overspend
-   nudges (`GET /insights` → `insights` table), insights feed on the dashboard. See the plan +
-   the detailed status in the auto-memory file:
+1. **Phase 3 — Advice** (the main next milestone): budget vs actual (`categories.budget_amount`),
+   rule-based overspend nudges (`GET /insights` → `insights` table), insights feed on the dashboard.
+2. **LLM-assisted categorization** — the rules categorizer returns "Uncategorized" for unknown
+   vendors (e.g. "Pingo Doce"/"PD OLAIAS", a grocery store). Easy win: have the LLM suggest a
+   category while it's already reading the receipt, or expand the keyword rules.
+3. Fix the weekly-detection cron workflow publish (minor n8n version quirk).
+4. T15 savings polish (savings already recorded on `refund_actions.saved_amount`).
+5. See the plan + the detailed status in the auto-memory file:
    `C:\Users\aimilios\.claude\projects\C--Users-aimilios-Desktop-CV-creation\memory\receipt-ghostbuster-status.md`
    (the single most complete source of current state — read it first).
 
