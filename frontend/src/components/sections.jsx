@@ -1,8 +1,11 @@
 // Reusable content blocks shared between the Dashboard previews and the
 // dedicated pages, so the two never drift apart.
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Icon } from "./icons.jsx";
 import { Button, Badge, StatusBadge } from "./ui.jsx";
+import { api } from "../lib/api.js";
 import { money, shortDate, pct, sourceLabel, confPct, CATEGORY_COLORS } from "../lib/format.js";
 
 /* ---------- Spending by category ---------- */
@@ -32,10 +35,12 @@ export function CategoryBars({ byCategory, total, limit }) {
   );
 }
 
-/* ---------- Review queue item ---------- */
+/* ---------- Review queue item (editable before posting) ---------- */
 export function ReviewItem({ expense, onPost, onDiscard, busy }) {
+  const [editing, setEditing] = useState(false);
   const c = confPct(expense.confidence);
   const tone = c == null ? "var(--text-dim)" : c >= 70 ? "var(--green)" : c >= 55 ? "var(--amber)" : "var(--red)";
+
   return (
     <div className="litem">
       <div className="litem-top">
@@ -55,11 +60,82 @@ export function ReviewItem({ expense, onPost, onDiscard, busy }) {
         {c != null ? `${c}% sure` : "confidence unknown"}
         {expense.note ? <span className="conf-note">· {expense.note}</span> : null}
       </div>
+
+      {editing ? (
+        <ReviewEditForm
+          expense={expense}
+          busy={busy}
+          onCancel={() => setEditing(false)}
+          onSave={(patch) => onPost(expense, patch)}
+        />
+      ) : (
+        <div className="litem-actions">
+          <Button size="sm" variant="danger-ghost" onClick={() => onDiscard(expense)} disabled={busy}>
+            Discard
+          </Button>
+          <Button size="sm" onClick={() => setEditing(true)} disabled={busy}>
+            Edit
+          </Button>
+          <Button size="sm" variant="primary" onClick={() => onPost(expense)} disabled={busy}>
+            Post
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReviewEditForm({ expense, onSave, onCancel, busy }) {
+  const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
+  const [form, setForm] = useState({
+    vendor: expense.vendor || "",
+    amount: expense.amount ?? "",
+    expense_date: (expense.expense_date || "").slice(0, 10),
+    category: expense.category || "",
+  });
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const save = () => {
+    const patch = { amount: Number(form.amount), expense_date: form.expense_date };
+    if (form.vendor) patch.vendor = form.vendor;
+    if (form.category) patch.category = form.category;
+    onSave(patch);
+  };
+
+  return (
+    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="field-row">
+        <div className="field">
+          <label>Vendor</label>
+          <input className="input" value={form.vendor} onChange={set("vendor")} />
+        </div>
+        <div className="field" style={{ maxWidth: 120 }}>
+          <label>Amount (€)</label>
+          <input className="input num" value={form.amount} onChange={set("amount")} inputMode="decimal" />
+        </div>
+      </div>
+      <div className="field-row">
+        <div className="field">
+          <label>Date</label>
+          <input className="input" type="date" value={form.expense_date} onChange={set("expense_date")} />
+        </div>
+        <div className="field">
+          <label>Category</label>
+          <select className="select" value={form.category} onChange={set("category")}>
+            <option value="">Auto / keep</option>
+            {(categories || []).map((cat) => (
+              <option key={cat.id} value={cat.name}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="litem-actions">
-        <Button size="sm" variant="danger-ghost" onClick={() => onDiscard(expense)} disabled={busy}>
-          Discard
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>
+          Cancel
         </Button>
-        <Button size="sm" variant="primary" onClick={() => onPost(expense)} disabled={busy}>
+        <Button size="sm" variant="primary" onClick={save} disabled={busy || !form.amount || Number(form.amount) <= 0}>
           Post
         </Button>
       </div>
@@ -130,7 +206,7 @@ export function flattenExceptions(exc) {
 }
 
 /* ---------- Ledger table ---------- */
-export function LedgerTable({ expenses }) {
+export function LedgerTable({ expenses, onDelete, busyId }) {
   if (!expenses?.length) return <div className="empty">No entries yet. Add an expense to get started.</div>;
   return (
     <div className="table-wrap">
@@ -144,6 +220,7 @@ export function LedgerTable({ expenses }) {
             <th className="right">Amount</th>
             <th className="right">VAT</th>
             <th>Status</th>
+            {onDelete ? <th></th> : null}
           </tr>
         </thead>
         <tbody>
@@ -160,6 +237,19 @@ export function LedgerTable({ expenses }) {
               <td>
                 <StatusBadge expense={e} />
               </td>
+              {onDelete ? (
+                <td className="right">
+                  <button
+                    className="x-btn"
+                    title="Delete entry"
+                    aria-label={`Delete ${e.vendor || "entry"}`}
+                    onClick={() => onDelete(e)}
+                    disabled={busyId === e.id}
+                  >
+                    <Icon.x size={15} />
+                  </button>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>

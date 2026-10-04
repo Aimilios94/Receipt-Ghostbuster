@@ -51,14 +51,14 @@ export default function Dashboard() {
     };
   }, [expenses]);
 
-  const postReview = async (exp) => {
+  const postReview = async (exp, patch) => {
     setBusyId(exp.id);
     try {
-      await api.confirmExpense(exp.id);
+      await api.confirmExpense(exp.id, patch);
       ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
-      toast(`Posted ${exp.vendor || "expense"}`);
+      toast(`Posted ${patch?.vendor || exp.vendor || "expense"}`);
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -66,10 +66,19 @@ export default function Dashboard() {
     }
   };
 
-  const discardReview = (exp) => {
-    // No reject endpoint yet — remove from the current view optimistically.
-    qc.setQueryData(["review-queue"], (old) => (old || []).filter((x) => x.id !== exp.id));
-    toast("Removed from review", "ok");
+  const discardReview = async (exp) => {
+    setBusyId(exp.id);
+    try {
+      await api.deleteExpense(exp.id);
+      ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast("Discarded");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   if (closeQ.isLoading && expQ.isLoading) return <Loading label="Loading your month…" />;

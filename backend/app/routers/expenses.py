@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
@@ -88,3 +88,15 @@ def confirm_expense(
                 patch["vat_rate"] = vat_info["vat_rate"]
     updated = repo.update_expense(user_id, expense_id, patch)
     return {"expense": updated}
+
+
+@router.delete("/{expense_id}")
+def delete_expense(
+    expense_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """Permanently remove an expense (e.g. discarding a bad receipt read)."""
+    ok = repo.delete_expense(user_id, expense_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    return {"deleted": True}

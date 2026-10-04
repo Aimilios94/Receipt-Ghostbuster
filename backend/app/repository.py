@@ -48,6 +48,19 @@ def update_expense(user_id: str, expense_id: str, patch: dict[str, Any]) -> dict
     return data[0] if data else {}
 
 
+def delete_expense(user_id: str, expense_id: str) -> bool:
+    data = (
+        get_supabase()
+        .table("expenses")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("id", expense_id)
+        .execute()
+        .data
+    )
+    return bool(data)
+
+
 def insert_bank_transactions(user_id: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     payload = [{**r, "user_id": user_id} for r in rows]
     return get_supabase().table("bank_transactions").insert(payload).execute().data or []

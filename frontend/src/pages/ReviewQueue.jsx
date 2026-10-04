@@ -19,14 +19,14 @@ export default function ReviewQueue() {
 
   const items = data || [];
 
-  const post = async (exp) => {
+  const post = async (exp, patch) => {
     setBusyId(exp.id);
     try {
-      await api.confirmExpense(exp.id);
+      await api.confirmExpense(exp.id, patch);
       ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
-      toast(`Posted ${exp.vendor || "expense"}`);
+      toast(`Posted ${patch?.vendor || exp.vendor || "expense"}`);
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -34,9 +34,19 @@ export default function ReviewQueue() {
     }
   };
 
-  const discard = (exp) => {
-    qc.setQueryData(["review-queue"], (old) => (old || []).filter((x) => x.id !== exp.id));
-    toast("Removed from review");
+  const discard = async (exp) => {
+    setBusyId(exp.id);
+    try {
+      await api.deleteExpense(exp.id);
+      ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast("Discarded");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (

@@ -66,10 +66,13 @@ export const api = {
 
   // ----- review queue -----
   reviewQueue: () => request("/expenses/review-queue").then((r) => r.expenses),
+  // No patch -> send no body (confirm posts as-is). With a patch, it must carry a
+  // valid amount (ExpenseCreate requires amount > 0).
   confirmExpense: (id, patch) =>
-    request(`/expenses/${id}/confirm`, { method: "POST", body: patch || {} }).then(
+    request(`/expenses/${id}/confirm`, patch ? { method: "POST", body: patch } : { method: "POST" }).then(
       (r) => r.expense
     ),
+  deleteExpense: (id) => request(`/expenses/${id}`, { method: "DELETE" }),
 
   // ----- receipt extraction -----
   extract: (file, source = "card") => {

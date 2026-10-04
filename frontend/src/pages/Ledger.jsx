@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
 import { money } from "../lib/format.js";
 import { Card, Loading, ErrorBanner, Button } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import { LedgerTable } from "../components/sections.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
+import { useToast } from "../components/toast.jsx";
 
 const SOURCE_FILTERS = [
   { key: "all", label: "All" },
@@ -24,6 +25,9 @@ export default function Ledger() {
   const [status, setStatus] = useState("all");
   const [category, setCategory] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const qc = useQueryClient();
+  const toast = useToast();
 
   const { data, isLoading, error } = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
@@ -43,6 +47,23 @@ export default function Ledger() {
   }, [expenses, source, category, status]);
 
   const totalShown = filtered.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+  const deleteOne = async (exp) => {
+    if (!window.confirm(`Delete "${exp.vendor || "this entry"}" (${money(exp.amount)})? This can't be undone.`))
+      return;
+    setBusyId(exp.id);
+    try {
+      await api.deleteExpense(exp.id);
+      ["expenses", "exceptions", "close", "review-queue"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast("Entry deleted");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <div className="rise">
@@ -102,7 +123,7 @@ export default function Ledger() {
           <Loading />
         ) : (
           <>
-            <LedgerTable expenses={filtered} />
+            <LedgerTable expenses={filtered} onDelete={deleteOne} busyId={busyId} />
             <div
               style={{
                 display: "flex",
