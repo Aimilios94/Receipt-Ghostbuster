@@ -22,7 +22,6 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const excQ = useQuery({ queryKey: ["exceptions"], queryFn: api.exceptions });
   const expQ = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
   const reviewQ = useQuery({ queryKey: ["review-queue"], queryFn: api.reviewQueue });
 
@@ -30,6 +29,9 @@ export default function Dashboard() {
   // Open on the latest month that has data, not an empty current month.
   const month = latestMonth(expenses) || currentMonth();
   const closeQ = useQuery({ queryKey: ["close", month], queryFn: () => api.close(month) });
+  // Exceptions are scoped to the same month so older bank history (Refund
+  // Hunter) doesn't inflate this month's "needs attention".
+  const excQ = useQuery({ queryKey: ["exceptions", month], queryFn: () => api.exceptions(month) });
 
   const close = closeQ.data;
   const review = reviewQ.data || [];

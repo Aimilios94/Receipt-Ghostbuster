@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
+import { monthLabel, currentMonth, latestMonth } from "../lib/format.js";
 import { Card, Loading, ErrorBanner, Empty, Button } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import { ExceptionItem, flattenExceptions } from "../components/sections.jsx";
@@ -15,12 +16,37 @@ const GROUPS = [
   { key: "missing_vat", title: "Missing VAT" },
 ];
 
+function recentMonths(n = 6) {
+  const out = [];
+  const d = new Date();
+  for (let i = 0; i < n; i++) {
+    const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+    out.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
+
 export default function Reconciliation() {
   const qc = useQueryClient();
   const toast = useToast();
   const [running, setRunning] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const { data, isLoading, error } = useQuery({ queryKey: ["exceptions"], queryFn: api.exceptions });
+  const [month, setMonth] = useState(currentMonth());
+  const [picked, setPicked] = useState(false);
+
+  // Default the picker to the latest month that has expenses.
+  const { data: expenses } = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
+  useEffect(() => {
+    if (!picked && expenses?.length) {
+      const m = latestMonth(expenses);
+      if (m) setMonth(m);
+    }
+  }, [expenses, picked]);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["exceptions", month],
+    queryFn: () => api.exceptions(month),
+  });
 
   const counts = data?.counts || {};
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -47,10 +73,26 @@ export default function Reconciliation() {
         <div>
           <h1 className="page-title">Reconciliation</h1>
           <div className="page-sub">
-            Match card expenses to your imported bank statement. Cash is excluded by design.
+            Match card expenses to your imported bank statement for {monthLabel(month)}. Cash is
+            excluded by design.
           </div>
         </div>
         <div className="head-actions">
+          <select
+            className="select"
+            style={{ width: 160 }}
+            value={month}
+            onChange={(e) => {
+              setPicked(true);
+              setMonth(e.target.value);
+            }}
+          >
+            {recentMonths().map((m) => (
+              <option key={m} value={m}>
+                {monthLabel(m)}
+              </option>
+            ))}
+          </select>
           <Button icon={<Icon.upload size={15} />} onClick={() => setShowImport(true)}>
             Import bank statement
           </Button>

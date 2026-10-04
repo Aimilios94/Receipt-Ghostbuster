@@ -18,7 +18,7 @@ export default function Sidebar() {
     queryKey: ["review-queue"],
     queryFn: api.reviewQueue,
   });
-  const { data: exc } = useQuery({ queryKey: ["exceptions"], queryFn: api.exceptions });
+  const { data: exc } = useQuery({ queryKey: ["exceptions"], queryFn: () => api.exceptions() });
   const { data: subs } = useQuery({ queryKey: ["subscriptions"], queryFn: api.listSubscriptions });
 
   const reviewCount = review?.length || 0;

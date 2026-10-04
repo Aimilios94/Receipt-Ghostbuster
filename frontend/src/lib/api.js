@@ -89,7 +89,7 @@ export const api = {
 
   // ----- reconcile / exceptions / close -----
   reconcile: () => request("/reconcile", { method: "POST" }),
-  exceptions: () => request("/exceptions"),
+  exceptions: (month) => request(`/exceptions${month ? `?month=${month}` : ""}`),
   close: (month) => request(`/close${month ? `?month=${month}` : ""}`),
 
   // ----- categories -----
