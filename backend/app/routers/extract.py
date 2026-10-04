@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..services import categorization, extraction, vat
+from ..services import categorization, extraction, validation, vat
 from .. import repository as repo
 
 router = APIRouter(tags=["extraction"])
@@ -39,6 +39,21 @@ async def extract(
 
     result = extraction.extract_receipt(content, file.filename, settings)
 
+    # Guardrails run in code, independent of the model's self-reported confidence.
+    check = validation.validate_receipt(
+        result, confidence_threshold=settings.confidence_threshold
+    )
+
+    # Unreadable -> don't create a junk ledger row; ask for a clearer photo.
+    if not check["readable"]:
+        return {
+            "expense": None,
+            "extraction": result.model_dump(mode="json"),
+            "gated_to": None,
+            "readable": False,
+            "issues": check["issues"],
+        }
+
     # Store the image (best-effort; extraction still works if storage is down).
     image_url = None
     try:
@@ -55,8 +70,8 @@ async def extract(
     valid = {c["name"] for c in repo.list_categories(user_id)}
     category = categorization.categorize(result.vendor, None, valid_categories=valid or None)
 
-    # Confidence gate — decided in code, not by the model.
-    status = "posted" if result.confidence >= settings.confidence_threshold else "pending_review"
+    # Gate decided in code: auto-post only if confident AND no validation issues.
+    status = "posted" if check["auto_post"] else "pending_review"
 
     row = {
         "source": source if source in ("card", "cash", "bank") else "card",
@@ -68,6 +83,8 @@ async def extract(
         "category": category,
         "vat_amount": vat_info["vat_amount"],
         "vat_rate": vat_info["vat_rate"],
+        # Surface the reasons on the review-queue card.
+        "note": "; ".join(check["issues"]) or None,
         "confidence": round(result.confidence, 3),
         "status": status,
         "reconciled": False,
@@ -79,4 +96,6 @@ async def extract(
         "expense": created,
         "extraction": result.model_dump(mode="json"),
         "gated_to": status,
+        "readable": True,
+        "issues": check["issues"],
     }

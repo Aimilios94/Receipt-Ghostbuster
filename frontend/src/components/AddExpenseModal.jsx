@@ -39,13 +39,16 @@ export default function AddExpenseModal({ onClose, defaultTab = "snap", defaultS
             defaultSource={defaultSource}
             onDone={(res) => {
               refreshAll(qc);
-              const gate = res.gated_to === "pending_review";
-              toast(
-                gate
-                  ? `${res.extraction?.vendor || "Receipt"} needs review (low confidence)`
-                  : `Posted ${res.expense?.vendor || "receipt"}`,
-                gate ? "err" : "ok"
-              );
+              if (res.gated_to === "pending_review") {
+                toast(
+                  res.issues?.length
+                    ? `Sent to review — ${res.issues[0]}`
+                    : `${res.extraction?.vendor || "Receipt"} needs review`,
+                  "err"
+                );
+              } else {
+                toast(`Posted ${res.expense?.vendor || "receipt"}`);
+              }
               onClose();
             }}
           />
@@ -69,6 +72,7 @@ function SnapForm({ onDone, defaultSource }) {
   const [source, setSource] = useState(defaultSource);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [issues, setIssues] = useState([]);
   const [drag, setDrag] = useState(false);
   const inputRef = useRef();
 
@@ -76,8 +80,15 @@ function SnapForm({ onDone, defaultSource }) {
     if (!file) return;
     setBusy(true);
     setErr(null);
+    setIssues([]);
     try {
       const res = await api.extract(file, source);
+      // Guardrail: unreadable receipt — keep the modal open, ask for a better photo.
+      if (res.readable === false) {
+        setErr("We couldn't read this receipt clearly. Try a flatter, well-lit photo with the total and date in frame.");
+        setIssues(res.issues || []);
+        return;
+      }
       onDone(res);
     } catch (e) {
       setErr(e.message);
@@ -141,11 +152,22 @@ function SnapForm({ onDone, defaultSource }) {
       </div>
 
       <p style={{ fontSize: 12, color: "var(--text-dim)", margin: 0, lineHeight: 1.5 }}>
-        We read the receipt with a vision model. Low-confidence reads go to the review queue —
-        nothing posts until you confirm it.
+        We read the receipt with a vision model. Low-confidence or odd-looking reads go to the
+        review queue — nothing posts until you confirm it.
       </p>
 
-      {err ? <div className="error-banner" style={{ margin: 0 }}>{err}</div> : null}
+      {err ? (
+        <div className="error-banner" style={{ margin: 0 }}>
+          {err}
+          {issues.length ? (
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18, lineHeight: 1.5 }}>
+              {issues.map((it, i) => (
+                <li key={i}>{it}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
         <Button variant="primary" onClick={submit} disabled={!file || busy}>
