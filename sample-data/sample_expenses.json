@@ -1,0 +1,17 @@
+[
+  {"vendor": "Lidl Athens", "amount": 43.20, "source": "card", "expense_date": "2026-09-02", "vat_rate": 24, "note": "weekly groceries"},
+  {"vendor": "Starbucks", "amount": 4.80, "source": "card", "expense_date": "2026-09-05", "vat_rate": 24, "note": "flat white"},
+  {"vendor": "Shell", "amount": 60.00, "source": "card", "expense_date": "2026-09-09", "vat_rate": 24, "note": "fuel"},
+  {"vendor": "AB Vasilopoulos", "amount": 78.50, "source": "card", "expense_date": "2026-09-15", "vat_rate": 24, "note": "groceries"},
+  {"vendor": "Aegean Airlines", "amount": 145.00, "source": "card", "expense_date": "2026-09-20", "vat_rate": 13, "note": "ATH-SKG flight"},
+  {"vendor": "Pharmacy 24H", "amount": 18.40, "source": "card", "expense_date": "2026-09-28", "vat_rate": 6, "note": "prescription"},
+
+  {"vendor": "Adobe", "amount": 24.00, "source": "card", "expense_date": "2026-09-22", "vat_rate": 24, "note": "AMOUNT MISMATCH demo: receipt says 24.00 but bank charged 24.99"},
+
+  {"vendor": "Lidl Athens", "amount": 43.20, "source": "card", "expense_date": "2026-09-02", "vat_rate": 24, "note": "DUPLICATE demo: same vendor+amount+date entered twice"},
+
+  {"vendor": "Public Stores", "amount": 30.00, "source": "card", "expense_date": "2026-09-11", "vat_rate": 24, "note": "UNMATCHED demo: also present in bank, should match"},
+
+  {"vendor": "Corner Bakery", "amount": 3.50, "source": "cash", "expense_date": "2026-09-03", "note": "CASH demo: must count in totals but NOT be a reconciliation exception"},
+  {"vendor": "Farmers Market", "amount": 25.00, "source": "cash", "expense_date": "2026-09-14", "note": "CASH demo: excluded from reconciliation by design"}
+]

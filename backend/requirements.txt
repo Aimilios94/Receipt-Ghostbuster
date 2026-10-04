@@ -1,0 +1,14 @@
+# Lower-bound constraints so pip resolves wheels compatible with the installed
+# Python (3.14+). After a successful install, `pip freeze` into requirements.lock
+# for a reproducible pin. See README.
+fastapi>=0.115
+uvicorn[standard]>=0.34
+pydantic>=2.10
+pydantic-settings>=2.7
+python-multipart>=0.0.20
+supabase>=2.11
+anthropic>=0.42
+rapidfuzz>=3.12
+PyJWT>=2.10
+pytest>=8.3
+httpx>=0.28

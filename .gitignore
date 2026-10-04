@@ -1,0 +1,31 @@
+# ---- secrets ----
+.env
+*.env
+!*.env.example
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- node / vite ----
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ---- os / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# ---- local sample uploads (keep the curated sample-data set) ----
+backend/uploads/

@@ -1,0 +1,83 @@
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../lib/api.js";
+import { Card, Loading, ErrorBanner, Empty, Button } from "../components/ui.jsx";
+import { Icon } from "../components/icons.jsx";
+import { ReviewItem } from "../components/sections.jsx";
+import AddExpenseModal from "../components/AddExpenseModal.jsx";
+import { useToast } from "../components/toast.jsx";
+
+export default function ReviewQueue() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [busyId, setBusyId] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["review-queue"],
+    queryFn: api.reviewQueue,
+  });
+
+  const items = data || [];
+
+  const post = async (exp) => {
+    setBusyId(exp.id);
+    try {
+      await api.confirmExpense(exp.id);
+      ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast(`Posted ${exp.vendor || "expense"}`);
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const discard = (exp) => {
+    qc.setQueryData(["review-queue"], (old) => (old || []).filter((x) => x.id !== exp.id));
+    toast("Removed from review");
+  };
+
+  return (
+    <div className="rise">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Review queue</h1>
+          <div className="page-sub">
+            Receipts we couldn't read with confidence. Nothing posts to your ledger until you confirm it.
+          </div>
+        </div>
+        <div className="head-actions">
+          <Button variant="primary" icon={<Icon.plus size={15} />} onClick={() => setShowAdd(true)}>
+            Add expense
+          </Button>
+        </div>
+      </div>
+
+      <ErrorBanner error={error} />
+
+      <Card className="card-pad" style={{ maxWidth: 640 }}>
+        {isLoading ? (
+          <Loading />
+        ) : items.length ? (
+          items.map((e) => (
+            <ReviewItem
+              key={e.id}
+              expense={e}
+              busy={busyId === e.id}
+              onPost={post}
+              onDiscard={discard}
+            />
+          ))
+        ) : (
+          <Empty icon={<Icon.check size={30} />}>
+            All caught up. Every receipt has been reviewed and posted.
+          </Empty>
+        )}
+      </Card>
+
+      {showAdd && <AddExpenseModal onClose={() => setShowAdd(false)} />}
+    </div>
+  );
+}

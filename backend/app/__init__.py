@@ -1,0 +1,1 @@
+"""Receipt Ghostbuster backend package."""
