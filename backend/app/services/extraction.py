@@ -26,7 +26,26 @@ return ONLY a JSON object (no prose, no markdown fences) with exactly these keys
   "line_items": [ { "description": string, "quantity": number|null, "unit_price": number|null, "amount": number|null } ],
   "confidence": number           // 0.0-1.0, YOUR confidence the fields are correct
 }
-Be conservative with confidence: if the image is blurry, cut off, or ambiguous, \
+
+ORIENTATION:
+- The photo may be rotated or sideways. Mentally rotate it so the text is upright
+  and readable before extracting anything.
+
+LINE ITEMS:
+- Extract EVERY item row in the itemized section — one object per product line,
+  including short receipts with only 2-3 items. Do NOT stop after the first item.
+- The line items should add up to (or close to) the printed total; if your items
+  fall far short of the total, you have likely missed some — look again.
+
+DATE RULES (important — these receipts are European, from Portugal):
+- Printed dates are DAY-first, never US month-first. Read "DD/MM/YYYY" or "DD-MM-YYYY".
+  Example: "03/10/2026" means 3 October 2026 -> output "2026-10-03" (NOT 10 March).
+- A two-digit year like "26-10-09" is YY-MM-DD -> "2026-10-09". If a full four-digit
+  date also appears on the receipt, prefer that one.
+- Prefer the transaction/terminal date near the total or payment line over any other
+  printed date. Always output the date in ISO "YYYY-MM-DD".
+
+Be conservative with confidence: if the image is blurry, cut off, rotated, or ambiguous, \
 report a low value. Do not invent values you cannot read."""
 
 
@@ -89,7 +108,12 @@ def _extract_openai(image_bytes: bytes, media_type: str, settings: Settings) -> 
                 "role": "user",
                 "content": [
                     {"type": "text", "text": EXTRACTION_PROMPT},
-                    {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}},
+                    {
+                        "type": "image_url",
+                        # "high" detail = full-resolution tiling. Much better OCR on
+                        # dense, crumpled, or rotated receipts (worth the extra tokens).
+                        "image_url": {"url": f"data:{media_type};base64,{b64}", "detail": "high"},
+                    },
                 ],
             }
         ],

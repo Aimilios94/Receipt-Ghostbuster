@@ -9,15 +9,37 @@ import { api } from "../lib/api.js";
 import { money, shortDate, pct, sourceLabel, confPct, CATEGORY_COLORS } from "../lib/format.js";
 
 /* ---------- Spending by category ---------- */
-export function CategoryBars({ byCategory, total, limit }) {
+export function CategoryBars({ byCategory, total, limit, onPick }) {
   const rows = Object.entries(byCategory || {}).sort((a, b) => b[1] - a[1]);
   const max = rows.length ? rows[0][1] : 0;
   const shown = limit ? rows.slice(0, limit) : rows;
   if (!rows.length) return <div className="empty">No spending recorded yet.</div>;
+  const clickable = typeof onPick === "function";
   return (
     <div>
       {shown.map(([name, amt], i) => (
-        <div className="catrow" key={name}>
+        <div
+          className={`catrow${clickable ? " catrow-click" : ""}`}
+          key={name}
+          {...(clickable
+            ? {
+                role: "button",
+                tabIndex: 0,
+                title: `See ${name} expenses`,
+                onClick: (e) => {
+                  e.stopPropagation(); // don't also trigger the card's "see all"
+                  onPick(name);
+                },
+                onKeyDown: (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onPick(name);
+                  }
+                },
+              }
+            : {})}
+        >
           <span className="name">{name}</span>
           <span className="catbar">
             <span
@@ -87,11 +109,13 @@ export function ReviewItem({ expense, onPost, onDiscard, busy }) {
 
 function ReviewEditForm({ expense, onSave, onCancel, busy }) {
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
+  const [showReceipt, setShowReceipt] = useState(false);
   const [form, setForm] = useState({
     vendor: expense.vendor || "",
     amount: expense.amount ?? "",
     expense_date: (expense.expense_date || "").slice(0, 10),
     category: expense.category || "",
+    vat_rate: expense.vat_rate ?? "",
   });
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -99,11 +123,20 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
     const patch = { amount: Number(form.amount), expense_date: form.expense_date };
     if (form.vendor) patch.vendor = form.vendor;
     if (form.category) patch.category = form.category;
+    // VAT recomputed in code from amount + rate (backend resolve_vat). "" = leave as-is.
+    if (form.vat_rate !== "" && form.vat_rate != null) patch.vat_rate = Number(form.vat_rate);
     onSave(patch);
   };
 
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      {expense.receipt_image_url ? (
+        <div>
+          <Button size="sm" variant="ghost" onClick={() => setShowReceipt(true)}>
+            <Icon.receipt size={13} /> View receipt
+          </Button>
+        </div>
+      ) : null}
       <div className="field-row">
         <div className="field">
           <label>Vendor</label>
@@ -119,17 +152,34 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
           <label>Date</label>
           <input className="input" type="date" value={form.expense_date} onChange={set("expense_date")} />
         </div>
-        <div className="field">
-          <label>Category</label>
-          <select className="select" value={form.category} onChange={set("category")}>
-            <option value="">Auto / keep</option>
-            {(categories || []).map((cat) => (
-              <option key={cat.id} value={cat.name}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+        <div className="field" style={{ maxWidth: 120 }}>
+          <label>VAT rate (%)</label>
+          <input
+            className="input num"
+            list="vat-rates"
+            value={form.vat_rate}
+            onChange={set("vat_rate")}
+            inputMode="decimal"
+            placeholder="e.g. 23"
+          />
+          <datalist id="vat-rates">
+            <option value="6" />
+            <option value="13" />
+            <option value="23" />
+            <option value="0" />
+          </datalist>
         </div>
+      </div>
+      <div className="field">
+        <label>Category</label>
+        <select className="select" value={form.category} onChange={set("category")}>
+          <option value="">Auto / keep</option>
+          {(categories || []).map((cat) => (
+            <option key={cat.id} value={cat.name}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="litem-actions">
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>
@@ -139,6 +189,12 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
           Post
         </Button>
       </div>
+
+      {showReceipt ? (
+        <div className="overlay receipt-lightbox" onMouseDown={() => setShowReceipt(false)}>
+          <img src={expense.receipt_image_url} alt="Receipt" onMouseDown={(e) => e.stopPropagation()} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -185,7 +241,7 @@ export function ExceptionItem({ type, data }) {
         <div className="exc-vendor">{vendor}</div>
         <div className="exc-detail">{detail}</div>
       </div>
-      <Link to="/ledger" className="btn btn-sm">
+      <Link to={type === "duplicates" ? "/ledger?view=duplicates" : "/ledger"} className="btn btn-sm">
         Resolve
       </Link>
     </div>
@@ -206,7 +262,7 @@ export function flattenExceptions(exc) {
 }
 
 /* ---------- Ledger table ---------- */
-export function LedgerTable({ expenses, onDelete, busyId }) {
+export function LedgerTable({ expenses, onDelete, busyId, duplicateIds }) {
   if (!expenses?.length) return <div className="empty">No entries yet. Add an expense to get started.</div>;
   return (
     <div className="table-wrap">
@@ -224,8 +280,10 @@ export function LedgerTable({ expenses, onDelete, busyId }) {
           </tr>
         </thead>
         <tbody>
-          {expenses.map((e) => (
-            <tr key={e.id}>
+          {expenses.map((e) => {
+            const isDup = duplicateIds?.has(e.id);
+            return (
+            <tr key={e.id} className={isDup ? "row-dup" : undefined}>
               <td className="cell-date">{shortDate(e.expense_date)}</td>
               <td className="cell-vendor">{e.vendor || "—"}</td>
               <td className="cell-muted">{e.category || "Uncategorized"}</td>
@@ -235,7 +293,12 @@ export function LedgerTable({ expenses, onDelete, busyId }) {
               <td className="right num">{money(e.amount)}</td>
               <td className="right num cell-muted">{e.vat_amount != null ? money(e.vat_amount) : "—"}</td>
               <td>
-                <StatusBadge expense={e} />
+                <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+                  <StatusBadge expense={e} />
+                  {isDup ? (
+                    <Badge tone="amber" icon={<Icon.warn size={12} />}>Possible duplicate</Badge>
+                  ) : null}
+                </span>
               </td>
               {onDelete ? (
                 <td className="right">
@@ -251,7 +314,8 @@ export function LedgerTable({ expenses, onDelete, busyId }) {
                 </td>
               ) : null}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

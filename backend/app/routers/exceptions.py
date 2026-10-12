@@ -35,7 +35,13 @@ def get_exceptions(
         exp_months = sorted({_month(e["expense_date"]) for e in expenses})
         month = exp_months[-1] if exp_months else date.today().strftime("%Y-%m")
 
-    expenses = [e for e in expenses if _month(e["expense_date"]) == month]
+    # Exclude receipts still in review — a pending_review expense is not on the
+    # ledger yet, so it shouldn't surface as an exception until the user posts it.
+    expenses = [
+        e
+        for e in expenses
+        if _month(e["expense_date"]) == month and e.get("status") != "pending_review"
+    ]
     bank_txns = [t for t in bank_txns if _month(t["txn_date"]) == month]
 
     found = exc.collect(

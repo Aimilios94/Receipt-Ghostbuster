@@ -1,151 +1,151 @@
 # Receipt Ghostbuster 👻🧾
 
-**A personal money assistant that turns messy expenses into a clean, reconciled, VAT-split ledger — with a human confirm gate and the weird stuff flagged.**
+**A personal money assistant that turns messy expenses into a clean, reconciled, VAT-split ledger — snap a receipt or type a cash expense, and it extracts, categorizes, reconciles against your bank, hunts dead subscriptions, and runs your month-end.**
 
-> One line: *messy expense in → clean, reconciled, categorized record out.*
-
-Snap a receipt or type a cash expense → a vision model extracts vendor/amount/date/VAT → it's auto-categorized → a **confidence gate** sends anything uncertain to a review queue (nothing financial is trusted blindly to the AI) → card spend is **reconciled against your bank statement** → anomalies surface as **exceptions** (unmatched, duplicate, amount-mismatch, missing VAT) → a **monthly close** locks the numbers.
+> *messy expense in → clean, reconciled, categorized record out — with a human confirm gate and the weird stuff flagged.*
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
+*Live demo: runs locally — see [Run it yourself](#run-it-yourself). A hosted demo link is planned.*
+
 ---
 
-## Why this project exists
+## The problem
 
-A portfolio piece built to demonstrate three things concretely:
+People don't actually know where their money goes: receipts get lost, cash spend is invisible, subscriptions renew silently, and nobody runs a real month-end on their own life. Receipt Ghostbuster automates that whole manual process end-to-end, for a single person managing their own money (VAT included).
+→ Full write-up: **[problem-statement.md](problem-statement.md)**.
 
-1. **I can ship** — a complete, working, demoable product, not a prototype.
-2. **I can automate a messy manual process end-to-end** — receipt → extraction → categorization → reconciliation → close, with the human kept in the loop where it matters.
-3. **I have real accounting depth** — VAT breakdowns, cash-vs-bank source logic, a reconciliation exceptions report, and an automated month-end.
+---
 
-It's shipped in deliberate phases. **Phase 1 (Track & Reconcile) is complete and is what you demo below.** Phases 2 (Refund Hunter) and 3 (Advice) are scoped but intentionally not built yet — shipping a polished small thing beats a half-built big thing.
+## Features by version
+
+See the full plan and status in **[roadmap.md](roadmap.md)**.
+
+- **v0.1 — Track & Reconcile (MVP) ✅ shipped**
+  Receipt snap + cash/manual entry → vision-LLM extraction → confidence gate + deterministic guardrails → rules categorization + VAT (computed in code) → bank CSV import → reconciliation → month-scoped exceptions → monthly close. Screens: Dashboard, Review queue, Reconciliation, Monthly close, Ledger.
+- **v0.2 — Refund Hunter ✅ shipped**
+  Detects recurring charges, flags unused ones, drafts cancel/refund emails (draft-only), and delivers them as real **Gmail drafts** via n8n. Plus: clickable dashboard drill-downs, per-rate VAT breakdown, duplicate surfacing, and a richer review/edit flow.
+- **v0.3 — Advice ⬜ planned**
+  Budget-vs-actual variance, rule-based overspend nudges, and an insights feed.
 
 ---
 
 ## What makes it more than a CRUD app
 
-| Principle | How it shows up |
-|---|---|
-| **The AI is never trusted blindly** | Vision extraction gets a confidence score. Above the threshold auto-posts; below it goes to a review queue. **All VAT / reconciliation / close math is computed in code, never by the model.** |
-| **Cash vs bank is a first-class distinction** | Cash expenses count in totals and categories but are *excluded from reconciliation* — there's nothing in the bank to match them to, so they never show up as false "unmatched" exceptions. |
-| **One ledger is the source of truth** | Every number on the dashboard, the reconciliation view and the monthly close is derived from the same ledger. Nothing is double-entered. |
-| **Secrets stay server-side** | The browser never holds an API key. It talks only to the FastAPI backend; Supabase service-role and the LLM key live on the server. |
-| **Nothing financial auto-sends** | Human confirm gate everywhere. (Phase 2's cancellation emails will be draft-only.) |
+| Principle | How it shows up | Why |
+|---|---|---|
+| **The AI is never trusted blindly** | Vision extraction gets a confidence score; a **code-level guardrail** (`validation.py`) runs regardless. Confident + clean → auto-post; anything uncertain → review queue. **All VAT/reconciliation/close math is computed in code.** | [D1](DECISIONS.md#d1--the-ai-is-never-trusted-blindly-design), [D6](DECISIONS.md) |
+| **Cash vs bank is first-class** | Cash counts in totals but is *excluded from reconciliation* — so it never shows as a false "unmatched" exception. | [D3](DECISIONS.md) |
+| **One ledger is the source of truth** | Every dashboard number drills down to the exact expenses behind it (with receipt view). Nothing double-entered. | [D10](DECISIONS.md) |
+| **Nothing financial auto-sends** | Cancellation emails are **draft-only** — n8n creates a Gmail draft, you send it. | [D4](DECISIONS.md) |
+| **Fails safe on bad input** | A crumpled/rotated photo is routed to review with reasons, not silently mis-posted. | [D9](DECISIONS.md) |
 
 ---
 
-## Architecture
+## How it works
 
 ```
 Browser (React + Vite, :5173)
         │  JSON over HTTP  (talks ONLY to the backend)
         ▼
 FastAPI backend (:8000)        ← vision LLM for receipt extraction (server-side key)
-  extraction · confidence gate · rules-based categorization
-  VAT math · reconciliation engine · exceptions · monthly close
-        │
-        ▼
-Supabase (Postgres + Auth + Storage)   ← ledger, bank transactions, receipt images
+  extraction · confidence gate + guardrails · categorization
+  VAT math · reconciliation · exceptions · monthly close · subscription detection
+        │                                    │
+        ▼                                    ▼
+Supabase (Postgres + Auth + Storage)   n8n (Docker, :5678) → Gmail draft (draft-only)
 ```
 
-**Stack:** React 18 + Vite · TanStack Query · React Router · Geist type · Python / FastAPI · Supabase (Postgres + auth + storage) · vision LLM (Anthropic or OpenAI) · bank data via **CSV import** (no open-banking API).
-
-**Repo layout:**
-```
-RECEIPT-GHOSTBUSTER/
-├── backend/        FastAPI app, reconciliation/close/VAT logic, tests, scripts
-├── frontend/       React + Vite UI (this is the part you open in a browser)
-├── db/             schema.sql
-├── sample-data/    September-2026 demo dataset (bank CSV + expenses JSON)
-└── docs/           screenshots
-```
+**Stack & why:**
+- **React + Vite** — fast SPA for a dashboard-heavy UI.
+- **Python / FastAPI** — all logic as tested endpoints (the accounting-critical paths are unit-tested).
+- **Supabase (Postgres + Auth + Storage)** — managed DB, row-level security, and receipt image storage without standing up infra.
+- **Vision LLM (OpenAI gpt-4o / Anthropic)** — reads receipts; provider is swappable.
+- **n8n** — thin orchestration for Gmail delivery + cron, so email logic stays out of the app ([D5](DECISIONS.md)).
+- **Bank via CSV import** — works with any bank, no open-banking OAuth ([D2](DECISIONS.md)).
 
 ---
 
-## The screens
+## Results
 
-| Screen | What it does |
-|---|---|
-| **Dashboard** | Month at a glance: total spent, VAT paid, card-vs-cash split, reconciled ratio, spending by category, plus live previews of the review queue, exceptions, monthly close, recurring charges and the ledger. |
-| **Review queue** | Low-confidence receipts with a confidence meter. Post (confirm) or discard — nothing posts to the ledger until you say so. |
-| **Reconciliation** | Exceptions grouped by type (no receipt, no bank match, duplicate, amount differs, missing VAT) with a one-click **Run reconciliation**. |
-| **Monthly close** | Money in/out/net, VAT, bank cash-flow, and a gate that won't let you close while card expenses are still unreconciled. |
-| **Ledger** | The single source of truth. Filter by source / status / category; every total is calculated from here. |
-| **Refund Hunter** *(Phase 2)* | Detects recurring charges across the bank + ledger, infers cadence and annual cost, flags ones you haven't used, and tracks savings. Cancellation emails are draft-only (via n8n), never auto-sent. |
+- **Extraction:** verified end-to-end on real Portuguese receipts (vendor, total, date, VAT, line items) on upright photos; routes bad/rotated photos to review instead of mis-posting.
+- **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest).
+- **Tests:** 46 passing (reconciliation, VAT, duplicates, close, exceptions, validation, subscriptions).
+- **Impact:** turns a manual personal month-end into minutes; surfaces forgotten subscriptions by annual cost.
 
-![Reconciliation](docs/screenshots/reconciliation.png)
-
-![Refund Hunter](docs/screenshots/refund-hunter.png)
-
-![Draft cancellation email](docs/screenshots/draft-email.png)
+> A measured **extraction-accuracy table** (field-level accuracy over a labeled receipt set) is the next deliverable — the eval harness is in progress.
 
 ---
 
-## Run the demo
+## Process (how this was built)
 
-### Prerequisites (one time)
+This project is built the way a product engineer works — ship small, test, capture feedback, decide, iterate:
+
+- **[roadmap.md](roadmap.md)** — phases, goals, and what's planned.
+- **[DECISIONS.md](DECISIONS.md)** — every real decision as Problem → Evidence → Decision → Result.
+- **[feedback-notes.md](feedback-notes.md)** — real testing rounds; the evidence behind the decisions.
+- **[CHANGELOG.md](CHANGELOG.md)** — what changed per version.
+
+---
+
+## Run it yourself
+
+### Prerequisites
 - **Python 3.14** and **Node 18+**
-- A **Supabase** project and a **vision-LLM API key** (Anthropic or OpenAI)
-- Copy `backend/.env.example` → `backend/.env` and fill in the values. Set `DEV_USER_ID` to a user UUID to run in keyless demo mode.
-  Copy `frontend/.env.example` → `frontend/.env` (defaults to `VITE_API_BASE_URL=http://localhost:8000`).
+- A **Supabase** project and a **vision-LLM API key** (OpenAI or Anthropic)
+- Copy `backend/.env.example` → `backend/.env` and fill it in. Set `DEV_USER_ID` to a user UUID for keyless demo mode. Copy `frontend/.env.example` → `frontend/.env` (defaults to `VITE_API_BASE_URL=http://localhost:8000`).
 
 ```powershell
-# backend deps
+# backend
 cd backend
 py -3.14 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-
-# apply the database schema + load the demo dataset
 .\.venv\Scripts\python.exe scripts\apply_schema.py
-.\.venv\Scripts\python.exe scripts\load_sample_data.py   # posts expenses, imports the bank CSV, runs reconciliation
+.\.venv\Scripts\python.exe scripts\load_sample_data.py   # expenses + bank CSV + reconcile
 
-# frontend deps
+# frontend
 cd ..\frontend
 npm install
 ```
 
-### Start it (two terminals)
-
-**Terminal 1 — backend (API on :8000)**
+### Start it
 ```powershell
+# Terminal 1 — backend (API on :8000). On Windows run ONE process, no --reload.
 cd backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-```
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8000
 
-**Terminal 2 — frontend (UI on :5173)**
-```powershell
+# Terminal 2 — frontend (UI on :5173)
 cd frontend
 npm run dev
 ```
+Open **http://localhost:5173**. API docs at **http://localhost:8000/docs**.
+Refund Hunter's Gmail delivery (Phase 2) needs n8n — see **[n8n/README.md](n8n/README.md)**.
 
-Open **http://localhost:5173**. API docs are at **http://localhost:8000/docs**.
-
----
-
-## Demo script (≈3 minutes)
-
-The sample dataset is shaped so **every reconciliation path shows up**. Walk it like this:
-
-1. **Dashboard** — it opens on **September 2026**. Point out the four stat cards: total spent, VAT paid (split across 24 / 13 / 6% rates), card-vs-cash, and the reconciled ratio. *"Every one of these is computed in code from the ledger — the AI only reads receipts."*
-2. **Add an expense → Snap a receipt** — upload a receipt photo. The vision model extracts it; a confident read posts straight to the ledger, a shaky one lands in the **Review queue**. *"The AI is never trusted blindly."*
-3. **Add an expense → Manual / cash** — add a cash expense. Note it on the dashboard: it counts in totals and categories, but on the Reconciliation screen it's **never** flagged as unmatched — *by design, there's nothing in the bank to match cash to.*
-4. **Reconciliation** — hit **Run reconciliation**, then walk the exceptions: Adobe (receipt €24.00 vs bank €24.99 = **amount differs**), Lidl **charged twice** (duplicate), Netflix / Spotify / Cosmote with **no receipt** (these become Phase 2 subscription candidates), and the salary line as income.
-5. **Monthly close** — show money in vs out, VAT owed, bank cash-flow, and that the close is **gated** while card expenses are still unreconciled. *"That's a real month-end, not a total."*
-6. **Ledger** — filter by Cash, then Reconciled. *"One ledger. Every number on every screen comes from here."*
-
----
-
-## What's intentionally out of scope (Phase 1)
-
-Multi-currency / FX · full double-entry bookkeeping · tax-return generation · multi-user / client accounts · live open-banking API. **Phase 2** adds Refund Hunter (recurring-charge detection + draft cancellation emails, never auto-sent). **Phase 3** adds Advice (overspend nudges, budget-vs-actual variance).
-
----
-
-## Testing
-
+### Tests
 ```powershell
 cd backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-The backend ships with a passing test suite covering extraction gating, VAT math, the reconciliation engine, cash exclusion, exceptions and the monthly close.
+---
+
+## Demo script (≈3 minutes)
+
+The sample dataset is shaped so **every reconciliation path shows up**:
+
+1. **Dashboard** — opens on the latest month with data. Click any number (Total spent, VAT, Card/cash, Reconciled, a category) to drill into the exact expenses behind it. *"Every number is computed in code and traces back to the ledger."*
+2. **Add → Snap a receipt** — a confident read auto-posts; a shaky/rotated one lands in the **Review queue** with reasons. *"The AI is never trusted blindly."*
+3. **Add → Manual / cash** — add cash; it counts in totals but is **never** a reconciliation exception.
+4. **Reconciliation** — **Run reconciliation**, then walk the exceptions (amount-differs, duplicate, no-bank-match). Hit **Resolve** on the duplicate → the Ledger filters to the flagged pair, badged side by side.
+5. **Monthly close** — money in/out, VAT owed, and a close gated while card items are unreconciled.
+6. **Refund Hunter** — detected subscriptions by annual cost; draft a cancellation email → **Save to Gmail drafts** (draft-only).
+
+---
+
+## Out of scope
+
+Multi-currency / FX · full double-entry bookkeeping · tax-return generation · multi-user / client accounts · live open-banking API.
+
+## Future work
+
+A hosted live demo · a mobile app · support for more banks (more CSV formats / open-banking) · more languages/locales for receipts and VAT rules · **per-line VAT** (multiple rates per receipt). See [roadmap.md](roadmap.md).

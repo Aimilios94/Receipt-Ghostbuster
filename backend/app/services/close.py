@@ -34,7 +34,14 @@ def monthly_close(
     out), plus any expenses explicitly categorized as Income. `total_in` therefore
     reflects real receipts (e.g. salary) even when there is no receipt to log.
     """
-    rows = [e for e in expenses if _in_month(e.get("expense_date"), month)]
+    # Only confirmed ledger entries count toward the close. A receipt still in
+    # the review queue (pending_review) is NOT on the ledger yet — it must not
+    # inflate spend/VAT/category totals until the human posts it.
+    rows = [
+        e
+        for e in expenses
+        if _in_month(e.get("expense_date"), month) and e.get("status") != "pending_review"
+    ]
 
     income_expenses = Decimal(0)
     total_out = Decimal(0)

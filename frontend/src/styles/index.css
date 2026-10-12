@@ -1155,3 +1155,115 @@ table.ledger tbody tr:hover {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---------- Clickable drill-downs (look unchanged, just interactive) ---------- */
+.card-click {
+  cursor: pointer;
+}
+.card-click:focus-visible,
+.catrow-click:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--r-lg);
+}
+.catrow-click {
+  cursor: pointer;
+}
+
+/* drill-down modal summary line */
+.drill-sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.drill-sum-sub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.drill-sum-total {
+  font-size: 13.5px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+/* capture hint in the snap form */
+.hint {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 10px);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.hint > svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--text-dim);
+}
+
+/* VAT-by-rate chips in the drill-down */
+.vat-rates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vat-rate-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12.5px;
+}
+.vat-rate-pct {
+  color: var(--text-muted);
+}
+
+/* clickable VAT total in the ledger footer */
+.vat-total-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.vat-total-btn:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.vat-total-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* possible-duplicate rows in the ledger */
+.ledger tr.row-dup > td {
+  background: rgba(245, 158, 11, 0.09);
+}
+
+/* receipt lightbox (sits above the drill-down modal) */
+.receipt-lightbox {
+  z-index: 60;
+  cursor: zoom-out;
+}
+.receipt-lightbox img {
+  max-width: min(90vw, 680px);
+  max-height: 85vh;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+  cursor: default;
+}

@@ -14,10 +14,16 @@ import {
 } from "../components/sections.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import ImportBankModal from "../components/ImportBankModal.jsx";
+import DrillModal from "../components/DrillModal.jsx";
 import { useToast } from "../components/toast.jsx";
+
+// Expenses categorized as income aren't "spend" — the close endpoint keeps them
+// out of total_out / by_category / by_source, so the drill-downs must too.
+const isSpend = (e) => (e.category || "Uncategorized") !== "Income";
 
 export default function Dashboard() {
   const [modal, setModal] = useState(null); // 'add' | 'import' | null
+  const [drill, setDrill] = useState(null); // drill-down modal payload | null
   const [busyId, setBusyId] = useState(null);
   const qc = useQueryClient();
   const toast = useToast();
@@ -37,19 +43,85 @@ export default function Dashboard() {
   const review = reviewQ.data || [];
   const excList = flattenExceptions(excQ.data);
 
+  // Confirmed ledger entries for the month on screen. Receipts still in review
+  // (pending_review) are NOT on the ledger, so they're excluded here — this keeps
+  // every drill-down summing back to the card, which the close endpoint now also
+  // computes from confirmed rows only.
+  const ledger = useMemo(
+    () =>
+      expenses.filter(
+        (e) => (e.expense_date || "").slice(0, 7) === month && e.status !== "pending_review"
+      ),
+    [expenses, month]
+  );
+
+  // Card/bank expenses that are expected to reconcile (cash is excluded by design).
+  const reconcilable = useMemo(
+    () => ledger.filter((e) => e.source !== "cash"),
+    [ledger]
+  );
+
   // Derived stats from the ledger (counts the close endpoint doesn't give us).
   const stats = useMemo(() => {
-    const cashCount = expenses.filter((e) => e.source === "cash").length;
-    const eligible = expenses.filter((e) => e.source !== "cash" && e.status === "posted");
-    const reconciled = eligible.filter((e) => e.reconciled || e.matched_transaction_id);
-    const rates = [...new Set(expenses.map((e) => e.vat_rate).filter(Boolean))].sort((a, b) => b - a);
+    const cashCount = ledger.filter((e) => e.source === "cash").length;
+    const reconciled = reconcilable.filter((e) => e.reconciled || e.matched_transaction_id);
+    const rates = [...new Set(ledger.map((e) => e.vat_rate).filter(Boolean))].sort((a, b) => b - a);
     return {
       cashCount,
-      eligible: eligible.length,
+      eligible: reconcilable.length,
       reconciled: reconciled.length,
       rates,
     };
-  }, [expenses]);
+  }, [ledger, reconcilable]);
+
+  const ml = monthLabel(month);
+  const openDrill = {
+    total: () =>
+      setDrill({
+        title: `Total spent · ${ml}`,
+        subtitle: "Every expense that makes up this month's spend.",
+        expenses: ledger.filter(isSpend),
+        mode: "amount",
+      }),
+    vat: () =>
+      setDrill({
+        title: `VAT paid · ${ml}`,
+        subtitle: "Where the VAT comes from — vendor, category and rate.",
+        expenses: ledger.filter((e) => isSpend(e) && e.vat_amount),
+        mode: "vat",
+      }),
+    source: () =>
+      setDrill({
+        title: `Card and cash payments · ${ml}`,
+        subtitle: "Every payment this month, card and cash, with where it happened.",
+        expenses: ledger.filter(isSpend),
+        mode: "amount",
+      }),
+    reconciled: () =>
+      setDrill({
+        title: `Reconciliation · ${ml}`,
+        subtitle: "Card expenses matched against your bank statement. Cash is left out.",
+        expenses: reconcilable,
+        mode: "reconciled",
+      }),
+    category: (name) =>
+      setDrill({
+        title: `${name} · ${ml}`,
+        subtitle: `Every ${name.toLowerCase()} expense this month, with where it happened.`,
+        expenses: ledger.filter((e) => isSpend(e) && (e.category || "Uncategorized") === name),
+        mode: "amount",
+      }),
+    allMonth: () =>
+      setDrill({
+        title: `All expenses · ${ml}`,
+        subtitle: "Everything this month, newest first.",
+        expenses: ledger
+          .filter(isSpend)
+          .slice()
+          .sort((a, b) => (b.expense_date || "").localeCompare(a.expense_date || "")),
+        mode: "amount",
+      }),
+  };
 
   const postReview = async (exp, patch) => {
     setBusyId(exp.id);
@@ -74,6 +146,22 @@ export default function Dashboard() {
         qc.invalidateQueries({ queryKey: [k] })
       );
       toast("Discarded");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const removeExpense = async (exp) => {
+    if (!window.confirm(`Delete ${exp.vendor || "this expense"}? This can't be undone.`)) return;
+    setBusyId(exp.id);
+    try {
+      await api.deleteExpense(exp.id);
+      ["review-queue", "expenses", "exceptions", "close", "subscriptions"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast(`Deleted ${exp.vendor || "expense"}`);
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -117,7 +205,7 @@ export default function Dashboard() {
 
       {/* ---------- Stat cards ---------- */}
       <div className="grid grid-stats" style={{ marginBottom: 18 }}>
-        <Card className="stat">
+        <Card className="stat" onClick={openDrill.total} title="See the expenses behind this">
           <div className="stat-label">Total spent</div>
           <div className="stat-value num">{money(totalOut)}</div>
           <div className="stat-foot">
@@ -125,7 +213,7 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        <Card className="stat">
+        <Card className="stat" onClick={openDrill.vat} title="See where the VAT comes from">
           <div className="stat-label">VAT paid</div>
           <div className="stat-value num">{money(close?.vat_owed || 0)}</div>
           <div className="stat-foot">
@@ -133,9 +221,9 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        <CardSplit close={close} />
+        <CardSplit close={close} onClick={openDrill.source} />
 
-        <Card className="stat">
+        <Card className="stat" onClick={openDrill.reconciled} title="See what matched and what's left">
           <div className="stat-label">Reconciled</div>
           <div className="stat-value num">
             {stats.reconciled} <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>of {stats.eligible}</span>
@@ -149,14 +237,15 @@ export default function Dashboard() {
 
       {/* ---------- Row: category + review ---------- */}
       <div className="grid grid-2" style={{ marginBottom: 18 }}>
-        <Card className="card-pad">
+        <Card className="card-pad" onClick={openDrill.allMonth} title="See all expenses this month">
           <div className="card-head">
             <div>
               <div className="card-title">Spending by category</div>
               <div className="card-desc">Share of this month's total</div>
             </div>
+            <span className="btn btn-sm">See all →</span>
           </div>
-          <CategoryBars byCategory={close?.by_category} total={totalOut} limit={7} />
+          <CategoryBars byCategory={close?.by_category} total={totalOut} limit={7} onPick={openDrill.category} />
         </Card>
 
         <Card className="card-pad">
@@ -233,24 +322,33 @@ export default function Dashboard() {
             Open ledger →
           </Link>
         </div>
-        <LedgerTable expenses={expenses.slice(0, 5)} />
+        <LedgerTable expenses={expenses.slice(0, 5)} onDelete={removeExpense} busyId={busyId} />
       </Card>
 
       {modal === "add" && <AddExpenseModal onClose={() => setModal(null)} />}
       {modal === "import" && <ImportBankModal onClose={() => setModal(null)} />}
+      {drill && (
+        <DrillModal
+          title={drill.title}
+          subtitle={drill.subtitle}
+          expenses={drill.expenses}
+          mode={drill.mode}
+          onClose={() => setDrill(null)}
+        />
+      )}
     </div>
   );
 }
 
 /* ---------- Card: card vs cash split ---------- */
-function CardSplit({ close }) {
+function CardSplit({ close, onClick }) {
   const bySource = close?.by_source || {};
   const card = bySource.card || 0;
   const cash = bySource.cash || 0;
   const bank = bySource.bank || 0;
   const total = card + cash + bank || 1;
   return (
-    <Card className="stat">
+    <Card className="stat" onClick={onClick} title="See card and cash payments">
       <div className="stat-label">Card and cash</div>
       <div className="splitbar">
         <span style={{ width: `${(card / total) * 100}%`, background: "var(--primary)" }} />

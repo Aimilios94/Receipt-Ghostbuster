@@ -2,9 +2,28 @@
 import { useEffect } from "react";
 import { Icon } from "./icons.jsx";
 
-export function Card({ className = "", children, style }) {
+export function Card({ className = "", children, style, onClick, title }) {
+  const clickable = typeof onClick === "function";
+  const a11y = clickable
+    ? {
+        role: "button",
+        tabIndex: 0,
+        title,
+        onKeyDown: (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick(e);
+          }
+        },
+      }
+    : {};
   return (
-    <div className={`card ${className}`} style={style}>
+    <div
+      className={`card ${className}${clickable ? " card-click" : ""}`}
+      style={style}
+      onClick={onClick}
+      {...a11y}
+    >
       {children}
     </div>
   );

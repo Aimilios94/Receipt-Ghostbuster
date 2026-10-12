@@ -151,9 +151,17 @@ function SnapForm({ onDone, defaultSource }) {
         </select>
       </div>
 
+      <div className="hint">
+        <Icon.camera size={14} />
+        <span>
+          <b>For the best read:</b> lay the receipt flat and upright, fill the frame, and use good
+          light — avoid angles, folds and shadows. Dates and totals read far more reliably that way.
+        </span>
+      </div>
+
       <p style={{ fontSize: 12, color: "var(--text-dim)", margin: 0, lineHeight: 1.5 }}>
         We read the receipt with a vision model. Low-confidence or odd-looking reads go to the
-        review queue — nothing posts until you confirm it.
+        review queue — nothing posts until you confirm it. You can always edit it before posting.
       </p>
 
       {err ? (

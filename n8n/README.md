@@ -36,6 +36,10 @@ The Gmail node needs a Google OAuth credential (Gmail API). In n8n:
 3. Paste the **Client ID** and **Client Secret** into n8n, click **Sign in with
    Google**, approve the `gmail.modify` scope.
 
+> ⚠️ In **"Testing"** publishing status, Google expires the refresh token after ~7 days —
+> you'll need to reconnect the credential. Set the consent screen to **"In production"**
+> to stop this. (This is a common demo-day gotcha.)
+
 ## Import the workflows
 
 1. n8n → **Workflows → Import from File** → pick each JSON in this folder.

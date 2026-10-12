@@ -6,27 +6,56 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-04, end of day 2)
+## 🟢 RESUME HERE — current status (as of 2026-10-12, end of day 3)
 
-**Where we are:** Phase 1 (Track & Reconcile) and Phase 2 (Refund Hunter) are **both complete,
-working end-to-end, and pushed to GitHub.** The app is a real, demoable product. Day 2 also
-added: OpenAI as the live vision provider, real-receipt extraction verified, deterministic
-extraction guardrails, and an editable/deletable review queue.
+**Where we are:** Phase 1 + Phase 2 are complete and pushed. **Day 3 was a product-engineering
+pivot:** we did NOT add Phase 3 yet. Instead we (a) set up the recruiter-facing **doc system**
+(problem-statement, roadmap, DECISIONS, CHANGELOG, feedback-notes), (b) ran a real **Round 1
+testing session** with the user driving, and (c) shipped every fix that surfaced. The repo now
+*shows* a product-engineering process, not just a working app.
 
-**GitHub:** https://github.com/Aimilios94/Receipt-Ghostbuster (branch `main`, all work pushed;
-`git status` clean). Latest commit `4432dc2`.
+**GitHub:** https://github.com/Aimilios94/Receipt-Ghostbuster (branch `main`). Day 3 pushed.
+
+### Why day 3 happened (context you need)
+The user is building this as a **GitHub portfolio piece to land a product-engineer role**. He
+gathered a doc framework (Problem→Evidence→Decision→Result + roadmap/changelog/feedback) and
+asked us to make the repo prove he works that way. The **authenticity rule is sacred**: every
+process artifact must trace to something real — the testing session IS the real feedback round;
+no invented data, no fake metrics.
+
+### What day 3 shipped (all tested in-browser, 0 console errors, 46 pytest pass, build clean)
+- **Docs:** `problem-statement.md`, `roadmap.md`, `DECISIONS.md` (D1–D11), `CHANGELOG.md`,
+  `feedback-notes.md` (Round 1). README rewritten to the PE structure (Process-links section,
+  features-by-version, Results). `n8n/README.md` cleaned (user's scratch notes removed).
+- **Dashboard drill-downs (D10):** every stat card + category row + "See all" opens the source
+  expenses with receipt view + delete. `frontend/src/components/DrillModal.jsx` (new).
+- **Extraction (D7/D9):** prompt now reads Portuguese **day-first** dates, handles rotation,
+  extracts all line items; OpenAI `detail:"high"`. Fixed the "receipt from the future" false flag.
+- **Confirmed-only ledger (D8):** `close`/`exceptions`/`reconcile` now exclude `pending_review`
+  so posting a reviewed receipt actually updates totals (was a no-op).
+- **Delete** expenses from drill-downs + ledger preview. **VAT-by-rate** breakdown (dashboard VAT
+  card + clickable Ledger VAT total). **Edit form** got View-receipt + VAT-rate field. **Capture
+  hint** on the snap screen. **Duplicate surfacing (D11):** badge + highlight + `?view=duplicates`
+  filter + deep-link from the exception.
 
 ### 👋 Message to tomorrow's agent (read this)
-Everything works and is committed. The user tested receipt upload, the guardrails, the editable
-review queue, and n8n→Gmail delivery — all confirmed working by the user. **Nothing is broken or
-mid-flight.** When you resume:
-1. Read this whole RESUME section + the auto-memory file (path at the bottom) — the memory file is
-   the most detailed source, including every debugging gotcha.
-2. Start the three servers (commands below). Backend reads OpenAI from `.env` now — no flags.
-3. The natural next step is **Phase 3 — Advice** (see "What's left"). Or the user may want small
-   polish items (LLM-assisted categorization, the cron workflow). Ask the user what they want first.
-Do NOT re-litigate settled decisions (stack, phasing, hybrid n8n approach). Confirm with the user
-before large new directions.
+Nothing is broken or mid-flight. Everything day 3 is committed and verified. When you resume:
+1. Read this RESUME section + the auto-memory file (path at bottom) + **DECISIONS.md** and
+   **feedback-notes.md** (they are the live product-engineering record).
+2. Start the three servers (commands below). Backend reads OpenAI from `.env` — no flags.
+   **Check the two 7-day expiries first** (see memory `demo-prep-7day-expiries`): Supabase may be
+   paused, n8n Gmail OAuth token may be expired. Revive before testing.
+3. **Open items the user chose to do next** (in priority order he implied):
+   - **Per-line VAT** (decided to build — see DECISIONS "Planned" + roadmap). Needs a line-item
+     table so a receipt can hold multiple VAT rates; sum per rate in code.
+   - **Duplicate detection at upload** (flag before posting).
+   - **LLM-assisted categorization** (Continente → Groceries; rules miss unknown vendors).
+   - Then the **accuracy eval harness** (`backend/scripts/eval_extraction.py` + labeled receipts
+     the user supplies) to fill the README "Results" number — authentic, not invented.
+   - Eventually **Phase 3 — Advice**, and a hosted live demo.
+Do NOT re-litigate settled decisions (stack, phasing, hybrid n8n, draft-only, cash-excluded).
+Keep the authenticity rule: real testing → real feedback-notes → real decisions. Confirm with the
+user before large new directions.
 
 ### Day 2 additions (newest first)
 - **Editable/deletable review queue** (commit `4432dc2`): "Post" now works (was sending `{}` →
