@@ -8,6 +8,7 @@ import { Icon } from "../components/icons.jsx";
 import { LedgerTable } from "../components/sections.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import DrillModal from "../components/DrillModal.jsx";
+import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
 import { useToast } from "../components/toast.jsx";
 
 const SOURCE_FILTERS = [
@@ -35,14 +36,26 @@ export default function Ledger() {
   const [category, setCategory] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
   const [vatDrill, setVatDrill] = useState(false);
+  const [detail, setDetail] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const qc = useQueryClient();
   const toast = useToast();
 
   const { data, isLoading, error } = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
+  const { data: lineItems } = useQuery({ queryKey: ["line-items"], queryFn: api.lineItems });
 
   const expenses = data || [];
+
+  // expense_id -> [line items], for the per-rate VAT breakdown drill-down.
+  const lineItemsByExpense = useMemo(() => {
+    const m = new Map();
+    for (const li of lineItems || []) {
+      if (!m.has(li.expense_id)) m.set(li.expense_id, []);
+      m.get(li.expense_id).push(li);
+    }
+    return m;
+  }, [lineItems]);
 
   // Rows that share vendor + amount + date with at least one other row.
   const duplicateIds = useMemo(() => {
@@ -74,13 +87,30 @@ export default function Ledger() {
   const totalShown = filtered.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   const vatShown = filtered.reduce((sum, e) => sum + Number(e.vat_amount || 0), 0);
 
+  const changeStatus = async (exp, status) => {
+    if (status === exp.status) return;
+    setBusyId(exp.id);
+    try {
+      await api.setExpenseStatus(exp.id, status);
+      ["expenses", "exceptions", "close", "review-queue", "line-items"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      const label = { posted: "Posted", pending_review: "moved to review", confirmed: "Confirmed" }[status];
+      toast(`${exp.vendor || "Entry"} — ${label}`);
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const deleteOne = async (exp) => {
     if (!window.confirm(`Delete "${exp.vendor || "this entry"}" (${money(exp.amount)})? This can't be undone.`))
       return;
     setBusyId(exp.id);
     try {
       await api.deleteExpense(exp.id);
-      ["expenses", "exceptions", "close", "review-queue"].forEach((k) =>
+      ["expenses", "exceptions", "close", "review-queue", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
       toast("Entry deleted");
@@ -149,7 +179,7 @@ export default function Ledger() {
           <Loading />
         ) : (
           <>
-            <LedgerTable expenses={filtered} onDelete={deleteOne} busyId={busyId} duplicateIds={duplicateIds} />
+            <LedgerTable expenses={filtered} onDelete={deleteOne} busyId={busyId} duplicateIds={duplicateIds} onRowClick={setDetail} onStatusChange={changeStatus} />
             <div
               style={{
                 display: "flex",
@@ -182,12 +212,14 @@ export default function Ledger() {
       {vatDrill && (
         <DrillModal
           title="VAT by rate"
-          subtitle="VAT across the entries shown, grouped by rate."
+          subtitle="VAT across the entries shown, grouped by rate. Mixed-rate receipts split by line."
           expenses={filtered.filter((e) => e.vat_amount)}
           mode="vat"
+          lineItemsByExpense={lineItemsByExpense}
           onClose={() => setVatDrill(false)}
         />
       )}
+      {detail && <ExpenseDetailModal expense={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

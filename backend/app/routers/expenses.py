@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..models import ExpenseCreate
+from ..models import ExpenseCreate, ExpenseStatusUpdate
 from ..services import categorization, vat
 from .. import repository as repo
 
@@ -61,6 +61,24 @@ def review_queue(user_id: str = Depends(get_current_user_id)) -> dict:
     return {"expenses": repo.list_expenses(user_id, status="pending_review")}
 
 
+@router.get("/line-items")
+def all_line_items(user_id: str = Depends(get_current_user_id)) -> dict:
+    """Every line item the user owns (joined to the ledger client-side for the
+    VAT-by-rate breakdown). Declared before /{expense_id}/... — distinct path."""
+    return {"line_items": repo.list_all_line_items(user_id)}
+
+
+@router.get("/{expense_id}/line-items")
+def expense_line_items(
+    expense_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """One receipt's itemized lines + its VAT summed per rate in code."""
+    items = repo.list_line_items(user_id, expense_id)
+    breakdown = vat.vat_breakdown([i for i in items if i.get("amount") is not None])
+    return {"line_items": items, "vat_breakdown": breakdown}
+
+
 @router.post("/{expense_id}/confirm")
 def confirm_expense(
     expense_id: str,
@@ -80,13 +98,52 @@ def confirm_expense(
             patch["note"] = body.note
         if body.expense_date:
             patch["expense_date"] = body.expense_date.isoformat()
-        if body.vat_rate is not None or body.vat_amount is not None:
+
+        if body.line_items is not None:
+            # Multi-rate breakdown the user entered: VAT summed PER RATE in code.
+            # The lines become the source of truth for amount + VAT.
+            rows = [
+                {
+                    "description": li.description,
+                    "quantity": li.quantity,
+                    "unit_price": li.unit_price,
+                    "amount": li.amount,
+                    "vat_rate": li.vat_rate,
+                    "vat_amount": vat.line_vat(li.amount, li.vat_rate),
+                    "position": idx,
+                }
+                for idx, li in enumerate(body.line_items)
+            ]
+            breakdown = vat.vat_breakdown(rows)
+            repo.replace_line_items(user_id, expense_id, rows)
+            patch["amount"] = breakdown["gross"]
+            patch["vat_amount"] = breakdown["vat_amount"]
+            if breakdown["rate_count"] > 0:
+                dominant = max(
+                    (r for r in breakdown["rates"] if r["rate"] > 0),
+                    key=lambda r: r["gross"],
+                )
+                patch["vat_rate"] = dominant["rate"]
+        elif body.vat_rate is not None or body.vat_amount is not None:
             amount = body.amount or patch.get("amount")
             if amount:
                 vat_info = vat.resolve_vat(amount, body.vat_rate, body.vat_amount)
                 patch["vat_amount"] = vat_info["vat_amount"]
                 patch["vat_rate"] = vat_info["vat_rate"]
     updated = repo.update_expense(user_id, expense_id, patch)
+    return {"expense": updated}
+
+
+@router.post("/{expense_id}/status")
+def set_status(
+    expense_id: str,
+    body: ExpenseStatusUpdate,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """Change just the ledger status (e.g. move a posted row back to review)."""
+    updated = repo.update_expense(user_id, expense_id, {"status": body.status})
+    if not updated:
+        raise HTTPException(status_code=404, detail="Expense not found")
     return {"expense": updated}
 
 

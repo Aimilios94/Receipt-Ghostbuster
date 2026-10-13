@@ -75,7 +75,28 @@ begin
   end if;
 end $$;
 
+-- expense_line_items ---------------------------------------------------------
+-- One row per itemized line on a receipt, each carrying its OWN VAT rate. This is
+-- what lets a single receipt hold multiple VAT rates (e.g. 6% food + 23% other):
+-- VAT is summed PER RATE in code from these lines, never flattened to one rate.
+-- `amount` is the gross (VAT-inclusive) line total; `vat_amount` is derived in code.
+-- Rows cascade-delete with their parent expense.
+create table if not exists public.expense_line_items (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  expense_id    uuid not null references public.expenses (id) on delete cascade,
+  description   text,
+  quantity      numeric(12,3),
+  unit_price    numeric(12,2),
+  amount        numeric(12,2),              -- gross (VAT-inclusive) line total
+  vat_rate      numeric(5,2),              -- per-line rate, e.g. 23.00 (%)
+  vat_amount    numeric(12,2),             -- computed in code from amount + rate
+  position      integer,                    -- preserve the printed order
+  created_at    timestamptz not null default now()
+);
+
 -- Helpful indexes ------------------------------------------------------------
+create index if not exists idx_line_items_expense on public.expense_line_items (user_id, expense_id);
 create index if not exists idx_expenses_user_date   on public.expenses (user_id, expense_date);
 create index if not exists idx_expenses_status      on public.expenses (user_id, status);
 create index if not exists idx_expenses_reconciled  on public.expenses (user_id, reconciled);
@@ -87,6 +108,7 @@ create index if not exists idx_bank_matched         on public.bank_transactions 
 -- ============================================================================
 alter table public.categories         enable row level security;
 alter table public.expenses           enable row level security;
+alter table public.expense_line_items enable row level security;
 alter table public.bank_transactions  enable row level security;
 
 -- One policy per table covering all verbs; owner = auth.uid().
@@ -98,6 +120,12 @@ create policy categories_owner on public.categories
 
 drop policy if exists expenses_owner on public.expenses;
 create policy expenses_owner on public.expenses
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists line_items_owner on public.expense_line_items;
+create policy line_items_owner on public.expense_line_items
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());

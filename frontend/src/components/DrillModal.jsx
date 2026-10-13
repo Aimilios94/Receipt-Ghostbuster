@@ -8,7 +8,8 @@ import { Modal, Badge } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
-import { money, shortDate, sourceLabel } from "../lib/format.js";
+import { money, shortDate, sourceLabel, vatByRate } from "../lib/format.js";
+import ExpenseEditModal from "./ExpenseEditModal.jsx";
 
 function paidWith(e) {
   return e.source === "card" ? "Card ending 4821" : sourceLabel(e.source);
@@ -28,10 +29,12 @@ function ReceiptCell({ expense, onView }) {
 }
 
 // mode: "amount" (default) | "vat" | "reconciled"
-export default function DrillModal({ title, subtitle, expenses, mode = "amount", onClose }) {
+// lineItemsByExpense: optional Map(expense_id -> [line items]) for per-line VAT.
+export default function DrillModal({ title, subtitle, expenses, mode = "amount", lineItemsByExpense, onClose }) {
   const [receipt, setReceipt] = useState(null);
   const [rows, setRows] = useState(expenses || []);
   const [busyId, setBusyId] = useState(null);
+  const [editing, setEditing] = useState(null);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -44,7 +47,7 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
     setBusyId(e.id);
     try {
       await api.deleteExpense(e.id);
-      ["expenses", "close", "exceptions", "review-queue", "subscriptions"].forEach((k) =>
+      ["expenses", "close", "exceptions", "review-queue", "subscriptions", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
       setRows((rs) => rs.filter((r) => r.id !== e.id));
@@ -60,18 +63,10 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
   const sumVat = rows.reduce((s, e) => s + Number(e.vat_amount || 0), 0);
   const matched = rows.filter((e) => e.reconciled || e.matched_transaction_id).length;
 
-  // VAT grouped by rate (each expense carries one rate; mixed-rate receipts store
-  // their dominant rate — a known simplification).
-  const vatByRate =
-    mode === "vat"
-      ? Object.entries(
-          rows.reduce((acc, e) => {
-            const key = e.vat_rate != null ? `${e.vat_rate}%` : "Unknown rate";
-            acc[key] = (acc[key] || 0) + Number(e.vat_amount || 0);
-            return acc;
-          }, {})
-        ).sort((a, b) => b[1] - a[1])
-      : [];
+  // VAT grouped by rate. When a receipt has itemized lines, it's split by each
+  // line's own rate (a mixed-rate ticket spans several buckets); otherwise the
+  // expense's single stored rate is used. Summed per rate in code.
+  const rateRows = mode === "vat" ? vatByRate(rows, lineItemsByExpense) : [];
 
   let summary;
   if (mode === "vat") summary = `VAT paid: ${money(sumVat)} · across ${money(sumAmount)} of spend`;
@@ -87,12 +82,12 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
           <span className="drill-sum-total num">{summary}</span>
         </div>
 
-        {mode === "vat" && vatByRate.length ? (
+        {mode === "vat" && rateRows.length ? (
           <div className="vat-rates">
-            {vatByRate.map(([rate, amt]) => (
-              <span className="vat-rate-chip" key={rate}>
-                <span className="vat-rate-pct">{rate}</span>
-                <span className="num">{money(amt)}</span>
+            {rateRows.map((r) => (
+              <span className="vat-rate-chip" key={r.label}>
+                <span className="vat-rate-pct">{r.label}</span>
+                <span className="num">{money(r.vat)}</span>
               </span>
             ))}
           </div>
@@ -125,7 +120,20 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
                     {mode === "vat" ? (
                       <td className="right num">
                         {e.vat_amount != null ? money(e.vat_amount) : "—"}
-                        {e.vat_rate ? <span className="cell-muted"> @{e.vat_rate}%</span> : null}
+                        {(() => {
+                          const lines = lineItemsByExpense?.get(e.id) || [];
+                          const rates = [
+                            ...new Set(lines.map((li) => li.vat_rate).filter((r) => r != null)),
+                          ];
+                          if (rates.length > 1)
+                            return (
+                              <span className="cell-muted">
+                                {" "}
+                                mixed · {rates.sort((a, b) => b - a).map((r) => `${r}%`).join(" · ")}
+                              </span>
+                            );
+                          return e.vat_rate ? <span className="cell-muted"> @{e.vat_rate}%</span> : null;
+                        })()}
                       </td>
                     ) : null}
                     {mode === "reconciled" ? (
@@ -141,16 +149,28 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
                       <ReceiptCell expense={e} onView={setReceipt} />
                     </td>
                     <td className="right">
-                      <button
-                        type="button"
-                        className="x-btn"
-                        title={`Delete ${e.vendor || "expense"}`}
-                        aria-label={`Delete ${e.vendor || "expense"}`}
-                        onClick={() => remove(e)}
-                        disabled={busyId === e.id}
-                      >
-                        <Icon.x size={15} />
-                      </button>
+                      <span style={{ display: "inline-flex", gap: 2, justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          className="x-btn"
+                          title={`Edit ${e.vendor || "expense"}`}
+                          aria-label={`Edit ${e.vendor || "expense"}`}
+                          onClick={() => setEditing(e)}
+                          disabled={busyId === e.id}
+                        >
+                          <Icon.edit size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="x-btn"
+                          title={`Delete ${e.vendor || "expense"}`}
+                          aria-label={`Delete ${e.vendor || "expense"}`}
+                          onClick={() => remove(e)}
+                          disabled={busyId === e.id}
+                        >
+                          <Icon.x size={15} />
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -166,6 +186,16 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
         <div className="overlay receipt-lightbox" onMouseDown={() => setReceipt(null)}>
           <img src={receipt} alt="Receipt" onMouseDown={(e) => e.stopPropagation()} />
         </div>
+      ) : null}
+
+      {editing ? (
+        <ExpenseEditModal
+          expense={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(saved) =>
+            setRows((rs) => rs.map((r) => (r.id === saved.id ? { ...r, ...saved } : r)))
+          }
+        />
       ) : null}
     </Modal>
   );

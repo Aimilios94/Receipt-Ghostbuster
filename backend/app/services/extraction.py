@@ -23,7 +23,7 @@ return ONLY a JSON object (no prose, no markdown fences) with exactly these keys
   "vat_amount": number|null,     // VAT shown on the receipt, if any
   "vat_rate": number|null,       // VAT percentage, e.g. 24
   "currency": string|null,       // ISO code if visible, else null
-  "line_items": [ { "description": string, "quantity": number|null, "unit_price": number|null, "amount": number|null } ],
+  "line_items": [ { "description": string, "quantity": number|null, "unit_price": number|null, "amount": number|null, "vat_rate": number|null } ],
   "confidence": number           // 0.0-1.0, YOUR confidence the fields are correct
 }
 
@@ -36,14 +36,29 @@ LINE ITEMS:
   including short receipts with only 2-3 items. Do NOT stop after the first item.
 - The line items should add up to (or close to) the printed total; if your items
   fall far short of the total, you have likely missed some — look again.
+- `amount` is the GROSS (VAT-inclusive) price for that line.
+
+PER-LINE VAT (important — these receipts can mix VAT rates on one ticket):
+- Portuguese receipts tag each line with a VAT CODE (a letter like A/B/C or a number)
+  and print a VAT SUMMARY table near the total mapping each code to a rate and base,
+  e.g. "A 23%", "B 13%", "C 6%". Portuguese rates are 23, 13 and 6 (Madeira/Azores
+  differ). Use that table to set each line's `vat_rate` to the correct percentage.
+- If a line shows no code and no rate can be inferred, set its `vat_rate` to null.
+- Put the per-line percentage (e.g. 23), NOT the VAT amount, in `vat_rate`. Keep the
+  top-level `vat_rate`/`vat_amount` as the receipt's overall/summary figures.
 
 DATE RULES (important — these receipts are European, from Portugal):
-- Printed dates are DAY-first, never US month-first. Read "DD/MM/YYYY" or "DD-MM-YYYY".
-  Example: "03/10/2026" means 3 October 2026 -> output "2026-10-03" (NOT 10 March).
-- A two-digit year like "26-10-09" is YY-MM-DD -> "2026-10-09". If a full four-digit
-  date also appears on the receipt, prefer that one.
-- Prefer the transaction/terminal date near the total or payment line over any other
-  printed date. Always output the date in ISO "YYYY-MM-DD".
+- The DOCUMENT date is printed near the TOP, by the invoice number (e.g.
+  "Nro:FS BEB002/322839 05/10/2026 12:34" or next to "Fatura"/"Fatura Simplificada").
+  Use THIS as the date. It is DAY-first "DD/MM/YYYY": "05/10/2026" -> "2026-10-05"
+  (5 October, NOT 10 May, NOT the 26th).
+- Printed dates are DAY-first, never US month-first. "03/10/2026" -> "2026-10-03".
+- Near the BOTTOM, the card-terminal block often prints a SHORT date like "26-10-05"
+  (this is YY-MM-DD = 2026-10-05, the SAME day). Do NOT read its last field ("05") as
+  the month or the first field ("26") as the day. When a full four-digit-year date
+  exists near the top, ALWAYS prefer that one and ignore the short terminal date.
+- Always output the date in ISO "YYYY-MM-DD". If two readings disagree, prefer the
+  top four-digit document date.
 
 Be conservative with confidence: if the image is blurry, cut off, rotated, or ambiguous, \
 report a low value. Do not invent values you cannot read."""
@@ -127,11 +142,15 @@ def _extract_mock(image_bytes: bytes, filename: str | None) -> dict[str, Any]:
     return {
         "vendor": "MOCK VENDOR (set LLM_PROVIDER=anthropic + key for real extraction)",
         "date": None,
-        "total": round(len(image_bytes) % 5000 / 100 + 1.0, 2),
+        "total": 12.30,
         "vat_amount": None,
-        "vat_rate": 24,
+        "vat_rate": 23,
         "currency": "EUR",
-        "line_items": [],
+        # Two rates on one ticket so the per-line VAT path is exercised in mock mode.
+        "line_items": [
+            {"description": "Bread (6%)", "quantity": 1, "unit_price": 2.12, "amount": 2.12, "vat_rate": 6},
+            {"description": "Cleaning spray (23%)", "quantity": 1, "unit_price": 10.18, "amount": 10.18, "vat_rate": 23},
+        ],
         "confidence": 0.5,
     }
 

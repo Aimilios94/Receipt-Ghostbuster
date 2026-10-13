@@ -58,8 +58,8 @@ Status: **planned** — not started.
 
 ## Planned improvements (from testing feedback)
 
-- **Per-line VAT.** Today each expense stores a single VAT rate, so a mixed-rate receipt (e.g. 13% + 23%) is flattened to its dominant rate. Add a line-item table so a receipt can hold multiple rate lines and VAT is summed per rate in code — real accounting rigor. *(Decided to build later — 2026-10-12.)*
-- **Duplicate detection at upload.** Flag likely duplicates when a receipt is uploaded, with a human double-check before posting (not only in reconciliation).
+- **Per-line VAT.** ✅ Built — an `expense_line_items` table holds one VAT rate per line, so a mixed-rate receipt (e.g. 6% + 23%) is summed per rate in code instead of flattened to its dominant rate (see [D12](DECISIONS.md#d12--per-line-vat-a-receipt-can-hold-multiple-rates-design)). Mechanism verified end-to-end against live Supabase; a real gpt-4o read of a mixed-rate receipt photo is the remaining confirmation step.
+- **Duplicate detection at upload.** ✅ Built — `/extract` checks for an existing row with the same vendor + amount + date and routes a match to the review queue with an in-app warning, before anything posts (see [D13](DECISIONS.md#d13--flag-duplicates-at-upload-before-they-post-r2)).
 - **LLM-assisted categorization** for vendors the rules miss (e.g. Continente → Groceries).
 
 ## Beyond v0.3 (future work)

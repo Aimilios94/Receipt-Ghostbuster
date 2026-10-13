@@ -73,6 +73,11 @@ export const api = {
       (r) => r.expense
     ),
   deleteExpense: (id) => request(`/expenses/${id}`, { method: "DELETE" }),
+  setExpenseStatus: (id, status) =>
+    request(`/expenses/${id}/status`, { method: "POST", body: { status } }).then((r) => r.expense),
+  // Per-line VAT: all line items (joined to the ledger client-side), or one receipt's.
+  lineItems: () => request("/expenses/line-items").then((r) => r.line_items),
+  expenseLineItems: (id) => request(`/expenses/${id}/line-items`),
 
   // ----- receipt extraction -----
   extract: (file, source = "card") => {

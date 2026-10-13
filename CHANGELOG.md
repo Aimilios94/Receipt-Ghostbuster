@@ -3,6 +3,40 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.2.2] — 2026-10-13
+
+Per-line VAT + Round 2 testing fixes — real accounting rigor for mixed-rate receipts, duplicate-at-upload, and ledger/editing ergonomics (see [D12](DECISIONS.md#d12--per-line-vat-a-receipt-can-hold-multiple-rates-design--r2), [D13](DECISIONS.md#d13--flag-duplicates-at-upload-before-they-post-r2), [feedback-notes Round 2](feedback-notes.md)).
+
+### Added
+- **`expense_line_items` table** — each itemized line stores its own VAT rate, so a single receipt can hold multiple rates (e.g. 6% food + 23% other) instead of being flattened to one dominant rate.
+- Extraction now reads **per-line VAT rates**, including the Portuguese VAT-code + summary-table convention; line items are persisted and cascade-delete with their expense.
+- `GET /expenses/{id}/line-items` and `GET /expenses/line-items`; `/extract` now returns `line_items` + a code-computed `vat_breakdown`.
+- VAT-by-rate drill-downs (dashboard VAT card + Ledger footer) now **split a mixed-rate receipt across rates** and show a "mixed" indicator per row; expenses without line items fall back to their single stored rate.
+
+- **Multi-rate VAT editor in the review queue** (from Round 2 testing on a real 3-rate Continente receipt) — add one VAT line per rate (description, € gross, rate 6/13/23/0), seeded from the extracted lines, with a **live per-rate breakdown** and the amount auto-synced to the lines' total. The confirm endpoint stores the lines and sums VAT per rate.
+- **Click a Ledger row → expense detail** (`ExpenseDetailModal`): the VAT categorized per rate, the itemized line items (amount + rate + VAT each), and the receipt image — for any row, including those surfaced by the duplicates filter.
+- **Receipt thumbnail column** in the Ledger (after Status) — a click opens the full receipt image.
+- **Post confirmation toast** now states what landed: *"Posted CONTINENTE — €11.58 incl. €1.00 VAT added to your ledger"* (was a bare "Posted"), so you don't have to open the Ledger to confirm.
+- **Change status from the Ledger** — the Status column is a dropdown (Posted / Needs review / Confirmed) backed by a new `POST /expenses/{id}/status`; move a posted row back to review in one click.
+- **Edit from the dashboard drill-downs** — every expense row in a drill-down (e.g. Spending by category) has an **Edit** action (`ExpenseEditModal`) to fix vendor/date/category and the per-rate VAT lines, reusing the same multi-rate editor.
+
+- **Duplicate detection at upload** (D13) — `/extract` flags a receipt that matches an existing ledger row (same vendor + amount + date), forces it to the review queue instead of auto-posting, and shows an in-modal warning naming the existing expense.
+- **Expense detail totals** — the Ledger row-detail now has a line-items total row and a grand-total strip (amount · incl. VAT · net).
+
+### Removed
+- Cleared the Phase-1 sample seed expenses from the working dataset so the ledger shows only real uploads (reload anytime with `scripts/load_sample_data.py`).
+
+### Simplified
+- The review Edit form dropped the redundant single "VAT rate" field; **all VAT now lives in the VAT-lines editor** (seeded with one line for single-rate receipts), so there's one consistent way to set VAT. The amount is always the sum of the lines.
+
+### Changed
+- A receipt's stored `vat_amount` is now the **sum of its per-rate VAT** (computed in code) when lines carry rates; the dominant rate is kept for the single-rate display.
+- VAT per rate is computed **bucket-first** (VAT on each rate's gross total, split once) so it matches the printed Portuguese IVA summary to the cent — fixes a per-line €0.01 rounding drift.
+- Extraction prompt reads the **top `DD/MM/YYYY` invoice date** as primary and ignores the bottom card-terminal `YY-MM-DD` line (fixes a real "date in the future" misread, extends D7).
+- Backend tests: **53 passing** (added per-line VAT / breakdown / bucket-rounding coverage).
+
+> Verified end-to-end against live Supabase: the real 3-rate Continente receipt (`1000017708.jpg`) reconciles to 6% €0.32 · 13% €0.66 · 23% €0.02 = €1.00, gross €11.58 — matching the printed IVA summary exactly. Remaining real-testing step: re-upload through gpt-4o with the fixed date prompt and confirm it auto-reads the 3 rates.
+
 ## [0.2.1] — 2026-10-12
 
 Post-feedback UX & extraction improvements (from Round 1 testing — see [feedback-notes.md](feedback-notes.md)).

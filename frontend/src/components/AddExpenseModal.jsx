@@ -4,11 +4,11 @@ import { Modal, Button } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
-import { currentMonth } from "../lib/format.js";
+import { currentMonth, money, shortDate } from "../lib/format.js";
 
 // Invalidate everything the new expense could touch.
 function refreshAll(qc) {
-  ["expenses", "review-queue", "exceptions", "close"].forEach((k) =>
+  ["expenses", "review-queue", "exceptions", "close", "line-items"].forEach((k) =>
     qc.invalidateQueries({ queryKey: [k] })
   );
 }
@@ -37,6 +37,8 @@ export default function AddExpenseModal({ onClose, defaultTab = "snap", defaultS
         {tab === "snap" ? (
           <SnapForm
             defaultSource={defaultSource}
+            onRefresh={() => refreshAll(qc)}
+            onClose={onClose}
             onDone={(res) => {
               refreshAll(qc);
               if (res.gated_to === "pending_review") {
@@ -67,12 +69,13 @@ export default function AddExpenseModal({ onClose, defaultTab = "snap", defaultS
   );
 }
 
-function SnapForm({ onDone, defaultSource }) {
+function SnapForm({ onDone, onRefresh, onClose, defaultSource }) {
   const [file, setFile] = useState(null);
   const [source, setSource] = useState(defaultSource);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [issues, setIssues] = useState([]);
+  const [dup, setDup] = useState(null);
   const [drag, setDrag] = useState(false);
   const inputRef = useRef();
 
@@ -89,6 +92,13 @@ function SnapForm({ onDone, defaultSource }) {
         setIssues(res.issues || []);
         return;
       }
+      // Possible duplicate — show it, keep the modal open so the user double-checks.
+      // The expense was created in the review queue (never auto-posted).
+      if (res.duplicate_of?.length) {
+        onRefresh?.();
+        setDup({ match: res.duplicate_of[0], created: res.expense });
+        return;
+      }
       onDone(res);
     } catch (e) {
       setErr(e.message);
@@ -96,6 +106,23 @@ function SnapForm({ onDone, defaultSource }) {
       setBusy(false);
     }
   };
+
+  if (dup) {
+    const m = dup.match;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="error-banner" style={{ margin: 0 }}>
+          <b>Possible duplicate.</b> You already have <b>{m.vendor}</b> for {money(m.amount)} on{" "}
+          {shortDate(m.expense_date)} in your ledger. This new receipt was sent to your{" "}
+          <b>review queue</b> — nothing posts until you confirm it there, so you can compare the two
+          and discard whichever is the duplicate.
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <Button variant="primary" onClick={onClose}>Got it</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

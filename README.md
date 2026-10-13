@@ -25,6 +25,8 @@ See the full plan and status in **[roadmap.md](roadmap.md)**.
   Receipt snap + cash/manual entry → vision-LLM extraction → confidence gate + deterministic guardrails → rules categorization + VAT (computed in code) → bank CSV import → reconciliation → month-scoped exceptions → monthly close. Screens: Dashboard, Review queue, Reconciliation, Monthly close, Ledger.
 - **v0.2 — Refund Hunter ✅ shipped**
   Detects recurring charges, flags unused ones, drafts cancel/refund emails (draft-only), and delivers them as real **Gmail drafts** via n8n. Plus: clickable dashboard drill-downs, per-rate VAT breakdown, duplicate surfacing, and a richer review/edit flow.
+- **v0.2.2 — Per-line VAT & testing fixes ✅ shipped**
+  **Per-line VAT** (a receipt can hold multiple rates — summed per rate in code, bucket-rounded to match the printed IVA summary), a **multi-rate VAT editor** in the review queue, **duplicate detection at upload**, clickable Ledger rows → full expense detail, editable rows, and clickable status. From the Round 2 testing session (see [feedback-notes.md](feedback-notes.md)).
 - **v0.3 — Advice ⬜ planned**
   Budget-vs-actual variance, rule-based overspend nudges, and an insights feed.
 
@@ -70,7 +72,7 @@ Supabase (Postgres + Auth + Storage)   n8n (Docker, :5678) → Gmail draft (draf
 
 - **Extraction:** verified end-to-end on real Portuguese receipts (vendor, total, date, VAT, line items) on upright photos; routes bad/rotated photos to review instead of mis-posting.
 - **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest).
-- **Tests:** 46 passing (reconciliation, VAT, duplicates, close, exceptions, validation, subscriptions).
+- **Tests:** 53 passing (reconciliation, VAT incl. per-line/mixed-rate + receipt-matching bucket rounding, duplicates, close, exceptions, validation, subscriptions).
 - **Impact:** turns a manual personal month-end into minutes; surfaces forgotten subscriptions by annual cost.
 
 > A measured **extraction-accuracy table** (field-level accuracy over a labeled receipt set) is the next deliverable — the eval harness is in progress.
@@ -148,4 +150,4 @@ Multi-currency / FX · full double-entry bookkeeping · tax-return generation ·
 
 ## Future work
 
-A hosted live demo · a mobile app · support for more banks (more CSV formats / open-banking) · more languages/locales for receipts and VAT rules · **per-line VAT** (multiple rates per receipt). See [roadmap.md](roadmap.md).
+A hosted live demo · a mobile app · support for more banks (more CSV formats / open-banking) · more languages/locales for receipts and VAT rules. (**Per-line VAT** — multiple rates per receipt — is now built; see [D12](DECISIONS.md).) See [roadmap.md](roadmap.md).

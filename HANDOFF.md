@@ -6,7 +6,68 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-12, end of day 3)
+## 🟢 RESUME HERE — current status (as of 2026-10-13, end of day 4)
+
+**Day 4 = Round 2 real-testing session (user driving) → per-line VAT + a batch of fixes, all shipped
+as `v0.2.2`.** The user uploaded real mixed-rate Portuguese receipts; every issue was fixed and
+verified the same day. **53 pytest pass, frontend build clean, verified end-to-end against live
+Supabase.** Backend is running on :8000 with the **OpenAI** provider.
+
+**What day 4 shipped (newest first):**
+- **Duplicate detection at upload (D13):** `/extract` now checks the ledger for an existing row with the
+  same vendor + amount + date (`repo.find_duplicates`). A match is forced into the review queue (never
+  auto-posts) and the snap modal shows an in-app warning naming the existing expense. Response carries
+  `duplicate_of`. Verified live.
+- **Ledger ergonomics:** rows are **clickable → `ExpenseDetailModal`** (per-rate VAT + line items with
+  amount/rate/VAT each + a totals row + grand-total strip + receipt image); a **receipt-thumbnail
+  column** after Status; the **Status cell is a dropdown** (Posted / Needs review / Confirmed) backed by
+  new `POST /expenses/{id}/status`.
+- **Editing:** the review Edit form dropped the redundant single "VAT rate" field — all VAT now lives in a
+  reusable **`VatLinesEditor`** (multi-rate, seeded with one line for single-rate receipts; amount = sum
+  of lines). Dashboard drill-down rows got an **Edit** action (`ExpenseEditModal`, reuses the editor).
+- **Post confirmation toast** now states what landed ("Posted CONTINENTE — €11.58 incl. €1.00 VAT added
+  to your ledger").
+- **Per-line VAT engine (D12):** `expense_line_items` table (one rate per line); `vat.vat_breakdown`
+  sums VAT **bucket-first** (VAT on each rate's gross total) so it matches the printed Portuguese IVA
+  summary to the cent; extraction reads per-line rates (Portuguese VAT-code/summary-table convention);
+  expense `vat_amount` = per-rate sum, dominant rate kept for single-rate display. Migration applied to
+  live Supabase via `scripts/apply_schema.py` (idempotent).
+- **Extraction date fix (extends D7):** prompt prefers the top `DD/MM/YYYY` invoice date, ignores the
+  bottom `YY-MM-DD` card-terminal line (a real "date in the future" misread). Reduces but doesn't fully
+  eliminate date misreads on crumpled receipts — the date is editable in review as the fallback.
+- **Data cleanup (user request):** deleted the 11 Phase-1 sample seed expenses + the 3 stale misread-2023
+  test uploads from the LIVE DB. **The ledger now shows only the user's 8 real rows** (Oct-2026
+  Continente/Pingo Doce uploads + one manual "Egyptian Restaurant"). The dashboard now opens on
+  **October 2026**. ⚠️ Sample **bank transactions** + **Phase-2 subscription demo** data are STILL
+  loaded (they power Reconciliation/Refund Hunter). **Reload expense samples before any recruiter demo:**
+  `cd backend && ./.venv/Scripts/python.exe scripts/load_sample_data.py`.
+
+### 👋 Message to tomorrow's agent (read this)
+Nothing is broken or mid-flight; everything day 4 is committed and pushed as `v0.2.2`. When you resume:
+1. Read this RESUME section + the auto-memory file (path at bottom) + **DECISIONS.md** (now D1–D13) and
+   **feedback-notes.md** (Rounds 1 + 2 are the live product-engineering record). Keep the **authenticity
+   rule**: real testing → real feedback-notes → real decisions. Never invent feedback or metrics.
+2. Start the three servers (commands below). **Check the two 7-day expiries first** (Supabase pause, n8n
+   Gmail OAuth — memory `demo-prep-7day-expiries`). Run exactly ONE backend uvicorn, **no `--reload`**
+   (Windows orphans the port). The backend reads provider/keys from `backend/.env` (OpenAI gpt-4o).
+3. **Do NOT re-litigate settled decisions** (stack, phasing, hybrid n8n, draft-only, cash-excluded,
+   per-line VAT bucket rounding). Confirm priority with the user before large new directions.
+4. **Open items, in the user's chosen order:**
+   - **LLM-assisted categorization** — the last item in DECISIONS "Planned". Rules return "Uncategorized"
+     for vendors like Continente/PD OLAIAS/Pingo Doce. Have the LLM suggest a category during extraction
+     (it's already reading the receipt) or expand the keyword rules.
+   - **Extraction-accuracy eval harness** (`backend/scripts/eval_extraction.py` + labeled receipts the
+     user supplies) to fill the README "Results" number — authentic, not invented.
+   - Possibly model the **discount / "Poupança"** line as a first-class concept (a receipt's items can
+     sum above the amount paid — see the Pingo Doce `1000017701.jpg` case in feedback-notes R2).
+   - Then **Phase 3 — Advice** (budget vs actual, overspend nudges, insights feed) and a **hosted demo**.
+5. Test receipts live in the PARENT folder `C:\Users\aimilios\Desktop\CV-creation\` (`1000017700.jpg`,
+   `1000017701.jpg` Pingo Doce 3-rate+discount, `1000017708.jpg` Continente 3-rate, `84/85`, etc.) —
+   NOT inside the repo. Receipts are uploaded through the app UI.
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-12, end of day 3)
 
 **Where we are:** Phase 1 + Phase 2 are complete and pushed. **Day 3 was a product-engineering
 pivot:** we did NOT add Phase 3 yet. Instead we (a) set up the recruiter-facing **doc system**

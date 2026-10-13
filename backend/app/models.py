@@ -9,6 +9,22 @@ from pydantic import BaseModel, Field
 
 
 # --- Manual / cash expense entry (T3) --------------------------------------
+class LineItemInput(BaseModel):
+    """A single VAT line the user enters/edits (per-line VAT). `amount` is the
+    gross (VAT-inclusive) line total; VAT is computed in code from amount + rate."""
+    description: str | None = None
+    amount: float = Field(gt=0)
+    vat_rate: float | None = None
+    quantity: float | None = None
+    unit_price: float | None = None
+
+
+class ExpenseStatusUpdate(BaseModel):
+    """Change an expense's ledger status from the Ledger (e.g. send a posted row
+    back to review). Reconciliation is a separate flag and isn't touched here."""
+    status: Literal["pending_review", "confirmed", "posted"]
+
+
 class ExpenseCreate(BaseModel):
     amount: float = Field(gt=0)
     category: str | None = None
@@ -19,6 +35,9 @@ class ExpenseCreate(BaseModel):
     currency: str | None = None            # defaults to DEFAULT_CURRENCY
     vat_rate: float | None = None          # optional; if given we compute vat_amount
     vat_amount: float | None = None        # optional explicit override
+    # Optional multi-rate breakdown: when present, VAT is summed PER RATE in code
+    # from these lines (a mixed-rate receipt), overriding the single vat_rate above.
+    line_items: list[LineItemInput] | None = None
 
 
 # --- Extraction (T4/T5) -----------------------------------------------------
@@ -27,6 +46,7 @@ class LineItem(BaseModel):
     quantity: float | None = None
     unit_price: float | None = None
     amount: float | None = None
+    vat_rate: float | None = None          # per-line VAT rate (%), e.g. 23
 
 
 class ExtractionResult(BaseModel):

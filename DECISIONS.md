@@ -83,10 +83,22 @@ Legend for Evidence source: `[design]` = decided up front from the problem; `[R1
 - **Decision:** The duplicate exception deep-links to `Ledger?view=duplicates` (auto-filtered); duplicate rows show a "Possible duplicate" badge + highlight + delete.
 - **Result:** The pair sits side by side, impossible to miss, one click to remove the extra.
 
+## D12 — Per-line VAT: a receipt can hold multiple rates `[design]` + `[R2]`
+
+- **Problem:** Each expense stored a single VAT rate, so a mixed-rate receipt (e.g. 6% + 13% + 23% on one Continente ticket) was flattened to its dominant rate. The "VAT by rate" view then put the whole receipt's VAT in one bucket — subtly wrong, and it understated the accounting rigor the project is meant to prove.
+- **Evidence:** Round 1 logged this as a known simplification; **Round 2** confirmed it on a real 3-rate Continente receipt (`1000017708.jpg`) where the review Edit form only let the user enter one rate (see [feedback-notes.md](feedback-notes.md) R2). Portuguese receipts tag each line with a VAT code and print a summary table mapping codes to rates — the information to do this correctly is on the receipt.
+- **Decision:** Add an `expense_line_items` table; each line carries its own `vat_rate`. VAT is **summed per rate in code** (`vat.vat_breakdown`, Decimal). It's computed **bucket-first** — VAT is split once on each rate's *gross total*, not summed per line — so it reconciles to the printed Portuguese IVA summary to the cent. The expense's stored `vat_amount` becomes the per-rate sum; the dominant rate is kept for the single-rate display. The breakdown is produced by extraction **and** by a **multi-rate editor in the review queue** (add one line per rate), so a mis-read or manually-entered receipt can be corrected by hand. Dashboard/Ledger VAT-by-rate views split a mixed receipt across rates, falling back to the single stored rate for expenses with no line items.
+- **Result:** Verified end-to-end against live Supabase. The real 3-rate Continente receipt reconciles to **6% €0.32 · 13% €0.66 · 23% €0.02 = €1.00**, gross €11.58 — matching the printed IVA summary exactly (bucket rounding fixed a per-line €0.01 drift). Line items cascade-delete with the expense. *(Remaining real-test step: re-upload the receipt through gpt-4o with the fixed date prompt and confirm it auto-reads the 3 rates vs. entering them in review.)*
+
+## D13 — Flag duplicates at upload, before they post `[R2]`
+
+- **Problem:** Duplicate detection only ran during reconciliation, so a re-uploaded receipt could auto-post to the ledger and only surface as a duplicate later.
+- **Evidence (R2):** With a clean ledger, re-snapping the same receipt would silently create a second identical row.
+- **Decision:** `/extract` now checks the ledger at upload time for an existing row with the **same vendor + amount + date** (`repo.find_duplicates`). A match **forces the receipt into the review queue** (never auto-posts) with a clear reason, and the response carries `duplicate_of`. The snap screen shows an in-modal warning naming the existing expense so the user can compare and discard whichever is the duplicate. Consistent with the human-confirm-gate rule (D1) and the duplicate-surfacing work (D11).
+- **Result:** Verified end-to-end — a second identical upload returns `duplicate_of` and routes to review with "Possible duplicate — … already in your ledger. Check before posting." Nothing posts automatically.
+
 ---
 
 ## Planned (decided, not yet built)
 
-- **Per-line VAT** — each expense currently stores one VAT rate, so a mixed-rate receipt is flattened to its dominant rate. Add a line-item table and sum VAT per rate in code. *(Decided 2026-10-12 to build later.)* See [roadmap.md](roadmap.md).
-- **Duplicate detection at upload** — flag likely duplicates before posting, not only in reconciliation.
 - **LLM-assisted categorization** — for vendors the rules miss (e.g. Continente → Groceries).

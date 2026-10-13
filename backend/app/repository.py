@@ -30,6 +30,32 @@ def list_bank_transactions(user_id: str) -> list[dict[str, Any]]:
     )
 
 
+def find_duplicates(
+    user_id: str, vendor: str | None, amount: float | None, expense_date: str | None
+) -> list[dict[str, Any]]:
+    """Existing ledger rows that look like the SAME purchase (same vendor + amount
+    + date) — used to flag a likely duplicate at upload time, before posting."""
+    if not vendor or amount is None or not expense_date:
+        return []
+    rows = (
+        get_supabase()
+        .table("expenses")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("expense_date", expense_date)
+        .execute()
+        .data
+        or []
+    )
+    v = vendor.strip().lower()
+    return [
+        r
+        for r in rows
+        if (r.get("vendor") or "").strip().lower() == v
+        and abs(float(r.get("amount") or 0) - float(amount)) < 0.005
+    ]
+
+
 def insert_expense(user_id: str, row: dict[str, Any]) -> dict[str, Any]:
     row = {**row, "user_id": user_id}
     return get_supabase().table("expenses").insert(row).execute().data[0]
@@ -59,6 +85,82 @@ def delete_expense(user_id: str, expense_id: str) -> bool:
         .data
     )
     return bool(data)
+
+
+# --- Line items (per-line VAT) ---------------------------------------------
+def insert_line_items(
+    user_id: str, expense_id: str, items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Persist a receipt's line items (each carrying its own VAT rate). Rows
+    cascade-delete with the parent expense via the FK."""
+    if not items:
+        return []
+    payload = [
+        {**item, "user_id": user_id, "expense_id": expense_id} for item in items
+    ]
+    return (
+        get_supabase().table("expense_line_items").insert(payload).execute().data or []
+    )
+
+
+def delete_line_items(user_id: str, expense_id: str) -> None:
+    get_supabase().table("expense_line_items").delete().eq("user_id", user_id).eq(
+        "expense_id", expense_id
+    ).execute()
+
+
+def replace_line_items(
+    user_id: str, expense_id: str, items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Swap an expense's line items for a new set (used when the user edits the
+    VAT breakdown in the review queue). Delete-then-insert, scoped to the owner."""
+    delete_line_items(user_id, expense_id)
+    return insert_line_items(user_id, expense_id, items)
+
+
+def list_line_items(user_id: str, expense_id: str) -> list[dict[str, Any]]:
+    return (
+        get_supabase()
+        .table("expense_line_items")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("expense_id", expense_id)
+        .order("position")
+        .execute()
+        .data
+        or []
+    )
+
+
+def list_all_line_items(user_id: str) -> list[dict[str, Any]]:
+    """Every line item the user owns — the frontend joins these to the ledger by
+    expense_id to aggregate VAT by rate across many receipts."""
+    return (
+        get_supabase()
+        .table("expense_line_items")
+        .select("*")
+        .eq("user_id", user_id)
+        .execute()
+        .data
+        or []
+    )
+
+
+def list_line_items_for(user_id: str, expense_ids: list[str]) -> list[dict[str, Any]]:
+    """All line items for a set of expenses (one query), for dashboard/ledger
+    VAT-by-rate aggregation across many receipts."""
+    if not expense_ids:
+        return []
+    return (
+        get_supabase()
+        .table("expense_line_items")
+        .select("*")
+        .eq("user_id", user_id)
+        .in_("expense_id", expense_ids)
+        .execute()
+        .data
+        or []
+    )
 
 
 def insert_bank_transactions(user_id: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

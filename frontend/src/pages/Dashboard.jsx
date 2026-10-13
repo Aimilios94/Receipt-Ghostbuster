@@ -12,6 +12,7 @@ import {
   flattenExceptions,
   LedgerTable,
 } from "../components/sections.jsx";
+import { postedMessage } from "./ReviewQueue.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import ImportBankModal from "../components/ImportBankModal.jsx";
 import DrillModal from "../components/DrillModal.jsx";
@@ -30,6 +31,8 @@ export default function Dashboard() {
 
   const expQ = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
   const reviewQ = useQuery({ queryKey: ["review-queue"], queryFn: api.reviewQueue });
+  // Line items drive the per-rate VAT breakdown (mixed-rate receipts).
+  const liQ = useQuery({ queryKey: ["line-items"], queryFn: api.lineItems });
 
   const expenses = expQ.data || [];
   // Open on the latest month that has data, not an empty current month.
@@ -42,6 +45,16 @@ export default function Dashboard() {
   const close = closeQ.data;
   const review = reviewQ.data || [];
   const excList = flattenExceptions(excQ.data);
+
+  // expense_id -> [line items], for the per-rate VAT drill-down.
+  const lineItemsByExpense = useMemo(() => {
+    const m = new Map();
+    for (const li of liQ.data || []) {
+      if (!m.has(li.expense_id)) m.set(li.expense_id, []);
+      m.get(li.expense_id).push(li);
+    }
+    return m;
+  }, [liQ.data]);
 
   // Confirmed ledger entries for the month on screen. Receipts still in review
   // (pending_review) are NOT on the ledger, so they're excluded here — this keeps
@@ -126,11 +139,11 @@ export default function Dashboard() {
   const postReview = async (exp, patch) => {
     setBusyId(exp.id);
     try {
-      await api.confirmExpense(exp.id, patch);
-      ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
+      const posted = await api.confirmExpense(exp.id, patch);
+      ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
-      toast(`Posted ${patch?.vendor || exp.vendor || "expense"}`);
+      toast(postedMessage(posted, exp, patch));
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -142,7 +155,7 @@ export default function Dashboard() {
     setBusyId(exp.id);
     try {
       await api.deleteExpense(exp.id);
-      ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
+      ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
       toast("Discarded");
@@ -333,6 +346,7 @@ export default function Dashboard() {
           subtitle={drill.subtitle}
           expenses={drill.expenses}
           mode={drill.mode}
+          lineItemsByExpense={lineItemsByExpense}
           onClose={() => setDrill(null)}
         />
       )}

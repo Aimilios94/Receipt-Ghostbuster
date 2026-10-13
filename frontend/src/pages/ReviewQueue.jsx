@@ -1,11 +1,22 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
+import { money } from "../lib/format.js";
 import { Card, Loading, ErrorBanner, Empty, Button } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import { ReviewItem } from "../components/sections.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import { useToast } from "../components/toast.jsx";
+
+// Confirmation message after posting — states what landed on the ledger, so the
+// user doesn't have to open the Ledger to confirm the amount + VAT went through.
+export function postedMessage(posted, exp, patch) {
+  const who = posted?.vendor || patch?.vendor || exp.vendor || "Expense";
+  const amount = posted?.amount ?? patch?.amount ?? exp.amount;
+  const vat = posted?.vat_amount;
+  const vatPart = vat ? ` incl. ${money(vat)} VAT` : "";
+  return `Posted ${who} — ${money(amount)}${vatPart} added to your ledger`;
+}
 
 export default function ReviewQueue() {
   const qc = useQueryClient();
@@ -22,11 +33,11 @@ export default function ReviewQueue() {
   const post = async (exp, patch) => {
     setBusyId(exp.id);
     try {
-      await api.confirmExpense(exp.id, patch);
-      ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
+      const posted = await api.confirmExpense(exp.id, patch);
+      ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
-      toast(`Posted ${patch?.vendor || exp.vendor || "expense"}`);
+      toast(postedMessage(posted, exp, patch));
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -38,7 +49,7 @@ export default function ReviewQueue() {
     setBusyId(exp.id);
     try {
       await api.deleteExpense(exp.id);
-      ["review-queue", "expenses", "exceptions", "close"].forEach((k) =>
+      ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
       toast("Discarded");

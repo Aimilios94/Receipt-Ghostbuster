@@ -54,3 +54,27 @@
 **Carried into [DECISIONS.md](DECISIONS.md):** D6 (guardrails), D7 (Portuguese dates), D8 (confirmed-only ledger), D9 (photo quality + capture hint), D10 (dashboard traceability), D11 (duplicate surfacing). Planned from this round: per-line VAT, duplicate-at-upload, LLM categorization.
 
 **Round 1 outcome:** 9 observations, all actioned the same day — 7 fixed/shipped, 3 logged as planned. Receipt extraction verified working on upright photos (Pingo Doce, Continente); fails safe (routes to review) on a rotated/crumpled photo. The feedback→decision→fix loop ran end-to-end.
+
+---
+
+## Round 2 — 2026-10-13 (self-testing, developer) — per-line VAT on a real mixed-rate receipt
+
+**Setup:** local build (backend `:8000` OpenAI gpt-4o, frontend `:5173`), uploaded a real **Continente** receipt (`1000017708.jpg`) with **three VAT rates** on one ticket (printed IVA summary: A 6% → €0.32, B 13% → €0.66, C 23% → €0.02; total €11.58).
+
+**Tester:** Aimilios (developer self-test).
+
+**What was exercised:** receipt upload → review queue → edit → per-rate VAT.
+
+**Observations:**
+
+- **Date misread → "in the future" → review.** The extractor returned `2026-10-26`, which the guardrail correctly flagged as a future date (today 2026-10-13) and routed to review. The receipt's real date is **2026-10-05** (printed `05/10/2026` by the invoice number). The model had picked up the bottom card-terminal line `26-10-05` (YY-MM-DD) and read the `26` as the day. → **FIXED:** the extraction prompt now points at the top `DD/MM/YYYY` invoice date as primary and explicitly says not to read the bottom `YY-MM-DD` terminal line's fields as day/month. (The date was always editable in review as a fallback.)
+- **Edit form only allowed ONE VAT rate.** The receipt has 6% + 13% + 23% lines, but review Edit offered a single VAT-rate field — no way to enter a real mixed-rate receipt by hand. → **FIXED:** the Edit form now has a **multi-rate VAT editor** — add one line per rate (description, € gross, rate 6/13/23/0), seeded from the extracted line items; the backend sums VAT **per rate in code** and stores the lines. Amount auto-syncs to the lines' total.
+- **Couldn't find the detailed per-rate VAT.** User looked on the dashboard and ledger and couldn't see the breakdown. → **CAUSE:** (a) while a receipt is in review it isn't on the ledger yet; (b) the dashboard is **month-scoped** to the September sample data, so an October receipt only appears on the **Ledger** (all months); (c) the breakdown opens by **clicking** the VAT number. → **FIXED/ADDRESSED:** the per-rate breakdown now shows **live inside the Edit form** as you set the rates; after posting it's on **Ledger → click the "VAT" total** in the footer (and the Dashboard "VAT paid" card for the receipt's month).
+- **Bucket rounding bug caught during the fix.** Summing VAT **per line** gave 13% → €0.67 / total €1.01, but the receipt prints €0.66 / €1.00. → **FIXED:** VAT is now computed on each rate's **gross bucket total** (split once per rate), matching the printed Portuguese IVA summary to the cent.
+
+**Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):**
+1. **Per-line VAT is manually editable, not just extracted** — the review Edit form is a full multi-rate editor. ✅ built (extends D12).
+2. **VAT per rate uses bucket rounding** (VAT on the rate's gross total), matching how receipts print it. ✅ built (D12).
+3. **Date reading** prefers the top four-digit invoice date over the bottom terminal short date. ✅ fixed (extends D7).
+
+**Round 2 outcome:** 4 observations, all fixed the same day. Verified end-to-end against live Supabase: the real 3-rate Continente receipt reconciles to **6% €0.32 · 13% €0.66 · 23% €0.02 = €1.00**, gross €11.58 — matching the printed IVA summary exactly. Remaining real-test step: re-upload `1000017708.jpg` through gpt-4o now that the date prompt is fixed, confirm it auto-reads the 3 rates (vs. entering them by hand in review).

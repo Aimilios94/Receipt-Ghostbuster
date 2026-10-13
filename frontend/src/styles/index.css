@@ -1228,6 +1228,50 @@ table.ledger tbody tr:hover {
   color: var(--text-muted);
 }
 
+/* multi-rate VAT editor in the review Edit form */
+.vat-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.vat-lines-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.vat-lines-head label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.vat-line-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vat-line-row .input:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.vat-lines-sum {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.vat-lines-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
 /* clickable VAT total in the ledger footer */
 .vat-total-btn {
   border: none;
@@ -1253,6 +1297,119 @@ table.ledger tbody tr:hover {
 /* possible-duplicate rows in the ledger */
 .ledger tr.row-dup > td {
   background: rgba(245, 158, 11, 0.09);
+}
+
+/* clickable ledger rows -> expense detail */
+.ledger tr.row-click {
+  cursor: pointer;
+}
+.ledger tr.row-click:hover > td {
+  background: var(--surface-2);
+}
+.ledger tr.row-click:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* clickable status selector in the ledger */
+.status-select {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.status-select:hover {
+  border-color: var(--primary);
+}
+.status-select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* receipt thumbnail in the ledger */
+.receipt-thumb {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  overflow: hidden;
+  display: inline-flex;
+}
+.receipt-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.receipt-thumb:hover {
+  border-color: var(--primary);
+}
+.receipt-thumb:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* expense detail modal */
+.detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.detail-head-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.detail-head-amt {
+  font-size: 20px;
+  font-weight: 580;
+  color: var(--text);
+}
+.detail-section-label {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.ledger tfoot .detail-total-row > td {
+  border-top: 2px solid var(--border);
+  font-weight: 560;
+  color: var(--text);
+  padding-top: 10px;
+}
+.detail-total {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 2px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.detail-total > span:first-child {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.detail-total .num {
+  font-size: 18px;
+  font-weight: 580;
+  color: var(--text);
 }
 
 /* receipt lightbox (sits above the drill-down modal) */
