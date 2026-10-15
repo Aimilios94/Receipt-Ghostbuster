@@ -75,6 +75,8 @@ export const api = {
   deleteExpense: (id) => request(`/expenses/${id}`, { method: "DELETE" }),
   setExpenseStatus: (id, status) =>
     request(`/expenses/${id}/status`, { method: "POST", body: { status } }).then((r) => r.expense),
+  setExpenseCategory: (id, category) =>
+    request(`/expenses/${id}/category`, { method: "POST", body: { category } }).then((r) => r.expense),
   // Per-line VAT: all line items (joined to the ledger client-side), or one receipt's.
   lineItems: () => request("/expenses/line-items").then((r) => r.line_items),
   expenseLineItems: (id) => request(`/expenses/${id}/line-items`),

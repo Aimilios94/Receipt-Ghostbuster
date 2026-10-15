@@ -27,6 +27,8 @@ See the full plan and status in **[roadmap.md](roadmap.md)**.
   Detects recurring charges, flags unused ones, drafts cancel/refund emails (draft-only), and delivers them as real **Gmail drafts** via n8n. Plus: clickable dashboard drill-downs, per-rate VAT breakdown, duplicate surfacing, and a richer review/edit flow.
 - **v0.2.2 — Per-line VAT & testing fixes ✅ shipped**
   **Per-line VAT** (a receipt can hold multiple rates — summed per rate in code, bucket-rounded to match the printed IVA summary), a **multi-rate VAT editor** in the review queue, **duplicate detection at upload**, clickable Ledger rows → full expense detail, editable rows, and clickable status. From the Round 2 testing session (see [feedback-notes.md](feedback-notes.md)).
+- **v0.2.3 — Extraction robustness & review UX ✅ shipped**
+  From a Round 3 session on hard real receipts (3-rate, discounted, no-VAT, sideways, crumpled): **LLM categorization**, the **printed IVA table as VAT source of truth**, **estimated VAT** when none is printed (clearly flagged), **discount handling**, **server-side auto-rotation** (Pillow), **date year-repair**, a **self-consistency guardrail** + **retake** flow, editable Ledger category, and clickable/deletable reconciliation exceptions. Backend tests **53 → 80** (see [feedback-notes.md](feedback-notes.md), [D14–D21](DECISIONS.md)).
 - **v0.3 — Advice ⬜ planned**
   Budget-vs-actual variance, rule-based overspend nudges, and an insights feed.
 
@@ -40,7 +42,8 @@ See the full plan and status in **[roadmap.md](roadmap.md)**.
 | **Cash vs bank is first-class** | Cash counts in totals but is *excluded from reconciliation* — so it never shows as a false "unmatched" exception. | [D3](DECISIONS.md) |
 | **One ledger is the source of truth** | Every dashboard number drills down to the exact expenses behind it (with receipt view). Nothing double-entered. | [D10](DECISIONS.md) |
 | **Nothing financial auto-sends** | Cancellation emails are **draft-only** — n8n creates a Gmail draft, you send it. | [D4](DECISIONS.md) |
-| **Fails safe on bad input** | A crumpled/rotated photo is routed to review with reasons, not silently mis-posted. | [D9](DECISIONS.md) |
+| **Fails safe on bad input** | A sideways photo is **auto-rotated** server-side; a crumpled/unreliable read (incl. a VAT table that disagrees with its own item lines) is routed to review with reasons and a **retake** option, not silently mis-posted. | [D9](DECISIONS.md), [D20](DECISIONS.md), [D21](DECISIONS.md) |
+| **Reads, never guesses** | The printed IVA summary table is the VAT source of truth; discounts are modelled, not treated as products; VAT it can't read is clearly marked an **estimate** for you to confirm. | [D14](DECISIONS.md), [D17](DECISIONS.md), [D18](DECISIONS.md) |
 
 ---
 
@@ -72,7 +75,7 @@ Supabase (Postgres + Auth + Storage)   n8n (Docker, :5678) → Gmail draft (draf
 
 - **Extraction:** verified end-to-end on real Portuguese receipts (vendor, total, date, VAT, line items) on upright photos; routes bad/rotated photos to review instead of mis-posting.
 - **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest).
-- **Tests:** 53 passing (reconciliation, VAT incl. per-line/mixed-rate + receipt-matching bucket rounding, duplicates, close, exceptions, validation, subscriptions).
+- **Tests:** 80 passing (reconciliation, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization, date re-read + year-repair, discounts, estimated/0% VAT, duplicates, close, exceptions, validation, subscriptions).
 - **Impact:** turns a manual personal month-end into minutes; surfaces forgotten subscriptions by annual cost.
 
 > A measured **extraction-accuracy table** (field-level accuracy over a labeled receipt set) is the next deliverable — the eval harness is in progress.

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..models import ExpenseCreate, ExpenseStatusUpdate
+from ..models import ExpenseCategoryUpdate, ExpenseCreate, ExpenseStatusUpdate
 from ..services import categorization, vat
 from .. import repository as repo
 
@@ -116,7 +116,10 @@ def confirm_expense(
             ]
             breakdown = vat.vat_breakdown(rows)
             repo.replace_line_items(user_id, expense_id, rows)
-            patch["amount"] = breakdown["gross"]
+            # The stated amount (the receipt's TOTAL A PAGAR) is the full amount paid and
+            # wins; the VAT lines only supply the VAT split. They should reconcile, but a
+            # reliable total must not be overwritten by a line-sum that missed a rate.
+            patch["amount"] = body.amount or breakdown["gross"]
             patch["vat_amount"] = breakdown["vat_amount"]
             if breakdown["rate_count"] > 0:
                 dominant = max(
@@ -124,6 +127,10 @@ def confirm_expense(
                     key=lambda r: r["gross"],
                 )
                 patch["vat_rate"] = dominant["rate"]
+            else:
+                # All lines are zero-rated/exempt (e.g. tobacco at 0%). Record an
+                # EXPLICIT 0% so it reads as "confirmed zero-rated", not "VAT missing".
+                patch["vat_rate"] = 0
         elif body.vat_rate is not None or body.vat_amount is not None:
             amount = body.amount or patch.get("amount")
             if amount:
@@ -142,6 +149,19 @@ def set_status(
 ) -> dict:
     """Change just the ledger status (e.g. move a posted row back to review)."""
     updated = repo.update_expense(user_id, expense_id, {"status": body.status})
+    if not updated:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    return {"expense": updated}
+
+
+@router.post("/{expense_id}/category")
+def set_category(
+    expense_id: str,
+    body: ExpenseCategoryUpdate,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """Re-categorize an expense straight from the Ledger category column."""
+    updated = repo.update_expense(user_id, expense_id, {"category": body.category})
     if not updated:
         raise HTTPException(status_code=404, detail="Expense not found")
     return {"expense": updated}

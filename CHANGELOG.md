@@ -3,6 +3,31 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.2.3] — 2026-10-15
+
+Extraction robustness & review UX, from the Round 3 testing session on a batch of hard real receipts (3-rate, discounted, no-VAT, sideways, crumpled). See [D14–D21](DECISIONS.md) and [feedback-notes Round 3](feedback-notes.md). Backend tests **53 → 80 passing**.
+
+### Added
+- **LLM-assisted categorization** ([D15](DECISIONS.md)) — gpt-4o suggests a category during extraction; rules run first, the suggestion fills unknown vendors (Continente / PD OLAIAS / Pingo Doce → Groceries), validated against the real category list. New **Tobacco** category; new `POST /expenses/{id}/category` + an **editable Category dropdown in the Ledger**.
+- **Printed VAT summary table as the VAT source of truth** ([D14](DECISIONS.md)) — extraction transcribes the IVA summary (`tax_lines`) and uses it (not re-derived item math) when it ties to the total; prompt forbids guessing/adjusting figures.
+- **Estimated VAT when none is printed** ([D18](DECISIONS.md)) — standard Portuguese rates suggested per product (food 13% / drinks 23% / groceries 6%), computed in code, routed to review and shown as **amber "suggested"** VAT fields with a tooltip (cleared once edited). A real 0% is a captured answer.
+- **Server-side auto-rotation** ([D20](DECISIONS.md), Pillow) — EXIF orientation + landscape detection + re-read at 90°/270°/0° (180° fallback), keeping the best-reconciling orientation; the straightened image is stored.
+- **Date re-read + year-repair** ([D16](DECISIONS.md)) — a focused date-only second pass and a deterministic year-correction (snaps a misread year to the recent one, never the future) that forces review with a "corrected X→Y, confirm" note. Recognises `Data Emissão` ISO dates and the `YY-MM-DD` terminal line.
+- **Self-consistency guardrail + retake** ([D21](DECISIONS.md)) — an unreliable read (printed VAT table vs item lines disagree per-rate) no longer auto-posts; a **retake prompt** at upload and a **Retake photo** button in the review queue re-read a clearer shot.
+- **Duplicate-at-upload comparison popup** — side-by-side cards (new upload vs each ledger match) with Net/VAT/Total and View-receipt, plus Discard / Keep.
+- **Reconciliation exceptions are interactive** — clickable → full expense detail (Net · VAT · Total · rate · date · receipt), **deletable** (dashboard + Reconciliation page), sorted **newest upload first**, with an unread **"NEW"** highlight that clears on open.
+
+### Changed
+- **Discounts are modelled, never products** ([D17](DECISIONS.md)) — POUPANÇA / Special Offer / Desconto / negatives are excluded from line items; `total` is the amount **paid after** discount; a discounted receipt's lines are scaled to the amount paid so VAT is computed on what was paid.
+- **Amount paid = net + VAT** ([D19](DECISIONS.md)) — when the model reads the net/BASE line as the total, the gross is stored instead (fixed Auchan €3.77 → €4.18).
+- **Ledger columns are now Net · VAT · Total** (was Amount · VAT), footer and the exception-detail popup too (labelled **Net (total) · VAT (total) · Paid**).
+- Review/ledger **VAT-line editor** shows per-line **net · VAT · total**, the Amount field is the editable **full amount paid** (with a reconcile hint), and **0%** is promoted in the rate picker.
+- Orientation-first extraction prompt (locate the store name at the top before reading); per-line **quantity** captured.
+
+### Fixed
+- **0% / exempt receipts (e.g. tobacco) no longer flagged "missing VAT"** in reconciliation — only a truly-unknown VAT (both rate and amount absent) is flagged; confirming a receipt as 0% clears it.
+- Hallucinated/confident-wrong reads on crumpled receipts no longer auto-post (caught by the consistency guardrail).
+
 ## [0.2.2] — 2026-10-13
 
 Per-line VAT + Round 2 testing fixes — real accounting rigor for mixed-rate receipts, duplicate-at-upload, and ledger/editing ergonomics (see [D12](DECISIONS.md#d12--per-line-vat-a-receipt-can-hold-multiple-rates-design--r2), [D13](DECISIONS.md#d13--flag-duplicates-at-upload-before-they-post-r2), [feedback-notes Round 2](feedback-notes.md)).

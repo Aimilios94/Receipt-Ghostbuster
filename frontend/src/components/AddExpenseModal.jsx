@@ -13,6 +13,35 @@ function refreshAll(qc) {
   );
 }
 
+// One receipt's summary in the duplicate-comparison view: vendor, date, category,
+// the Net / VAT / Total split, and a button to view the receipt image for comparison.
+function DupCard({ title, exp, highlight, onView }) {
+  const vat = exp.vat_amount;
+  const net = vat != null ? Math.round((exp.amount - vat) * 100) / 100 : exp.amount;
+  return (
+    <div className={`dup-card${highlight ? " dup-card-new" : ""}`}>
+      <div className="dup-card-title">{title}</div>
+      <div className="dup-card-vendor">{exp.vendor || "—"}</div>
+      <div className="dup-card-sub">
+        {shortDate(exp.expense_date)}
+        {exp.category ? ` · ${exp.category}` : ""}
+      </div>
+      <div className="dup-card-figs">
+        <span>Net <b className="num">{money(net)}</b></span>
+        <span>VAT <b className="num">{vat != null ? money(vat) : "—"}</b></span>
+        <span>Total <b className="num">{money(exp.amount)}</b></span>
+      </div>
+      {exp.receipt_image_url ? (
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => onView(exp.receipt_image_url)}>
+          <Icon.receipt size={13} /> View receipt
+        </button>
+      ) : (
+        <div className="dup-card-sub">No receipt image</div>
+      )}
+    </div>
+  );
+}
+
 export default function AddExpenseModal({ onClose, defaultTab = "snap", defaultSource = "card" }) {
   const [tab, setTab] = useState(defaultTab);
   const qc = useQueryClient();
@@ -70,14 +99,44 @@ export default function AddExpenseModal({ onClose, defaultTab = "snap", defaultS
 }
 
 function SnapForm({ onDone, onRefresh, onClose, defaultSource }) {
+  const toast = useToast();
   const [file, setFile] = useState(null);
   const [source, setSource] = useState(defaultSource);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [issues, setIssues] = useState([]);
   const [dup, setDup] = useState(null);
+  const [lowQuality, setLowQuality] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
+  const [discarding, setDiscarding] = useState(false);
   const [drag, setDrag] = useState(false);
   const inputRef = useRef();
+
+  // User chose to retake: discard the low-quality read and return to the dropzone.
+  const retake = async () => {
+    try {
+      if (lowQuality?.expense?.id) await api.deleteExpense(lowQuality.expense.id);
+    } catch {
+      /* best-effort cleanup */
+    }
+    onRefresh?.();
+    setLowQuality(null);
+    setFile(null);
+  };
+
+  // Discard the just-uploaded (review-queued) row when it's the duplicate.
+  const discardUpload = async () => {
+    setDiscarding(true);
+    try {
+      await api.deleteExpense(dup.created.id);
+      onRefresh?.();
+      toast("Duplicate upload discarded");
+      onClose();
+    } catch (e) {
+      setErr(e.message);
+      setDiscarding(false);
+    }
+  };
 
   const submit = async () => {
     if (!file) return;
@@ -92,11 +151,18 @@ function SnapForm({ onDone, onRefresh, onClose, defaultSource }) {
         setIssues(res.issues || []);
         return;
       }
-      // Possible duplicate — show it, keep the modal open so the user double-checks.
-      // The expense was created in the review queue (never auto-posted).
+      // Possible duplicate — open the comparison view so the user can check the new
+      // upload against the matching ledger entries (nets, VAT, totals, receipts) and
+      // reconcile it right here. The new row sits in review until they decide.
       if (res.duplicate_of?.length) {
         onRefresh?.();
-        setDup({ match: res.duplicate_of[0], created: res.expense });
+        setDup({ matches: res.duplicate_of, created: res.expense });
+        return;
+      }
+      // Hard-to-read (crumpled/low-light) -> offer a retake before it sits in review.
+      if (res.retake_suggested) {
+        onRefresh?.();
+        setLowQuality(res);
         return;
       }
       onDone(res);
@@ -107,19 +173,56 @@ function SnapForm({ onDone, onRefresh, onClose, defaultSource }) {
     }
   };
 
-  if (dup) {
-    const m = dup.match;
+  if (lowQuality) {
+    const issue = lowQuality.issues?.[0];
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="error-banner" style={{ margin: 0 }}>
-          <b>Possible duplicate.</b> You already have <b>{m.vendor}</b> for {money(m.amount)} on{" "}
-          {shortDate(m.expense_date)} in your ledger. This new receipt was sent to your{" "}
-          <b>review queue</b> — nothing posts until you confirm it there, so you can compare the two
-          and discard whichever is the duplicate.
+          <b>This receipt was hard to read.</b> It looks crumpled, folded, or low-light, so some
+          values may be wrong{issue ? ` — ${issue}` : "."} For an accurate read, retake a{" "}
+          <b>flat, upright, well-lit</b> photo. Or continue and fix it yourself in the review queue.
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <Button variant="primary" onClick={onClose}>Got it</Button>
+          <Button variant="ghost" onClick={() => onDone(lowQuality)}>
+            Continue to review
+          </Button>
+          <Button variant="primary" onClick={retake}>
+            <Icon.camera size={14} /> Retake photo
+          </Button>
         </div>
+      </div>
+    );
+  }
+
+  if (dup) {
+    const matches = dup.matches || [];
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="error-banner" style={{ margin: 0 }}>
+          <b>Possible duplicate.</b> This receipt matches {matches.length > 1 ? `${matches.length} entries` : "an entry"} already
+          in your ledger. Compare them below — <b>discard this upload</b> if it's the same purchase,
+          or <b>keep it</b> if it's genuinely separate. Nothing is posted until you decide.
+        </div>
+        <div className="dup-grid">
+          <DupCard title="New upload" exp={dup.created} highlight onView={setLightbox} />
+          {matches.map((m) => (
+            <DupCard key={m.id} title="Already in ledger" exp={m} onView={setLightbox} />
+          ))}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <Button variant="ghost" onClick={discardUpload} disabled={discarding}>
+            {discarding ? "Discarding…" : "Discard this upload"}
+          </Button>
+          <Button variant="primary" onClick={onClose} disabled={discarding}>
+            Keep it (review later)
+          </Button>
+        </div>
+        {err ? <div className="error-banner" style={{ margin: 0 }}>{err}</div> : null}
+        {lightbox ? (
+          <div className="overlay receipt-lightbox" onMouseDown={() => setLightbox(null)}>
+            <img src={lightbox} alt="Receipt" onMouseDown={(e) => e.stopPropagation()} />
+          </div>
+        ) : null}
       </div>
     );
   }

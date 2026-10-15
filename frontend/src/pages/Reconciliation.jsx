@@ -6,6 +6,7 @@ import { Card, Loading, ErrorBanner, Empty, Button } from "../components/ui.jsx"
 import { Icon } from "../components/icons.jsx";
 import { ExceptionItem, flattenExceptions } from "../components/sections.jsx";
 import ImportBankModal from "../components/ImportBankModal.jsx";
+import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
 import { useToast } from "../components/toast.jsx";
 
 const GROUPS = [
@@ -33,6 +34,7 @@ export default function Reconciliation() {
   const [showImport, setShowImport] = useState(false);
   const [month, setMonth] = useState(currentMonth());
   const [picked, setPicked] = useState(false);
+  const [detail, setDetail] = useState(null);
 
   // Default the picker to the latest month that has expenses.
   const { data: expenses } = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
@@ -51,6 +53,19 @@ export default function Reconciliation() {
   const counts = data?.counts || {};
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const all = flattenExceptions(data);
+
+  const deleteExc = async (exp) => {
+    if (!window.confirm(`Delete "${exp.vendor || "this entry"}"? This can't be undone.`)) return;
+    try {
+      await api.deleteExpense(exp.id);
+      ["exceptions", "expenses", "close", "review-queue", "line-items"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast("Entry deleted");
+    } catch (e) {
+      toast(e.message, "err");
+    }
+  };
 
   const run = async () => {
     setRunning(true);
@@ -128,7 +143,7 @@ export default function Reconciliation() {
                   </div>
                 </div>
                 {items.map((x, i) => (
-                  <ExceptionItem key={i} type={x.type} data={x.data} />
+                  <ExceptionItem key={i} type={x.type} data={x.data} onOpenExpense={setDetail} onDelete={deleteExc} />
                 ))}
               </Card>
             );
@@ -137,6 +152,7 @@ export default function Reconciliation() {
       )}
 
       {showImport && <ImportBankModal onClose={() => setShowImport(false)} />}
+      {detail && <ExpenseDetailModal expense={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

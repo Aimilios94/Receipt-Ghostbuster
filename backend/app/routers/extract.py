@@ -37,12 +37,45 @@ async def extract(
     if not content:
         raise HTTPException(status_code=400, detail="Empty file.")
 
-    result = extraction.extract_receipt(content, file.filename, settings)
+    # Returns the read plus the auto-rotated (upright) image bytes we should store.
+    result, oriented = extraction.extract_receipt(content, file.filename, settings)
+
+    # "Think twice" about a suspicious date: if the first read is missing, in the
+    # future, or implausibly old (a misread year — the #1 extraction error on crumpled
+    # receipts), re-read ONLY the date with a focused prompt and accept it only if the
+    # second reading is plausible. This is an honest re-read, not a guess.
+    today = date.today()
+    d = result.date
+    date_suspect = d is None or d > today or (today - d).days > validation.MAX_AGE_DAYS
+    if date_suspect:
+        better = extraction.reread_date(oriented, file.filename, settings, today)
+        if better is not None and better != result.date:
+            result.date = better
+
+    # If the date is STILL implausibly old after re-reading, the year was almost
+    # certainly misread (OCR reads a crumpled "2026" as "2023"). Snap the year to the
+    # most recent plausible one deterministically and force review so the user confirms.
+    year_repair: tuple[date, date] | None = None
+    if result.date is not None:
+        fixed = validation.repair_year(result.date, today)
+        if fixed is not None:
+            year_repair = (result.date, fixed)
+            result.date = fixed
 
     # Guardrails run in code, independent of the model's self-reported confidence.
     check = validation.validate_receipt(
         result, confidence_threshold=settings.confidence_threshold
     )
+
+    # A repaired year is an inference, not a reading — never auto-post it.
+    if year_repair is not None:
+        old, new = year_repair
+        check["issues"].insert(
+            0,
+            f"The year looked misread — corrected {old.isoformat()} to {new.isoformat()}. "
+            "Please confirm the date before posting.",
+        )
+        check["auto_post"] = False
 
     # Unreadable -> don't create a junk ledger row; ask for a clearer photo.
     if not check["readable"]:
@@ -57,27 +90,62 @@ async def extract(
     # Store the image (best-effort; extraction still works if storage is down).
     image_url = None
     try:
-        ext = (file.filename or "receipt.jpg").split(".")[-1]
+        # Store the auto-rotated (upright) image so the saved receipt reads normally.
         image_url = repo.upload_receipt(
-            user_id, f"{uuid.uuid4()}.{ext}", content, file.content_type or "image/jpeg"
+            user_id, f"{uuid.uuid4()}.jpg", oriented, "image/jpeg"
         )
     except Exception:  # noqa: BLE001 - storage optional for the demo
         image_url = None
 
-    # Per-line VAT: each itemized line carries its own rate, so a mixed-rate
-    # receipt is summed PER RATE in code rather than flattened to one rate.
-    line_rows = [
-        {
-            "description": li.description,
-            "quantity": li.quantity,
-            "unit_price": li.unit_price,
-            "amount": li.amount,
-            "vat_rate": li.vat_rate,
-            "vat_amount": vat.line_vat(li.amount, li.vat_rate) if li.amount is not None else None,
-            "position": idx,
-        }
-        for idx, li in enumerate(result.line_items)
-    ]
+    # VAT source of truth: the receipt's PRINTED IVA summary table, when the model
+    # transcribed it and its gross-per-rate ties to the total. We trust those printed
+    # figures over VAT re-derived from item amounts the model may have misread — so a
+    # crumpled receipt's VAT still matches the printed tax summary to the cent. Each
+    # printed rate becomes one gross bucket (also what seeds the review VAT editor).
+    printed_buckets = vat.tax_line_buckets([tl.model_dump() for tl in result.tax_lines])
+    printed_gross = round(sum(b["amount"] for b in printed_buckets), 2)
+    use_printed = bool(printed_buckets) and (
+        not result.total or abs(printed_gross - result.total) <= 0.05
+    )
+
+    if use_printed:
+        line_rows = [
+            {
+                "description": "Items",
+                "quantity": None,
+                "unit_price": None,
+                "amount": b["amount"],
+                "vat_rate": b["vat_rate"],
+                "vat_amount": vat.line_vat(b["amount"], b["vat_rate"]),
+                "position": idx,
+            }
+            for idx, b in enumerate(printed_buckets)
+        ]
+    else:
+        # Fallback (no usable printed table): per-line VAT from the item rows, each
+        # carrying its own rate, summed PER RATE in code rather than flattened.
+        line_rows = [
+            {
+                "description": li.description,
+                "quantity": li.quantity,
+                "unit_price": li.unit_price,
+                "amount": li.amount,
+                "vat_rate": li.vat_rate,
+                "vat_amount": vat.line_vat(li.amount, li.vat_rate) if li.amount is not None else None,
+                "position": idx,
+            }
+            for idx, li in enumerate(result.line_items)
+        ]
+        # Discounted receipt (e.g. Uber Eats "Special Offer"): the item lines are at
+        # FULL price and sum above the amount paid. Scale them down proportionally so the
+        # discount lands on each line and VAT is computed on what was ACTUALLY paid.
+        items_sum = round(sum(r["amount"] for r in line_rows if r["amount"] is not None), 2)
+        if result.discount_total and result.total and items_sum > result.total + 0.01:
+            scale = result.total / items_sum
+            for r in line_rows:
+                if r["amount"] is not None:
+                    r["amount"] = round(r["amount"] * scale, 2)
+                    r["vat_amount"] = vat.line_vat(r["amount"], r["vat_rate"])
     breakdown = vat.vat_breakdown([r for r in line_rows if r["amount"] is not None])
 
     # When the lines carry real rates, the code-summed figures are the source of
@@ -90,8 +158,28 @@ async def extract(
     else:
         vat_info = vat.resolve_vat(result.total or 0.0, result.vat_rate, result.vat_amount)
 
+    # Amount paid = net + VAT. The model sometimes reads the receipt's NET/BASE line as
+    # the "total" (e.g. Auchan's "BASE 3,77" vs the 4,18 actually paid). When the lines
+    # give a coherent gross and the model's total matches their NET rather than their
+    # GROSS, trust the gross (the real amount paid).
+    amount_paid = result.total
+    g, net = breakdown["gross"], breakdown["net"]
+    if g and result.total and abs(result.total - net) <= 0.05 and abs(result.total - g) > 0.05:
+        amount_paid = g
+    elif not amount_paid:
+        amount_paid = g or printed_gross or 0.0
+
+    # Categorize: deterministic keyword rules first (fast, free, auditable); if the
+    # vendor is unknown to the rules, fall back to the category the LLM suggested
+    # while it was already reading the receipt. The suggestion is only accepted if it
+    # matches a real category, so a bad guess degrades to "Uncategorized".
     valid = {c["name"] for c in repo.list_categories(user_id)}
-    category = categorization.categorize(result.vendor, None, valid_categories=valid or None)
+    category = categorization.categorize(
+        result.vendor,
+        None,
+        llm_fallback=lambda _: result.category,
+        valid_categories=valid or None,
+    )
 
     # Duplicate check at UPLOAD time: if an identical purchase (same vendor + amount
     # + date) is already on the ledger, never auto-post — route to review so the user
@@ -107,6 +195,62 @@ async def extract(
         )
         check["auto_post"] = False
 
+    # Estimated VAT (the receipt printed none, so we inferred rates from product type).
+    # Surface it and send to review so the user confirms the estimate before it posts.
+    if result.vat_estimated and vat_info.get("vat_amount") is not None:
+        check["issues"].append(
+            f"VAT isn't printed on this receipt — estimated €{vat_info['vat_amount']:.2f} "
+            "from the product types (e.g. prepared food 13%, drinks 23%). Confirm or edit."
+        )
+        check["auto_post"] = False
+
+    # Self-consistency guardrail: when the model read BOTH a printed VAT table and item
+    # lines, their per-rate gross should agree (on these chains the printed item prices
+    # are already net of any loyalty discount). A large mismatch = an unreliable/
+    # hallucinated read (even if it happens to sum to the total) — don't auto-post it.
+    def _rate_gross(pairs) -> dict[int, float]:
+        m: dict[int, float] = {}
+        for rate, gross in pairs:
+            if gross is None:
+                continue
+            key = round(float(rate or 0))
+            m[key] = m.get(key, 0.0) + float(gross)
+        return m
+
+    vat_inconsistent = False
+    if result.tax_lines and result.line_items:
+        tax_map = _rate_gross(
+            (tl.rate, tl.gross if tl.gross is not None else (tl.net or 0) + (tl.vat or 0))
+            for tl in result.tax_lines
+        )
+        line_map = _rate_gross((li.vat_rate, li.amount) for li in result.line_items)
+        if tax_map and line_map:
+            rates = set(tax_map) | set(line_map)
+            max_div = max(abs(tax_map.get(r, 0.0) - line_map.get(r, 0.0)) for r in rates)
+            if max_div > max(1.0, 0.10 * (result.total or 0.0)):
+                vat_inconsistent = True
+    if vat_inconsistent:
+        check["issues"].append(
+            "The printed VAT table and the item lines disagree on the per-rate amounts — "
+            "this read looks unreliable. Retake a flat photo, or fix the VAT lines."
+        )
+        check["auto_post"] = False
+
+    # Low-quality read signal: when the read looks unreliable (the printed VAT table or
+    # item lines don't reconcile, a misread/repaired date, or low model confidence), a
+    # cleaner photo would likely fix it — suggest a retake at upload. Duplicates and
+    # estimated-VAT are NOT quality problems, so they don't trigger it.
+    reconcile_issue = vat_inconsistent or any(
+        ("VAT table totals" in i) or ("add up to" in i) for i in check["issues"]
+    )
+    date_issue = year_repair is not None or (
+        result.date is not None
+        and (result.date > today or (today - result.date).days > validation.MAX_AGE_DAYS)
+    )
+    retake_suggested = bool(
+        reconcile_issue or date_issue or result.confidence < settings.confidence_threshold
+    )
+
     # Gate decided in code: auto-post only if confident AND no validation issues.
     status = "posted" if check["auto_post"] else "pending_review"
 
@@ -114,7 +258,7 @@ async def extract(
         "source": source if source in ("card", "cash", "bank") else "card",
         "input_method": "receipt",
         "vendor": result.vendor,
-        "amount": result.total or 0.0,
+        "amount": amount_paid or 0.0,
         "currency": result.currency or settings.default_currency,
         "expense_date": (result.date or date.today()).isoformat(),
         "category": category,
@@ -145,13 +289,17 @@ async def extract(
         "vat_breakdown": breakdown,
         "gated_to": status,
         "readable": True,
+        "retake_suggested": retake_suggested,
         "issues": check["issues"],
         "duplicate_of": [
             {
                 "id": d["id"],
                 "vendor": d.get("vendor"),
                 "amount": d.get("amount"),
+                "vat_amount": d.get("vat_amount"),
                 "expense_date": d.get("expense_date"),
+                "category": d.get("category"),
+                "receipt_image_url": d.get("receipt_image_url"),
             }
             for d in duplicates
         ],

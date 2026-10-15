@@ -94,6 +94,29 @@ def vat_breakdown(line_items: list[dict]) -> dict[str, Any]:
     }
 
 
+def tax_line_buckets(tax_lines: list[dict]) -> list[dict]:
+    """Turn the receipt's PRINTED VAT summary rows into gross-per-rate buckets.
+
+    Each printed row has a rate and (usually) a printed gross "Total"; if gross is
+    missing we derive it from net + vat (both printed). Rows we can't resolve to a
+    positive gross at a known rate are dropped. The result feeds `vat_breakdown`,
+    so the per-rate net/VAT reproduce the receipt's printed figures to the cent.
+    Returns [{"rate", "amount"(gross), "vat_rate"}] — shaped like line rows.
+    """
+    buckets: list[dict] = []
+    for tl in tax_lines:
+        rate = tl.get("rate")
+        if rate is None:
+            continue
+        gross = tl.get("gross")
+        if gross is None and tl.get("net") is not None and tl.get("vat") is not None:
+            gross = float(tl["net"]) + float(tl["vat"])
+        if gross is None or float(gross) <= 0:
+            continue
+        buckets.append({"rate": float(rate), "amount": float(gross), "vat_rate": float(rate)})
+    return buckets
+
+
 def resolve_vat(
     total: float,
     vat_rate: float | None = None,

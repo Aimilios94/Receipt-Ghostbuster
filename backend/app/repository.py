@@ -187,6 +187,7 @@ DEFAULT_CATEGORIES = [
     "Entertainment",
     "Professional Services",
     "Taxes & Fees",
+    "Tobacco",
     "Income",
     "Uncategorized",
 ]

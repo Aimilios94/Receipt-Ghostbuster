@@ -16,10 +16,12 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     vendor: expense.vendor || "",
+    amount: expense.amount ?? "",
     expense_date: (expense.expense_date || "").slice(0, 10),
     category: expense.category || "",
   });
-  const [lines, setLines] = useState(() => seedLines(expense, null));
+  const estimated = !!expense.raw_extraction?.vat_estimated;
+  const [lines, setLines] = useState(() => seedLines(expense, null, estimated));
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
     api
       .expenseLineItems(expense.id)
       .then((res) => {
-        if (active && res.line_items?.length) setLines(seedLines(expense, res.line_items));
+        if (active && res.line_items?.length) setLines(seedLines(expense, res.line_items, estimated));
       })
       .catch(() => {});
     return () => {
@@ -37,11 +39,13 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
 
   const validLines = lines.filter((l) => Number(l.amount) > 0);
   const linesTotal = Math.round(validLines.reduce((s, l) => s + Number(l.amount || 0), 0) * 100) / 100;
+  const amountNum = Math.round((Number(form.amount) || 0) * 100) / 100;
+  const vatMismatch = validLines.length > 0 && Math.abs(linesTotal - amountNum) > 0.01;
 
   const save = async () => {
     setBusy(true);
     try {
-      const patch = { expense_date: form.expense_date, amount: linesTotal };
+      const patch = { expense_date: form.expense_date, amount: amountNum };
       if (form.vendor) patch.vendor = form.vendor;
       if (form.category) patch.category = form.category;
       patch.line_items = validLines.map((l) => ({
@@ -73,7 +77,13 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
           </div>
           <div className="field" style={{ maxWidth: 120 }}>
             <label>Amount (€)</label>
-            <input className="input num" value={linesTotal} disabled title="Sum of the VAT lines below" />
+            <input
+              className="input num"
+              value={form.amount}
+              onChange={set("amount")}
+              inputMode="decimal"
+              title="The full amount paid (incl. VAT) — the receipt's total"
+            />
           </div>
         </div>
         <div className="field-row">
@@ -95,12 +105,18 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
         </div>
 
         <VatLinesEditor lines={lines} setLines={setLines} busy={busy} />
+        {vatMismatch ? (
+          <p className="vat-lines-hint" style={{ color: "var(--amber, #b26b00)" }}>
+            The VAT lines add up to {money(linesTotal)} but the amount paid is {money(amountNum)} —
+            adjust the lines (and drop any discount line) so they match the receipt.
+          </p>
+        ) : null}
 
         <div className="litem-actions" style={{ marginTop: 12 }}>
           <Button size="sm" variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button size="sm" variant="primary" onClick={save} disabled={busy || linesTotal <= 0}>
+          <Button size="sm" variant="primary" onClick={save} disabled={busy || amountNum <= 0}>
             Save changes
           </Button>
         </div>

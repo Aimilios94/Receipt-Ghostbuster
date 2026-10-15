@@ -71,11 +71,18 @@ def amount_mismatch(
 
 
 def missing_vat(expenses: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Receipt-sourced expenses whose VAT was never captured at all.
+
+    An EXPLICIT 0% (zero-rated / exempt — e.g. tobacco, stamps) is a captured answer,
+    not a gap: `vat_rate` or `vat_amount` is set to 0. We only flag the truly-unknown
+    case where BOTH are None, so confirming a receipt as 0% clears this exception.
+    """
     return [
         e
         for e in expenses
         if e.get("input_method") == "receipt"
-        and (e.get("vat_amount") in (None, 0) and e.get("vat_rate") in (None, 0))
+        and e.get("vat_amount") is None
+        and e.get("vat_rate") is None
     ]
 
 

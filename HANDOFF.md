@@ -6,7 +6,70 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-13, end of day 4)
+## 🟢 RESUME HERE — current status (as of 2026-10-15, end of day 5)
+
+**Day 5 = a big Round-3 real-receipt testing session (user driving) → ~20 extraction-robustness
+fixes, shipped as `v0.2.3` and pushed to GitHub. Backend tests 53 → 80 passing, frontend build
+clean.** The user uploaded a batch of hard receipts (3-rate, discounted, no-VAT, sideways,
+crumpled); every issue was fixed and verified the same day against live Supabase.
+
+**What day 5 shipped (grouped; see DECISIONS D14–D21 + feedback-notes Round 3 for the full record):**
+- **LLM-assisted categorization (D15):** gpt-4o suggests a category during extraction — rules run
+  first, the suggestion fills unknown vendors (Continente/PD OLAIAS/Pingo Doce → Groceries),
+  validated against the category list. Added a **Tobacco** category + `POST /expenses/{id}/category`
+  + an **editable Category dropdown in the Ledger**. (Closed the last DECISIONS "Planned" item.)
+- **Printed IVA table = VAT source of truth (D14):** extraction transcribes the printed VAT summary
+  (`tax_lines`) and uses it when it ties to the total — read, never guess.
+- **Discounts (D17):** POUPANÇA / Special Offer / Desconto are never products; `total` is the amount
+  **paid after** discount; discounted lines are scaled to the amount paid so VAT is on what was paid.
+- **Estimated VAT (D18):** when a receipt prints no VAT (Uber Eats, tills), gpt-4o estimates the
+  standard PT rate per product (food 13 / drinks 23 / groceries 6), computed in code, routed to
+  review and shown as **amber "suggested"** fields with a tooltip. Real **0%** (tobacco) is a
+  captured answer — no longer flagged "missing VAT".
+- **Dates (D16):** a focused **date re-read** pass + a deterministic **year-repair** (snap a misread
+  year to the recent one, never the future, force review with "corrected X→Y, confirm"). Learns the
+  `Data Emissão` ISO date and the `YY-MM-DD` terminal line.
+- **Amount = net + VAT (D19):** when the model reads the net/BASE line as the total, store the gross
+  (fixed Auchan €3.77 → €4.18).
+- **Server-side auto-rotation (D20):** **Pillow added** (`pip install Pillow --trusted-host pypi.org
+  --trusted-host files.pythonhosted.org`). EXIF + landscape detect + re-read at 90/270/0 (180
+  fallback), keep the best-reconciling orientation, **store the straightened image**. NOTE:
+  `extraction.extract_receipt` now returns **(result, oriented_bytes)**.
+- **Self-consistency guardrail + retake (D21):** when the printed VAT table and the item lines
+  disagree per-rate, the read is flagged unreliable and **not auto-posted**; a **retake prompt** at
+  upload and a **Retake photo** button in the review queue re-read a clearer shot. A
+  **read-twice-and-compare** consensus mode was discussed and **deferred as a future option**.
+- **UX polish:** Ledger columns Net·VAT·Total; reconciliation **exceptions are clickable → full
+  detail + deletable**, sorted **newest-upload-first** with an unread **"NEW"** highlight; the detail
+  popup reads **Net (total) · VAT (total) · Paid**; per-VAT-line net·VAT·total; 0% promoted in the
+  rate picker; **duplicate-at-upload comparison popup** (Net/VAT/Total + view-receipt + discard/keep).
+
+### 👋 Message to tomorrow's agent (read this)
+Nothing is broken or mid-flight; everything day 5 is committed and pushed as `v0.2.3`. When you resume:
+1. Read this RESUME section + the auto-memory file (path at bottom) + **DECISIONS.md** (now D1–D21) and
+   **feedback-notes.md** (Rounds 1–3 are the live product-engineering record). Keep the **authenticity
+   rule**: real testing → real feedback-notes → real decisions. Never invent feedback or metrics.
+2. Start the three servers (commands below). **Check the two 7-day expiries first** (Supabase pause,
+   n8n Gmail OAuth — memory `demo-prep-7day-expiries`). Run exactly ONE backend uvicorn, **no
+   `--reload`**. If a recent frontend change doesn't show, the **vite dev server may have stale HMR**
+   (it ran 3 days during day 5) — restart `npm run dev`. Backend reads OpenAI gpt-4o from `backend/.env`.
+3. **Do NOT re-litigate settled decisions** (stack, phasing, hybrid n8n, draft-only, cash-excluded,
+   per-line VAT bucket rounding, printed-table-as-VAT-truth, discounts-not-products, estimated-VAT,
+   auto-rotation). Confirm priority with the user before large new directions.
+4. **Open items, in the user's chosen order:**
+   - **Extraction-accuracy eval harness** (`backend/scripts/eval_extraction.py` + labelled receipts
+     the user supplies) → the README "Results" number. Authentic, not invented.
+   - **Read-twice-and-compare** consensus mode (optional, deferred) if the user wants max reliability.
+   - Then **Phase 3 — Advice** (budget vs actual, overspend nudges, insights feed) + a **hosted demo**.
+5. **Honest limit (reinforces D9):** flat/well-lit receipts auto-post correctly; a **physically
+   crumpled** receipt can still produce a confident-wrong read — the system now catches it (D21),
+   routes to review, and lets the user edit/retake/delete. No prompt invents correct digits off
+   creased paper. Test receipts live in the PARENT folder `C:\Users\aimilios\Desktop\CV-creation\`
+   (`1000017808/10/11/79.jpg`, etc.), uploaded through the app UI.
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-13, end of day 4)
 
 **Day 4 = Round 2 real-testing session (user driving) → per-line VAT + a batch of fixes, all shipped
 as `v0.2.2`.** The user uploaded real mixed-rate Portuguese receipts; every issue was fixed and

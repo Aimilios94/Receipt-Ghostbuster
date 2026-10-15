@@ -55,6 +55,10 @@ def test_missing_vat_only_receipts():
         {"id": "1", "input_method": "receipt", "vat_amount": None, "vat_rate": None},
         {"id": "2", "input_method": "receipt", "vat_amount": 4.0, "vat_rate": 24},
         {"id": "3", "input_method": "manual", "vat_amount": None, "vat_rate": None},
+        # Explicit 0% (zero-rated/exempt, e.g. tobacco) is a captured answer, not a gap.
+        {"id": "4", "input_method": "receipt", "vat_amount": 0, "vat_rate": 0},
+        {"id": "5", "input_method": "receipt", "vat_amount": 0.0, "vat_rate": None},
     ]
     out = exc.missing_vat(expenses)
-    assert {e["id"] for e in out} == {"1"}   # #2 has VAT, #3 is manual
+    # Only #1 is truly unknown. #2 has VAT, #3 is manual, #4/#5 are explicit 0%.
+    assert {e["id"] for e in out} == {"1"}

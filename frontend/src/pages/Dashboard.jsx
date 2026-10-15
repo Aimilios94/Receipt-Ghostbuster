@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
@@ -9,6 +9,7 @@ import {
   CategoryBars,
   ReviewItem,
   ExceptionItem,
+  exceptionExpense,
   flattenExceptions,
   LedgerTable,
 } from "../components/sections.jsx";
@@ -16,7 +17,17 @@ import { postedMessage } from "./ReviewQueue.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import ImportBankModal from "../components/ImportBankModal.jsx";
 import DrillModal from "../components/DrillModal.jsx";
+import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
 import { useToast } from "../components/toast.jsx";
+
+// Recency of the expense (or bank txn) behind an exception — newest first.
+function excRecency(x) {
+  const e = exceptionExpense(x.type, x.data) || (x.type === "unmatched_bank" ? x.data : null);
+  const t = e?.created_at || e?.expense_date || e?.txn_date;
+  return t ? Date.parse(t) : 0;
+}
+
+const SEEN_KEY = "rg_seen_exceptions";
 
 // Expenses categorized as income aren't "spend" — the close endpoint keeps them
 // out of total_out / by_category / by_source, so the drill-downs must too.
@@ -44,7 +55,57 @@ export default function Dashboard() {
 
   const close = closeQ.data;
   const review = reviewQ.data || [];
-  const excList = flattenExceptions(excQ.data);
+  // Newest upload first, so a just-added receipt surfaces at the top.
+  const excList = useMemo(
+    () => flattenExceptions(excQ.data).slice().sort((a, b) => excRecency(b) - excRecency(a)),
+    [excQ.data]
+  );
+
+  // Exception detail modal + "unread" tracking (bright until you open it, like a
+  // new message). Seen expense ids persist in localStorage across sessions.
+  const [excDetail, setExcDetail] = useState(null);
+  const [seen, setSeen] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"));
+    } catch {
+      return new Set();
+    }
+  });
+  // First ever visit: treat everything already there as read, so only genuinely
+  // new uploads light up afterwards.
+  useEffect(() => {
+    if (localStorage.getItem(SEEN_KEY) === null && excList.length) {
+      const ids = excList.map((x) => exceptionExpense(x.type, x.data)?.id).filter(Boolean);
+      localStorage.setItem(SEEN_KEY, JSON.stringify(ids));
+      setSeen(new Set(ids));
+    }
+  }, [excList]);
+  const markSeen = (id) => {
+    if (!id) return;
+    setSeen((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev).add(id);
+      localStorage.setItem(SEEN_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
+  const openExcDetail = (exp) => {
+    setExcDetail(exp);
+    markSeen(exp?.id);
+  };
+  const deleteExc = async (exp) => {
+    if (!window.confirm(`Delete "${exp.vendor || "this entry"}" (${money(exp.amount)})? This can't be undone.`))
+      return;
+    try {
+      await api.deleteExpense(exp.id);
+      ["expenses", "exceptions", "close", "review-queue", "line-items"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast("Entry deleted");
+    } catch (e) {
+      toast(e.message, "err");
+    }
+  };
 
   // expense_id -> [line items], for the per-rate VAT drill-down.
   const lineItemsByExpense = useMemo(() => {
@@ -305,7 +366,19 @@ export default function Dashboard() {
             {excList.length ? <span className="tag-open">{excList.length} open</span> : null}
           </div>
           {excList.length ? (
-            excList.slice(0, 4).map((x, i) => <ExceptionItem key={i} type={x.type} data={x.data} />)
+            excList.slice(0, 4).map((x, i) => {
+              const exp = exceptionExpense(x.type, x.data);
+              return (
+                <ExceptionItem
+                  key={exp?.id || i}
+                  type={x.type}
+                  data={x.data}
+                  isNew={exp ? !seen.has(exp.id) : false}
+                  onOpenExpense={openExcDetail}
+                  onDelete={deleteExc}
+                />
+              );
+            })
           ) : (
             <Empty icon={<Icon.check size={26} />}>Everything reconciles. No exceptions.</Empty>
           )}
@@ -350,6 +423,7 @@ export default function Dashboard() {
           onClose={() => setDrill(null)}
         />
       )}
+      {excDetail && <ExpenseDetailModal expense={excDetail} onClose={() => setExcDetail(null)} />}
     </div>
   );
 }

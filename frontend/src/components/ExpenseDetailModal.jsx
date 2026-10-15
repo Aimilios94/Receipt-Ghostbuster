@@ -22,8 +22,19 @@ export default function ExpenseDetailModal({ expense, onClose }) {
   const lines = data?.line_items || [];
   const breakdown = data?.vat_breakdown;
   const rates = breakdown?.rates || [];
-  const linesAmount = lines.reduce((s, li) => s + Number(li.amount || 0), 0);
-  const linesVat = lines.reduce((s, li) => s + Number(li.vat_amount || 0), 0);
+  const linesAmount = Math.round(lines.reduce((s, li) => s + Number(li.amount || 0), 0) * 100) / 100;
+  const linesVat = Math.round(lines.reduce((s, li) => s + Number(li.vat_amount || 0), 0) * 100) / 100;
+  const linesNet = Math.round((linesAmount - linesVat) * 100) / 100;
+  // Prefer the itemized sums for the grand total — they reconcile net + VAT = paid even
+  // when the stored expense.amount is off (e.g. the model read the net base as the total).
+  const hasLines = lines.length > 0;
+  const vatShown = hasLines ? linesVat : expense.vat_amount;
+  const netShown = hasLines
+    ? linesNet
+    : expense.vat_amount != null
+    ? Math.round((expense.amount - expense.vat_amount) * 100) / 100
+    : expense.amount;
+  const totalShown = hasLines ? linesAmount : expense.amount;
 
   return (
     <Modal title={expense.vendor || "Expense"} onClose={onClose} width={720}>
@@ -80,29 +91,36 @@ export default function ExpenseDetailModal({ expense, onClose }) {
                 <tr>
                   <th>Item</th>
                   <th className="right">Qty</th>
-                  <th className="right">Amount</th>
-                  <th className="right">VAT rate</th>
+                  <th className="right">Net</th>
                   <th className="right">VAT</th>
+                  <th className="right">Total</th>
+                  <th className="right">VAT rate</th>
                 </tr>
               </thead>
               <tbody>
-                {lines.map((li) => (
-                  <tr key={li.id}>
-                    <td className="cell-vendor">{li.description || "—"}</td>
-                    <td className="right cell-muted">{li.quantity ?? "—"}</td>
-                    <td className="right num">{money(li.amount)}</td>
-                    <td className="right cell-muted">{li.vat_rate != null ? `${li.vat_rate}%` : "—"}</td>
-                    <td className="right num cell-muted">{li.vat_amount != null ? money(li.vat_amount) : "—"}</td>
-                  </tr>
-                ))}
+                {lines.map((li) => {
+                  const vat = li.vat_amount;
+                  const net = vat != null ? Math.round((li.amount - vat) * 100) / 100 : li.amount;
+                  return (
+                    <tr key={li.id}>
+                      <td className="cell-vendor">{li.description || "—"}</td>
+                      <td className="right cell-muted">{li.quantity ?? "—"}</td>
+                      <td className="right num cell-muted">{money(net)}</td>
+                      <td className="right num cell-muted">{vat != null ? money(vat) : "—"}</td>
+                      <td className="right num">{money(li.amount)}</td>
+                      <td className="right cell-muted">{li.vat_rate != null ? `${li.vat_rate}%` : "—"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="detail-total-row">
                   <td>Total</td>
                   <td></td>
+                  <td className="right num">{money(linesNet)}</td>
+                  <td className="right num">{money(linesVat)}</td>
                   <td className="right num">{money(linesAmount)}</td>
                   <td></td>
-                  <td className="right num">{money(linesVat)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -113,17 +131,16 @@ export default function ExpenseDetailModal({ expense, onClose }) {
           </p>
         )}
 
-        {/* Grand total */}
+        {/* Grand total — Net (total) · VAT (total) · Paid (net + VAT = full amount paid) */}
         <div className="detail-total">
-          <span>Total</span>
+          <span>Totals</span>
           <span className="num">
-            {money(expense.amount)}
-            {expense.vat_amount ? (
+            {vatShown ? (
               <span className="cell-muted" style={{ fontWeight: 400 }}>
-                {" "}· incl. {money(expense.vat_amount)} VAT
-                {breakdown?.net != null ? ` · net ${money(breakdown.net)}` : ""}
+                Net (total) {money(netShown)} · VAT (total) {money(vatShown)} ·{" "}
               </span>
             ) : null}
+            Paid {money(totalShown)}
           </span>
         </div>
 

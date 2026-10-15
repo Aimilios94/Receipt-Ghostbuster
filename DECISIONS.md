@@ -2,7 +2,7 @@
 
 *Each entry is **Problem → Evidence → Decision → Result**. Evidence comes from real testing in [feedback-notes.md](feedback-notes.md) or from the design constraints in [problem-statement.md](problem-statement.md). This is the record of *why* the product is the way it is.*
 
-Legend for Evidence source: `[design]` = decided up front from the problem; `[R1]` = Round 1 testing (2026-10-12).
+Legend for Evidence source: `[design]` = decided up front from the problem; `[R1]` = Round 1 testing (2026-10-12); `[R2]` = Round 2 (2026-10-13); `[R3]` = Round 3 (2026-10-15).
 
 ---
 
@@ -97,8 +97,66 @@ Legend for Evidence source: `[design]` = decided up front from the problem; `[R1
 - **Decision:** `/extract` now checks the ledger at upload time for an existing row with the **same vendor + amount + date** (`repo.find_duplicates`). A match **forces the receipt into the review queue** (never auto-posts) with a clear reason, and the response carries `duplicate_of`. The snap screen shows an in-modal warning naming the existing expense so the user can compare and discard whichever is the duplicate. Consistent with the human-confirm-gate rule (D1) and the duplicate-surfacing work (D11).
 - **Result:** Verified end-to-end — a second identical upload returns `duplicate_of` and routes to review with "Possible duplicate — … already in your ledger. Check before posting." Nothing posts automatically.
 
+## D14 — The receipt's printed VAT summary table is the VAT source of truth `[R3]`
+
+- **Problem:** Computing VAT from the model's reading of per-item amounts failed on crumpled receipts — it misread/fabricated line amounts and produced wrong VAT (e.g. 6% €0.09 vs the printed €0.15).
+- **Evidence (R3):** Portuguese receipts print an exact "IVA / RESUMO DO IVA" summary (per rate: net, VAT, gross). It's the legal figure and a compact, structured block — more reliable than re-deriving from item lines.
+- **Decision:** Extraction **transcribes** that table into `tax_lines` (copy printed numbers, never compute). When its gross-per-rate ties to the total, it becomes the authoritative VAT breakdown (one gross bucket per rate, which also seeds the review editor). The prompt forbids inventing/adjusting any figure to force a total.
+- **Result:** Reproduces printed figures to the cent (Continente `1000017808.jpg`: 6% €0.15 · 23% €0.30 · total VAT €0.45, gross €4.17). When the table can't be read it falls back to per-line VAT and the guardrails take over (see D21).
+
+## D15 — LLM-suggested categorization: rules first, model fills the gaps `[R3]`
+
+- **Problem:** The keyword categorizer returned "Uncategorized" for vendors it didn't know (Continente, PD OLAIAS, Pingo Doce).
+- **Evidence (R3):** Those are grocery stores the rules simply didn't list; the model is already reading the receipt.
+- **Decision:** gpt-4o suggests a `category` during extraction. **Deterministic keyword rules run first** (fast, free, auditable); an unknown vendor falls back to the model's suggestion, accepted only if it matches a real category (else "Uncategorized"). Added a **Tobacco** category.
+- **Result:** The three gap vendors now resolve to Groceries; rules still win for known vendors; a bad guess degrades safely. (Closes the last "Planned" item.)
+
+## D16 — Deterministic date year-repair + focused re-read `[R3]`
+
+- **Problem:** The #1 extraction error on crumpled receipts is a misread **year** (day/month fine): 2026 read as 2021/2023. A prompt alone didn't fix it.
+- **Evidence (R3):** gpt-4o read a 2026-10-14 receipt as 2021-10-14 **twice**, confidently; Auchan's `Data Emissão: 2026-10-13` read as 2021-10-14.
+- **Decision:** When a date looks implausible, (1) a **focused second pass re-reads only the date**, accepted only if plausible; then (2) a **code-level year-repair** snaps the year to the most recent plausible one (never a future date, only when month/day land in the recent window) and **forces review** with a "year looked misread — corrected X→Y, confirm" note. Prompt also learns the `Data Emissão` ISO date and the `YY-MM-DD` terminal format.
+- **Result:** A misread year is corrected and surfaced for one-click confirmation instead of silently posting a wrong date; the day stays editable in review.
+
+## D17 — Discounts are modelled, never counted as products `[R3]`
+
+- **Problem:** Loyalty discounts (POUPANÇA) and promotions (Uber Eats "Special Offer") were read as products or inflated the amount.
+- **Evidence (R3):** Uber Eats `1000017810.jpg`: Subtotal €32.38 − Special Offer €13.99 = **€18.39 paid**; items at full price sum above the paid amount.
+- **Decision:** Discount lines (POUPANÇA / DESCONTO / Special Offer / Promoção / parenthesised negatives) are **never** line items; `total` is always the amount **paid after** discounts; `discount_total` is captured. The line-item reconciliation check is skipped when a discount is present, and a discounted receipt's lines are **scaled proportionally to the amount paid** so VAT is computed on what was paid.
+- **Result:** The amount stored is what you paid (€18.39), and the VAT estimate reconciles to it; discounted receipts no longer false-flag.
+
+## D18 — Estimated VAT from product type when the receipt prints none `[R3]`
+
+- **Problem:** Delivery/simple-till receipts (Uber Eats) list products but print no VAT; a normal user can't know a pizza is 13% and a drink 23%.
+- **Evidence (R3):** The user asked for a suggestion from general tax knowledge rather than leaving VAT blank.
+- **Decision:** When no VAT is printed, gpt-4o **estimates** the standard mainland-Portugal rate per product (prepared food/pizza 13%, drinks/alcohol/snacks 23%, basic groceries 6%); VAT is **computed in code**, the receipt is routed to **review marked "suggested"** (amber VAT fields + hover tooltip, cleared once the user edits a rate), and it only estimates when nothing is printed (printed VAT is never overridden). A real **0%** (tobacco) is a captured answer — not "missing VAT."
+- **Result:** VAT-less receipts get a sensible, clearly-labelled estimate the user confirms — honest, not blind (consistent with D1).
+
+## D19 — Amount paid = net + VAT (net-vs-gross correction) `[R3]`
+
+- **Problem:** Some receipts print a prominent **net/BASE** line; the model read *that* as the total, understating the amount paid.
+- **Evidence (R3):** Auchan `1000017811.jpg` stored €3.77 (printed BASE) instead of the €4.18 actually paid; the line items correctly summed to €4.18.
+- **Decision:** When the itemized/printed breakdown gives a coherent gross and the model's "total" matches its **net** rather than its **gross**, store the **gross (net + VAT)** as the amount paid. The expense-detail view derives its grand total from the line items so it always reconciles.
+- **Result:** Auchan now stores €4.18 (net €3.77 + VAT €0.41); discounted receipts (already scaled to the paid amount) are unaffected.
+
+## D20 — Server-side receipt auto-rotation `[R3]`
+
+- **Problem:** A sideways/upside-down photo is the single biggest cause of misread dates and VAT, and the model can only *mentally* re-orient.
+- **Evidence (R3):** A sideways Auchan receipt misread its date and VAT; once straightened it read correctly.
+- **Decision:** Before the model reads it, the backend (Pillow, optional dep) applies the photo's **EXIF orientation**, detects **landscape** (a likely sideways receipt), and re-reads at **90°/270°/0°** (180° fallback for weak portrait reads), keeping the orientation whose read looks most upright/reconciling (a reconciliation-aware **read score**). The **straightened image is stored**, so saved receipts display upright. Cost-aware: a good upright photo costs one read.
+- **Result:** Sideways receipts are straightened deterministically; the earlier prompt-only "mentally rotate" guidance is now backed by real pixel rotation.
+
+## D21 — Self-consistency guardrail + retake, for reads that look fine but aren't `[R3]`
+
+- **Problem:** On a badly crumpled receipt the model can produce a **confident, internally-reconciling, but wrong** read (even inventing items) that every total-based check passes — so it auto-posts.
+- **Evidence (R3):** A crumpled Continente auto-posted with a hallucinated breakdown whose fake numbers summed to the €10.89 total; its printed VAT table and its item lines disagreed per-rate by €1.69.
+- **Decision:** When the model returns **both** a printed VAT table **and** item lines, their per-rate gross must agree (shown item prices are already net of loyalty discounts on these chains); a large mismatch means an **unreliable read** → **don't auto-post**, route to review. Plus a **retake prompt** at upload and a **Retake** button in the review queue when a read looks low-quality (reconcile mismatch, misread/repaired date, low confidence, or this inconsistency). A **read-twice-and-compare** consensus mode is deferred as a future option.
+- **Result:** The hallucinated Continente now routes to review instead of auto-posting; the user retakes (flatter) or edits. Honest limit (extends D9): the system reliably *catches and hands off* bad reads — it can't invent correct digits off creased paper.
+
 ---
 
 ## Planned (decided, not yet built)
 
-- **LLM-assisted categorization** — for vendors the rules miss (e.g. Continente → Groceries).
+- **Extraction-accuracy eval harness** — a labelled receipt set + `backend/scripts/eval_extraction.py` to produce a real field-level accuracy number for the README "Results".
+- **Read-twice-and-compare** consensus mode (optional, ~2× cost) for maximum reliability on hard receipts — discussed in R3, deferred.
+- **v0.3 — Advice** (budget vs actual, overspend nudges, insights feed).

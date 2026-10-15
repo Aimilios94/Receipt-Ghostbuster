@@ -45,6 +45,32 @@ export default function ReviewQueue() {
     }
   };
 
+  // Re-read this receipt from a clearer photo: extract the new image, then (only if it
+  // read) remove the old low-quality row. The fresh read lands in review or auto-posts.
+  const retake = async (exp, file) => {
+    setBusyId(exp.id);
+    try {
+      const res = await api.extract(file, exp.source || "card");
+      if (res.readable === false) {
+        toast("Couldn't read that photo — keeping the original. Try a flatter, well-lit shot.", "err");
+        return;
+      }
+      await api.deleteExpense(exp.id);
+      ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast(
+        res.gated_to === "posted"
+          ? `Re-read ${res.expense?.vendor || "receipt"} — posted to your ledger`
+          : "Re-read — updated in the review queue"
+      );
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const discard = async (exp) => {
     setBusyId(exp.id);
     try {
@@ -89,6 +115,7 @@ export default function ReviewQueue() {
               busy={busyId === e.id}
               onPost={post}
               onDiscard={discard}
+              onRetake={retake}
             />
           ))
         ) : (

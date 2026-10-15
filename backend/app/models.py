@@ -25,6 +25,11 @@ class ExpenseStatusUpdate(BaseModel):
     status: Literal["pending_review", "confirmed", "posted"]
 
 
+class ExpenseCategoryUpdate(BaseModel):
+    """Re-categorize an expense directly from the Ledger category column."""
+    category: str = Field(min_length=1)
+
+
 class ExpenseCreate(BaseModel):
     amount: float = Field(gt=0)
     category: str | None = None
@@ -49,6 +54,17 @@ class LineItem(BaseModel):
     vat_rate: float | None = None          # per-line VAT rate (%), e.g. 23
 
 
+class TaxLine(BaseModel):
+    """One row of the receipt's PRINTED VAT/IVA summary table (the legal tax
+    breakdown near the total: one row per rate with net / VAT / gross). These are
+    TRANSCRIBED, never computed — they are the authoritative VAT figures, so we
+    trust them over VAT re-derived from the model's reading of the item lines."""
+    rate: float | None = None              # the printed % (e.g. 6, 13, 23)
+    net: float | None = None               # "Total Liq." — base, VAT-exclusive
+    vat: float | None = None               # "IVA" — the printed VAT for this rate
+    gross: float | None = None             # "Total" — VAT-inclusive for this rate
+
+
 class ExtractionResult(BaseModel):
     """Structured output of the vision LLM. The LLM NEVER decides posting status
     or does reconciliation math — it only reports what it read, plus a confidence."""
@@ -61,6 +77,18 @@ class ExtractionResult(BaseModel):
     vat_rate: float | None = None
     currency: str | None = None
     line_items: list[LineItem] = Field(default_factory=list)
+    # The receipt's printed VAT summary table, transcribed. Authoritative VAT.
+    tax_lines: list[TaxLine] = Field(default_factory=list)
+    # Total discount applied (Special Offer / Desconto / Poupança), as a POSITIVE
+    # magnitude. `total` is always the amount PAID after this discount, so the item
+    # lines may sum above `total` by roughly this much.
+    discount_total: float | None = None
+    # True when the per-line vat_rate was ESTIMATED from the product type because the
+    # receipt prints no VAT (e.g. Uber Eats). Such a receipt goes to review to confirm.
+    vat_estimated: bool = False
+    # The LLM's SUGGESTED category (it already read the receipt). Advisory only:
+    # code applies rules first and validates this against the real category list.
+    category: str | None = None
     confidence: float = 0.0
 
 

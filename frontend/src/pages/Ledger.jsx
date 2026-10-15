@@ -104,6 +104,22 @@ export default function Ledger() {
     }
   };
 
+  const changeCategory = async (exp, category) => {
+    if (category === (exp.category || "Uncategorized")) return;
+    setBusyId(exp.id);
+    try {
+      await api.setExpenseCategory(exp.id, category);
+      ["expenses", "exceptions", "close", "review-queue", "line-items"].forEach((k) =>
+        qc.invalidateQueries({ queryKey: [k] })
+      );
+      toast(`${exp.vendor || "Entry"} → ${category}`);
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const deleteOne = async (exp) => {
     if (!window.confirm(`Delete "${exp.vendor || "this entry"}" (${money(exp.amount)})? This can't be undone.`))
       return;
@@ -179,7 +195,7 @@ export default function Ledger() {
           <Loading />
         ) : (
           <>
-            <LedgerTable expenses={filtered} onDelete={deleteOne} busyId={busyId} duplicateIds={duplicateIds} onRowClick={setDetail} onStatusChange={changeStatus} />
+            <LedgerTable expenses={filtered} onDelete={deleteOne} busyId={busyId} duplicateIds={duplicateIds} onRowClick={setDetail} onStatusChange={changeStatus} onCategoryChange={changeCategory} categories={categories} />
             <div
               style={{
                 display: "flex",
@@ -193,6 +209,7 @@ export default function Ledger() {
             >
               <span>{filtered.length} of {expenses.length} entries</span>
               <span style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                <span>Net <span className="num">{money(totalShown - vatShown)}</span></span>
                 <button
                   type="button"
                   className="vat-total-btn"
@@ -201,7 +218,7 @@ export default function Ledger() {
                 >
                   VAT <span className="num">{money(vatShown)}</span>
                 </button>
-                <span className="num" style={{ color: "var(--text)", fontWeight: 560 }}>{money(totalShown)}</span>
+                <span>Total <span className="num" style={{ color: "var(--text)", fontWeight: 560 }}>{money(totalShown)}</span></span>
               </span>
             </div>
           </>
