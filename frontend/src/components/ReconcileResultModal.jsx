@@ -119,6 +119,20 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     }
   };
 
+  // Acknowledge a card expense that has no matching bank line — it leaves the
+  // Unmatched list (the expense-side mirror of "No receipt").
+  const noBankMatch = async (expId) => {
+    setBusy(expId);
+    try {
+      apply(await api.markNoBankMatch(expId, true));
+      toast("Cleared — no bank line for this expense");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   // Unmatched bank candidates for an expense, closest amount then date first.
   // Candidates the user marked "not a match" are hidden.
   const candidatesFor = (exp) => {
@@ -247,6 +261,14 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                               <span className="recon-noreceipt">No receipt image</span>
                             )}
                             <EditReceiptButton expenseId={e.id} onDone={refreshState} />
+                            <button
+                              className="btn btn-sm btn-ghost"
+                              disabled={busy === e.id}
+                              onClick={() => noBankMatch(e.id)}
+                              title="This expense has no matching bank line (e.g. not on this statement, or a duplicate) — take it out of reconciliation"
+                            >
+                              No bank line
+                            </button>
                           </div>
                         </div>
                         <div className="recon-arrow">

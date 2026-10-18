@@ -36,7 +36,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-4-8"
     openai_api_key: str = ""
-    openai_model: str = "gpt-4o"
+    # gpt-5-mini (a reasoning model) reads dense multi-rate VAT tables far more
+    # reliably than gpt-4o (93% vs 84% on the eval set) — see eval/RESULTS.md. The
+    # OpenAI call path handles its max_completion_tokens requirement automatically.
+    openai_model: str = "gpt-5-mini"
 
     # --- Confidence gate ---
     confidence_threshold: float = 0.8

@@ -60,6 +60,22 @@ Status: **shipped.** Backend tests **80 → 97**.
 
 ---
 
+## v0.2.5 — Measured accuracy & a reading upgrade ✅
+
+**Goal:** stop guessing at extraction quality — measure it, then fix what the numbers expose, and let reconciliation reach a clean state.
+
+Scope delivered:
+- **Extraction-accuracy eval harness** — `scripts/eval_extraction.py` scores the shipped pipeline field-by-field over a hand-labelled receipt set; aggregate table in `backend/eval/RESULTS.md` ([D26](DECISIONS.md)).
+- **Model upgrade to gpt-5-mini** — a reasoning model that reads dense multi-rate VAT tables correctly (gpt-4o mis-read them); **eval 84% → 93%** ([D27](DECISIONS.md)).
+- **Reads every orientation** (incl. 180°) and keeps the most complete read, instead of stopping at the first plausible one ([D27](DECISIONS.md)).
+- **Retake prompt trusts reconciliation over self-reported confidence** — no more "retake" nag on a read that reconciles to the cent ([D27](DECISIONS.md)).
+- **Uber Eats → Dining** categorization fix (was Transport).
+- **"No bank line"** — the expense-side mirror of "No receipt"; clears an unmatched expense out of the reconciliation cycle so the Unmatched list can reach a clean state ([D28](DECISIONS.md)).
+
+Status: **shipped.** Backend tests **97 → 99**.
+
+---
+
 ## v0.3 — Advice ⬜
 
 **Goal:** move from recording the past to guiding the next decision — lightweight, rule-based, not a heavy AI advisor.
@@ -80,8 +96,9 @@ Status: **planned** — not started.
 - **LLM-assisted categorization.** ✅ Built — rules first, gpt-4o fills unknown vendors (Continente/Pingo Doce → Groceries), validated against the category list; added a Tobacco category (see [D15](DECISIONS.md)).
 - **Extraction robustness (Round 3).** ✅ Built — printed IVA table as VAT source of truth, discount handling, estimated VAT when none is printed, date year-repair + re-read, net-vs-gross correction, server-side auto-rotation, and a self-consistency guardrail + retake flow (see [D14–D21](DECISIONS.md)). Backend tests 53 → 80.
 - **Bank statements & reconciliation workbench (Round 4).** ✅ Built — PDF import, Revolut-aware CSV import, statements as first-class entities, collapsed exceptions, and a hand-drivable reconciliation popup (match / unmatch / not-a-match / no-receipt / re-scan) with believable suggestions only (see [D22–D25](DECISIONS.md)). Backend tests 80 → 97.
-- **Extraction-accuracy eval harness.** ⬜ Next — a labelled receipt set + `scripts/eval_extraction.py` for a real field-level accuracy number.
-- **Read-twice-and-compare** consensus mode. ⬜ Deferred option for maximum reliability on hard receipts.
+- **Extraction-accuracy eval harness.** ✅ Built (v0.2.5) — a labelled receipt set + `scripts/eval_extraction.py` gives a real field-level accuracy number (93% on gpt-5-mini); see [D26](DECISIONS.md) and `backend/eval/RESULTS.md`. It drove the model upgrade in [D27](DECISIONS.md).
+- **Read-twice-and-compare** consensus mode. ⬜ Deferred option for maximum reliability on the hardest (crumpled + rotated) receipts.
+- **`claude-opus-4-8` eval comparison.** ⬜ Pending Anthropic credits — add a cross-model column to RESULTS.md.
 
 ## Beyond v0.3 (future work)
 

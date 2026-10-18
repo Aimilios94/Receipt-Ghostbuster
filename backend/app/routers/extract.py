@@ -326,8 +326,22 @@ async def extract(
         result.date is not None
         and (result.date > today or (today - result.date).days > validation.MAX_AGE_DAYS)
     )
+    # A read that RECONCILES to the cent (the printed VAT table, or the item lines,
+    # sum to the total) is trustworthy even when the model self-reports modest
+    # confidence on a crumpled photo — a stronger, deterministic signal than the
+    # model's own confidence. So low confidence ALONE must not nag a retake; only a
+    # genuinely inconsistent read (or a suspect date) should. (It still goes to review
+    # for a quick human confirm — we just don't tell the user to re-photograph a
+    # receipt we actually read correctly.)
+    _rtol = max(0.10, 0.02 * (result.total or 0.0))
+    read_reconciles = bool(use_printed) or (
+        bool(result.total) and bool(breakdown["gross"])
+        and abs(breakdown["gross"] - result.total) <= _rtol
+    )
     retake_suggested = bool(
-        reconcile_issue or date_issue or result.confidence < settings.confidence_threshold
+        reconcile_issue
+        or date_issue
+        or (result.confidence < settings.confidence_threshold and not read_reconciles)
     )
 
     # Gate decided in code: auto-post only if confident AND no validation issues.

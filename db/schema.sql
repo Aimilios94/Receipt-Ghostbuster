@@ -105,6 +105,13 @@ alter table public.bank_transactions
 alter table public.bank_transactions
   add column if not exists no_receipt boolean not null default false;
 
+-- The expense-side mirror of no_receipt: acknowledge a card expense that has no
+-- matching bank line (its payment isn't on the imported statement, or it's a
+-- duplicate). Such expenses leave the reconciliation cycle: they are not listed as
+-- "unmatched" and are not offered for matching.
+alter table public.expenses
+  add column if not exists no_bank_match boolean not null default false;
+
 -- expense_line_items ---------------------------------------------------------
 -- One row per itemized line on a receipt, each carrying its OWN VAT rate. This is
 -- what lets a single receipt hold multiple VAT rates (e.g. 6% food + 23% other):

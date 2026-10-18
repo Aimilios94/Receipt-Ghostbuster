@@ -296,15 +296,16 @@ def _read_score(r: ExtractionResult) -> float:
             )
             if abs(tl_gross - total) <= tol:
                 s += 2.0
-    if r.tax_lines:
-        s += 0.5
-    if r.line_items:
-        s += 0.5
+    # Reward COMPLETENESS: a correctly-oriented read captures more of the printed
+    # structure (every VAT-summary row, more item lines). A sideways read often
+    # reconciles internally on a FRAGMENT (e.g. a single line read as the whole
+    # receipt), so the number of reconciling rows is what separates the full read
+    # from a self-consistent fragment that lands on the same `total`.
+    s += min(len(r.tax_lines), 4) * 0.5
+    s += min(len(r.line_items), 8) * 0.2
     return s
 
 
-# A read this good is accepted immediately (don't waste calls trying more rotations).
-_STRONG_SCORE = 8.0
 # Below this, a portrait read is suspect enough to also try an upside-down (180°) pass.
 _WEAK_SCORE = 5.0
 
@@ -355,14 +356,29 @@ def _extract_anthropic(image_bytes: bytes, media_type: str, settings: Settings, 
     return _parse_json_payload(text)
 
 
+def _is_reasoning_model(model: str) -> bool:
+    """Reasoning models (gpt-5*, o1/o3/o4*) use `max_completion_tokens` (not
+    `max_tokens`) and spend part of that budget on hidden reasoning. They read a
+    dense/fiddly VAT table far more reliably than gpt-4o, so we give them room."""
+    m = model.lower()
+    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
 def _extract_openai(image_bytes: bytes, media_type: str, settings: Settings, prompt: str) -> dict[str, Any]:
     from openai import OpenAI
 
     client = OpenAI(api_key=settings.openai_api_key)
     b64 = base64.standard_b64encode(image_bytes).decode("ascii")
+    # Reasoning models need the completion-token param + a budget big enough to
+    # cover the reasoning tokens before the JSON (1024 would often return empty).
+    token_arg = (
+        {"max_completion_tokens": 8000}
+        if _is_reasoning_model(settings.openai_model)
+        else {"max_tokens": 1024}
+    )
     resp = client.chat.completions.create(
         model=settings.openai_model,
-        max_tokens=1024,
+        **token_arg,
         messages=[
             {
                 "role": "user",
@@ -455,9 +471,10 @@ def extract_receipt(
     oriented, landscape = _exif_orient(image_bytes)
     media_type = _guess_media_type(filename if not _PIL_OK else "r.jpg", oriented)
 
-    # Candidate rotations. A landscape photo is almost certainly a sideways receipt,
-    # so try the two portrait orientations first; a portrait one usually needs none.
-    angles = [90, 270, 0] if (_PIL_OK and landscape) else [0]
+    # Candidate rotations. A landscape photo is almost certainly a sideways (or
+    # upside-down) receipt, so try ALL four orientations and keep the best-reading
+    # one; a portrait photo usually needs none.
+    angles = [90, 270, 180, 0] if (_PIL_OK and landscape) else [0]
 
     best: tuple[float, ExtractionResult, bytes] | None = None
     for angle in angles:
@@ -469,8 +486,10 @@ def extract_receipt(
         score = _read_score(result)
         if best is None or score > best[0]:
             best = (score, result, candidate)
-        if score >= _STRONG_SCORE:
-            break
+        # NO early break: a sideways read can look 'strong' (confident + internally
+        # consistent on a fragment), so stopping at the first plausible orientation
+        # would miss the genuinely upright one. We try every candidate and keep the
+        # most complete/reconciling read (see _read_score).
 
     # Portrait but the best read is weak -> it may be upside down; try one 180° pass.
     if _PIL_OK and not landscape and best is not None and best[0] < _WEAK_SCORE:

@@ -131,3 +131,24 @@
 **Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D22 PDF import · D23 top-ups/transfers aren't purchases · D24 statements first-class + collapsed exceptions · D25 online-payment "no receipt" + manual reconciliation workbench. Printed-table tolerance + scaling extends D14.
 
 **Round 4 outcome:** bank import now handles a real Revolut CSV and PDF statements; reconciliation became a hand-drivable workbench (match / unmatch / not-a-match / no-receipt / re-scan) with believable suggestions only; receipt totals stay internally consistent through a crumpled-digit misread. All verified in-browser against live Supabase; backend tests **80 → 97**. Sample demo data was cleared at the tester's request so the ledger shows only real uploads (reload via `scripts/load_sample_data.py` + `load_phase2_demo.py` before a recruiter demo).
+
+## Round 5 — 2026-10-18 (self-testing, developer) — accuracy eval, a model upgrade, and a clean reconciliation
+
+**Setup:** local build (backend `:8000`, frontend `:5173`), live Supabase. Started by building a measured accuracy harness, then re-tested the hardest real receipts and the reconciliation workbench.
+
+**Tester:** Aimilios (developer self-test).
+
+**What was exercised:** extraction accuracy on a labelled receipt set → rotated / crumpled receipts → dense 3-rate VAT tables → the "retake" prompt → reconciliation unmatched-expense clearing.
+
+**Observations & fixes (all shipped same day):**
+
+- **"Give the README a real accuracy number."** → **BUILT ([D26](DECISIONS.md)):** a field-level eval harness (`scripts/eval_extraction.py`) over a hand-labelled set of 11 real receipts. Baseline on gpt-4o: **84%**. It immediately caught the next two issues.
+- **Uber Eats categorized as Transport & Fuel.** The keyword rules matched the generic "uber" (rides) before the food case. → **FIXED:** a specific "uber eats"/"glovo"/"bolt food" → Dining rule now wins; a plain Uber ride still maps to Transport. Category accuracy 90% → 100%.
+- **A rotated receipt (€4.48) read as €24.99.** The auto-rotation stopped at the first orientation that scored "strong enough" — but a sideways read can look confident on a *fragment*, so it locked onto garbage and never tried the upright rotation. → **FIXED:** it now reads **every** orientation (incl. 180°) and keeps the most complete one.
+- **A real 3-rate Continente receipt (€10.89) showed only 2 rates, amounts fudged to the total, bag line misread — "it's guessing numbers."** Diagnosed: not a logic bug (the pipeline correctly rejected the mis-tied table and routed to review) — **gpt-4o simply mis-reads dense 3-rate VAT tables**, even at full resolution. gpt-5-mini / o4-mini read the same table perfectly. → **FIXED ([D27](DECISIONS.md)):** switched the model to **gpt-5-mini**. Eval **84% → 93%** (VAT amount/rate ~67%/56% → ~89%/89%).
+- **"Retake this photo" nagged on a receipt it actually read correctly.** gpt-5-mini reports modest confidence on a crumpled photo even when every figure is right; the prompt fired on low confidence alone. → **FIXED:** a read that **reconciles to the cent** is trusted over the self-reported confidence, so the retake prompt only shows for a genuinely inconsistent read (it still goes to review for a quick confirm).
+- **"I reject the wrong matches but the Unmatched list never goes clean."** The expenses genuinely have no bank line, and "Not a match" only rejects one *suggestion*. → **FIXED ([D28](DECISIONS.md)):** added a **No bank line** button (the expense-side mirror of the bank's "No receipt") that clears an unmatched expense out of the reconciliation cycle.
+
+**Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D26 eval harness · D27 gpt-5-mini reasoning model (+ read-every-orientation, + trust-reconciliation-over-confidence) · D28 "No bank line" expense opt-out.
+
+**Round 5 outcome:** extraction accuracy is now **measured and 93%** on the labelled set, the model reads dense multi-rate VAT tables correctly, the retake prompt no longer cries wolf on good reads, and the reconciliation Unmatched list can reach a clean state. Backend tests **97 → 99**. **Honest finding (reinforces D9):** the single hardest photo — crumpled **and** rotated **and** dark — can still mis-read even on gpt-5-mini and is routed to review, not auto-posted. gpt-5-mini trades speed (~20s/read) for accuracy. A `claude-opus-4-8` comparison is pending Anthropic credits.

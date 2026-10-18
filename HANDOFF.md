@@ -6,9 +6,68 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-18, end of day 6)
+## 🟢 RESUME HERE — current status (as of 2026-10-18, day 6 — Round 5, shipped v0.2.5)
 
-**Day 6 = a big Round-4 real-testing session (user driving) → bank-statement import + a hand-drivable
+**Day 6 continued (Round 5) = measured extraction accuracy, then acted on it. Shipped as `v0.2.5`.
+Backend tests 97 → 99 passing, frontend build clean, all verified against live Supabase.** This was the
+queued "eval harness" step — and the harness immediately exposed real problems that drove a model upgrade.
+
+**What Round 5 shipped (see DECISIONS D26–D28 + feedback-notes Round 5):**
+- **Extraction-accuracy eval harness (D26):** `backend/scripts/eval_extraction.py` runs the SHIPPED
+  pipeline (`extraction.extract_receipt` + `receipt_fields.compute`) over a hand-labelled set and scores
+  each field. Dataset in `backend/eval/`: `receipts/` (11 real full-res receipts) + `labels.json` are
+  **git-ignored (personal data)**; `labels.example.json`, `README.md`, `.gitignore`, and aggregate
+  `RESULTS.md` are committed. Per-image reads cached (`eval/.cache/`, keyed by model); flags
+  `--provider` / `--model` / `--refresh` / `--limit`. Currency is NOT scored (€ symbol, not ISO text).
+- **MODEL SWITCH gpt-4o → gpt-5-mini (D27) — the big one.** User uploaded a real 3-rate Continente
+  receipt; it showed only 2 rates with amounts fudged to the total. Diagnosed (per-model, full-res): NOT
+  a logic bug — **gpt-4o mis-reads dense 3-rate VAT tables**; gpt-5-mini/o4-mini read them perfectly.
+  `config.py` default `openai_model = "gpt-5-mini"` (the `.env` does NOT set OPENAI_MODEL, so the default
+  applies). `services/extraction.py::_extract_openai` auto-detects reasoning models (`_is_reasoning_model`:
+  gpt-5*/o1/o3/o4*) → `max_completion_tokens: 8000`. **Eval 84% → 93%** (VAT amount/rate 67/56% → 89/89%).
+- **Read every orientation (D27):** the auto-rotation no longer early-breaks on the first "strong" read
+  (a sideways read can look confident on a fragment) — it reads all orientations incl. 180° and keeps the
+  most complete. Fixed a €4.48 receipt that read €24.99.
+- **Retake prompt trusts reconciliation (D27):** a read whose printed VAT table (or items) ties to the
+  total to the cent is trusted over the model's self-reported confidence → no more "retake" nag on a
+  correct read (it still goes to review for a quick confirm). `routers/extract.py`.
+- **Uber Eats → Dining (not Transport):** `categorization.py` — "uber eats"/"glovo"/"bolt food" rule
+  before the generic "uber" (rides). Category accuracy 90% → 100%.
+- **"No bank line" (D28):** expense-side mirror of the bank's "No receipt". New `expenses.no_bank_match`
+  (schema applied live), `POST /reconcile/no-bank-match`, button in ReconcileResultModal. Lets the user
+  clear a card expense that has no bank line so the Unmatched list reaches a clean state.
+
+### 👋 Message to the next agent (read this)
+Everything Round 5 is committed and pushed as `v0.2.5`. When you resume:
+1. Read this RESUME section + the auto-memory file (path at bottom) + **DECISIONS.md** (now D1–D28) and
+   **feedback-notes.md** (Rounds 1–5). Keep the **authenticity rule**: real testing → real
+   feedback-notes → real decisions. Never invent feedback or metrics.
+2. Start the servers (commands below). **Provider is now OpenAI `gpt-5-mini`** (reasoning model — it's
+   SLOWER, ~20s/read, up to ~90s for a rotated receipt; this is accuracy-for-latency, by design). Run ONE
+   backend uvicorn, **no `--reload`**. Supabase uses a **per-thread** client — don't revert to the
+   `@lru_cache` singleton. **Check the two 7-day expiries** before any demo (Supabase pause, n8n Gmail
+   OAuth — memory `demo-prep-7day-expiries`).
+3. **Do NOT re-litigate settled decisions (D1–D28).** Confirm priority with the user before large new
+   directions.
+4. **Open items (good next moves, beyond manual testing):**
+   - **`claude-opus-4-8` eval comparison** — run `python scripts/eval_extraction.py --provider anthropic`
+     once Anthropic credits are topped up (currently out of credits), add the column to `RESULTS.md`/README.
+   - **Grow the eval set** — more labelled receipts (esp. hard/rotated) make the 93% more robust; the
+     harness + labelling format are ready (`backend/eval/README.md`).
+   - **Read-twice-and-compare** consensus mode for the hardest crumpled+rotated photos (deferred option).
+   - Optional: let a cent-perfect reconciling read **auto-post** (skip review) to cut friction — the user
+     was asked, left open (risk: a self-consistent-but-wrong rotated read auto-posting).
+   - Then **v0.3 — Advice** (budget vs actual, overspend nudges, insights feed) + a hosted demo.
+5. **Note:** real test receipts live in the PARENT folder `C:\Users\aimilios\Desktop\CV-creation\`
+   (`1000017779.jpg`, `octomber-2026.csv`, etc.) — the eval set in `backend/eval/receipts/` is a git-
+   ignored copy of them. The user drives real testing. Two unmatched Pingo Doce €48.24 in his ledger are
+   the SAME receipt uploaded twice — a true duplicate he may want to delete.
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-18, day 6 — Round 4, shipped v0.2.4)
+
+**Day 6 (Round 4) = a big real-testing session (user driving) → bank-statement import + a hand-drivable
 reconciliation workbench, shipped as `v0.2.4`. Backend tests 80 → 97 passing, frontend build clean,
 all verified in-browser against live Supabase.** The user imported a real **Revolut CSV**
 (`octomber-2026.csv`) and re-read real receipts; every issue was fixed and verified the same day.

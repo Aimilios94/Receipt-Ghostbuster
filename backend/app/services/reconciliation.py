@@ -91,6 +91,8 @@ def reconcile(
             continue
         if exp.get("reconciled"):
             continue
+        if exp.get("no_bank_match"):
+            continue  # acknowledged as having no bank line — out of the reconcile cycle
         if exp.get("status") == "pending_review":
             continue  # don't reconcile a receipt that hasn't been confirmed yet
         exp_amount = abs(float(exp["amount"]))

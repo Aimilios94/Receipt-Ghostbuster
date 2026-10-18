@@ -31,6 +31,8 @@ See the full plan and status in **[roadmap.md](roadmap.md)**.
   From a Round 3 session on hard real receipts (3-rate, discounted, no-VAT, sideways, crumpled): **LLM categorization**, the **printed IVA table as VAT source of truth**, **estimated VAT** when none is printed (clearly flagged), **discount handling**, **server-side auto-rotation** (Pillow), **date year-repair**, a **self-consistency guardrail** + **retake** flow, editable Ledger category, and clickable/deletable reconciliation exceptions. Backend tests **53 → 80** (see [feedback-notes.md](feedback-notes.md), [D14–D21](DECISIONS.md)).
 - **v0.2.4 — Bank statements & reconciliation workbench ✅ shipped**
   From a Round 4 session on a real **Revolut** export: **PDF + Revolut-aware CSV import** (auto-detected columns, skips pending/reverted rows), a **Bank statements** section (each file's period + Spent/Received/Net, drill-down), top-ups/transfers excluded from the receipt cycle, and a hand-drivable **reconciliation workbench** — match / unmatch / not-a-match / **No receipt** for online payments / **Match manually**, with believable suggestions only and **View transaction** (the exact CSV row). Plus **replace-a-receipt-photo** (re-scan) and a printed-VAT consistency fix. Backend tests **80 → 97** (see [feedback-notes.md](feedback-notes.md), [D22–D25](DECISIONS.md)).
+- **v0.2.5 — Measured accuracy & a reading upgrade ✅ shipped**
+  Built a field-level **extraction-accuracy eval harness**, which showed `gpt-4o` mis-reads dense multi-rate VAT tables — so receipt reading moved to the **`gpt-5-mini` reasoning model** (**84% → 93%**). Plus read-every-orientation rotation handling, a retake prompt that trusts reconciliation over self-reported confidence, an Uber-Eats→Dining fix, and a **"No bank line"** action so the reconciliation Unmatched list can reach a clean state. Backend tests **97 → 99** (see [feedback-notes.md](feedback-notes.md), [D26–D28](DECISIONS.md)).
 - **v0.3 — Advice ⬜ planned**
   Budget-vs-actual variance, rule-based overspend nudges, and an insights feed.
 
@@ -75,12 +77,16 @@ Supabase (Postgres + Auth + Storage)   n8n (Docker, :5678) → Gmail draft (draf
 
 ## Results
 
-- **Extraction:** verified end-to-end on real Portuguese receipts (vendor, total, date, VAT, line items) on upright photos; routes bad/rotated photos to review instead of mis-posting.
-- **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest). Bank import handles a real Revolut CSV and text-based PDF statements; reconciliation can be driven by hand (match / unmatch / not-a-match / no-receipt) with believable suggestions only.
-- **Tests:** 97 passing (reconciliation + manual-match helpers, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization, date re-read + year-repair, discounts, estimated/0% VAT, duplicates, close, exceptions, validation, subscriptions, CSV/PDF bank import, statement aggregation).
-- **Impact:** turns a manual personal month-end into minutes; surfaces forgotten subscriptions by annual cost.
+- **Extraction accuracy (measured):** a reproducible harness ([`backend/scripts/eval_extraction.py`](backend/scripts/eval_extraction.py)) scores the shipped pipeline — the vision read **plus** the deterministic VAT/amount/category logic — field-by-field against a hand-labelled set of 11 real Portuguese receipts (multi-rate VAT tables, rotated photos, a discount, and a payment-only receipt). On `gpt-5-mini`:
 
-> A measured **extraction-accuracy table** (field-level accuracy over a labeled receipt set) is the next deliverable — the eval harness is in progress.
+  | vendor | date | total | vat amount | vat rate | category | **overall** |
+  |---:|---:|---:|---:|---:|---:|---:|
+  | 100% | 91% | 91% | 89% | 89% | 100% | **93%** |
+
+  Choosing the model was itself eval-driven: `gpt-4o` scored **84%** and reliably mis-read dense 3-rate VAT tables; swapping in the `gpt-5-mini` reasoning model (which reads those tables correctly) lifted it to **93%**. The remaining misses are the hardest photo in the set — crumpled **and** rotated **and** dark — which the pipeline routes to review rather than mis-posting, which is the point. Flat, upright photos read cleanly. See [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). *(A `claude-opus-4-8` comparison column is pending Anthropic API credits.)*
+- **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest). Bank import handles a real Revolut CSV and text-based PDF statements; reconciliation can be driven by hand (match / unmatch / not-a-match / no-receipt) with believable suggestions only.
+- **Tests:** 99 passing (reconciliation + manual-match + no-bank-match helpers, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization incl. food-delivery rules, date re-read + year-repair, discounts, estimated/0% VAT, duplicates, close, exceptions, validation, subscriptions, CSV/PDF bank import, statement aggregation).
+- **Impact:** turns a manual personal month-end into minutes; surfaces forgotten subscriptions by annual cost.
 
 ---
 

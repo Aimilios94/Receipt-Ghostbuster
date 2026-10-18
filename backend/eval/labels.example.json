@@ -1,0 +1,23 @@
+[
+  {
+    "file": "my-supermarket-receipt.jpg",
+    "vendor": "Pingo Doce",
+    "date": "2026-10-03",
+    "total": 48.24,
+    "currency": "EUR",
+    "vat_amount": 4.47,
+    "vat_rate": 6,
+    "category": "Groceries",
+    "_note": "Every field is OPTIONAL except `file`; the scorer only grades the fields you provide. `total` = amount PAID (after discounts). `vat_rate` = the dominant printed rate. `_note` is ignored by the scorer."
+  },
+  {
+    "file": "delivery-receipt.jpg",
+    "vendor": "Uber Eats",
+    "vendor_alt": ["95 Pizzeria", "Pizzeria"],
+    "date": "2026-10-13",
+    "total": 18.39,
+    "currency": "EUR",
+    "category": "Dining & Cafes",
+    "_note": "`vendor_alt` lists other acceptable vendor names (e.g. platform vs merchant). Omit `vat_amount`/`vat_rate` when the receipt prints no VAT table."
+  }
+]

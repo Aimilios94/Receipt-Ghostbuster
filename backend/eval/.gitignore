@@ -1,0 +1,6 @@
+# The eval set is REAL personal receipts + their labelled amounts/dates/vendors.
+# Keep it local; publish only the aggregate RESULTS.md. See README.md.
+receipts/
+labels.json
+.cache/
+results.detail.json

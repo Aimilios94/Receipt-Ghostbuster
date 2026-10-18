@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..models import BankNoReceiptRequest, ManualMatchRequest
+from ..models import BankNoReceiptRequest, ExpenseNoBankMatchRequest, ManualMatchRequest
 from ..services import reconciliation
 from .. import repository as repo
 
@@ -47,7 +47,9 @@ def _build_state(user_id: str) -> dict:
                 }
             )
     matched_ids = {p["expense"]["id"] for p in pairs}
-    unmatched_expenses = [e for e in non_cash if e["id"] not in matched_ids]
+    unmatched_expenses = [
+        e for e in non_cash if e["id"] not in matched_ids and not e.get("no_bank_match")
+    ]
     unmatched_bank = [
         t
         for t in bank
@@ -132,7 +134,8 @@ def manual_match(
     repo.update_expense(
         user_id,
         body.expense_id,
-        {"reconciled": True, "matched_transaction_id": body.transaction_id},
+        # Matching clears any prior "no bank line" acknowledgement.
+        {"reconciled": True, "matched_transaction_id": body.transaction_id, "no_bank_match": False},
     )
     repo.update_bank_transaction(
         user_id, body.transaction_id, {"matched_expense_id": body.expense_id}
@@ -147,6 +150,17 @@ def set_no_receipt(
     """Acknowledge a bank payment as a no-receipt (online) payment, taking it out of
     the reconciliation cycle (or restore it with no_receipt=false)."""
     repo.update_bank_transaction(user_id, body.transaction_id, {"no_receipt": body.no_receipt})
+    return _build_state(user_id)
+
+
+@router.post("/no-bank-match")
+def set_no_bank_match(
+    body: ExpenseNoBankMatchRequest, user_id: str = Depends(get_current_user_id)
+) -> dict:
+    """Acknowledge a card expense as having no matching bank line, taking it out of
+    the reconciliation cycle (or restore it with no_bank_match=false)."""
+    _owned_expense(user_id, body.expense_id)  # 404s if not the user's
+    repo.update_expense(user_id, body.expense_id, {"no_bank_match": body.no_bank_match})
     return _build_state(user_id)
 
 

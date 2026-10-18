@@ -25,6 +25,7 @@ def unmatched_expenses(
         for e in expenses
         if e.get("source") != "cash"
         and not e.get("reconciled")
+        and not e.get("no_bank_match")
         and e.get("id") not in exclude_ids
     ]
 

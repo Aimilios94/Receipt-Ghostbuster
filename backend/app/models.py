@@ -111,6 +111,13 @@ class BankNoReceiptRequest(BaseModel):
     no_receipt: bool = True
 
 
+class ExpenseNoBankMatchRequest(BaseModel):
+    """Acknowledge (or un-acknowledge) a card expense as having no matching bank
+    line — the expense-side mirror of BankNoReceiptRequest."""
+    expense_id: str
+    no_bank_match: bool = True
+
+
 class ManualMatchRequest(BaseModel):
     """Manually link an expense to a bank transaction (or unlink — transaction_id
     is optional for unmatch, since the expense already knows its current match)."""

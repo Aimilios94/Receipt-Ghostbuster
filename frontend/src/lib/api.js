@@ -119,6 +119,8 @@ export const api = {
     request("/reconcile/unmatch", { method: "POST", body: { expense_id: expenseId, transaction_id: transactionId } }),
   markNoReceipt: (transactionId, noReceipt = true) =>
     request("/reconcile/no-receipt", { method: "POST", body: { transaction_id: transactionId, no_receipt: noReceipt } }),
+  markNoBankMatch: (expenseId, noBankMatch = true) =>
+    request("/reconcile/no-bank-match", { method: "POST", body: { expense_id: expenseId, no_bank_match: noBankMatch } }),
   exceptions: (month) => request(`/exceptions${month ? `?month=${month}` : ""}`),
   close: (month) => request(`/close${month ? `?month=${month}` : ""}`),
 

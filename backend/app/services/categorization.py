@@ -24,6 +24,12 @@ DEFAULT_RULES: dict[str, str] = {
     "shell": "Transport & Fuel",
     "bp ": "Transport & Fuel",
     "eko": "Transport & Fuel",
+    # Food delivery — must come BEFORE "uber" so "Uber Eats" isn't caught by the
+    # ride rule (first substring match wins). Plain "Uber" (rides) still -> Transport.
+    "uber eats": "Dining & Cafes",
+    "ubereats": "Dining & Cafes",
+    "glovo": "Dining & Cafes",
+    "bolt food": "Dining & Cafes",
     "uber": "Transport & Fuel",
     "taxi": "Transport & Fuel",
     "dei": "Utilities",

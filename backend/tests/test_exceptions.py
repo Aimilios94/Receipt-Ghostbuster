@@ -41,6 +41,20 @@ def test_cash_not_flagged_unmatched():
     assert ids == {"2"}                    # cash excluded, reconciled excluded
 
 
+def test_no_bank_match_leaves_the_cycle():
+    # A card expense acknowledged as having no bank line is neither flagged as an
+    # unmatched exception nor offered for matching (the expense-side "No receipt").
+    expenses = [
+        {"id": "1", "source": "card", "reconciled": False, "amount": 10, "expense_date": "2026-10-01"},
+        {"id": "2", "source": "card", "reconciled": False, "no_bank_match": True,
+         "amount": 10, "expense_date": "2026-10-01", "status": "posted"},
+    ]
+    bank = [{"id": "b", "amount": -10, "txn_date": "2026-10-01", "description": "shop", "type": "Card Payment"}]
+    assert {e["id"] for e in exc.unmatched_expenses(expenses)} == {"1"}
+    res = recon.reconcile(expenses, bank)
+    assert "2" not in res.matched_expense_ids   # the acknowledged one is never matched
+
+
 def test_duplicate_detection():
     expenses = [
         {"id": "1", "vendor": "Lidl", "amount": 20.00, "expense_date": "2026-09-01"},

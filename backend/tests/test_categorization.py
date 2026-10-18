@@ -15,6 +15,15 @@ def test_rules_match_known_vendor():
     assert categorize("Starbucks Syntagma") == "Dining & Cafes"
 
 
+def test_uber_eats_is_dining_not_transport():
+    # "Uber Eats" (food delivery) must beat the generic "uber" ride rule, while a
+    # plain Uber ride still maps to Transport. Order-sensitive first-match behaviour.
+    assert categorize("Uber Eats") == "Dining & Cafes"
+    assert categorize("UberEats") == "Dining & Cafes"
+    assert categorize("Glovo") == "Dining & Cafes"
+    assert categorize("Uber *trip helsinki") == "Transport & Fuel"
+
+
 def test_rules_win_over_llm_suggestion():
     # A rule hit is deterministic and must not be overridden by the LLM.
     called = []
