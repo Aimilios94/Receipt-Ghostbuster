@@ -10,21 +10,24 @@ import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
 import { money, shortDate, sourceLabel, vatByRate } from "../lib/format.js";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
+import EditReceiptButton from "./EditReceiptButton.jsx";
 
 function paidWith(e) {
   return e.source === "card" ? "Card ending 4821" : sourceLabel(e.source);
 }
 
-function ReceiptCell({ expense, onView }) {
-  if (!expense.receipt_image_url) return <span className="cell-muted">No receipt</span>;
+function ReceiptCell({ expense, onView, onRescanned }) {
   return (
-    <button
-      type="button"
-      className="btn btn-sm btn-ghost"
-      onClick={() => onView(expense.receipt_image_url)}
-    >
-      <Icon.receipt size={13} /> View
-    </button>
+    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+      {expense.receipt_image_url ? (
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => onView(expense.receipt_image_url)}>
+          <Icon.receipt size={13} /> View
+        </button>
+      ) : (
+        <span className="cell-muted">No receipt</span>
+      )}
+      <EditReceiptButton expenseId={expense.id} onDone={onRescanned} label={expense.receipt_image_url ? "Edit" : "Add"} />
+    </span>
   );
 }
 
@@ -40,6 +43,13 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
 
   // Keep in sync if the caller passes a new list.
   useEffect(() => setRows(expenses || []), [expenses]);
+
+  const onRescanned = (updated) => {
+    if (updated) setRows((rs) => rs.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
+    ["expenses", "close", "exceptions", "line-items", "statements"].forEach((k) =>
+      qc.invalidateQueries({ queryKey: [k] })
+    );
+  };
 
   const remove = async (e) => {
     if (!window.confirm(`Delete ${e.vendor || "this expense"} (${money(e.amount)})? This can't be undone.`))
@@ -146,7 +156,7 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
                       </td>
                     ) : null}
                     <td className="right">
-                      <ReceiptCell expense={e} onView={setReceipt} />
+                      <ReceiptCell expense={e} onView={setReceipt} onRescanned={onRescanned} />
                     </td>
                     <td className="right">
                       <span style={{ display: "inline-flex", gap: 2, justifyContent: "flex-end" }}>

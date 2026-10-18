@@ -174,6 +174,82 @@ def update_bank_transaction(user_id: str, txn_id: str, patch: dict[str, Any]) ->
     ).execute()
 
 
+# --- bank statements (one row per imported file) ----------------------------
+
+def insert_bank_statement(user_id: str, row: dict[str, Any]) -> dict[str, Any]:
+    data = (
+        get_supabase()
+        .table("bank_statements")
+        .insert({**row, "user_id": user_id})
+        .execute()
+        .data
+        or []
+    )
+    return data[0] if data else {}
+
+
+def list_bank_statements(user_id: str) -> list[dict[str, Any]]:
+    return (
+        get_supabase()
+        .table("bank_statements")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("uploaded_at", desc=True)
+        .execute()
+        .data
+        or []
+    )
+
+
+def get_bank_statement(user_id: str, statement_id: str) -> dict[str, Any] | None:
+    data = (
+        get_supabase()
+        .table("bank_statements")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("id", statement_id)
+        .execute()
+        .data
+        or []
+    )
+    return data[0] if data else None
+
+
+def list_statement_transactions(user_id: str, statement_id: str) -> list[dict[str, Any]]:
+    return (
+        get_supabase()
+        .table("bank_transactions")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("statement_id", statement_id)
+        .order("txn_date", desc=False)
+        .execute()
+        .data
+        or []
+    )
+
+
+def delete_bank_statement(user_id: str, statement_id: str) -> None:
+    """Delete a statement and (via FK cascade) its transactions. First clear any
+    expense links to those transactions so no expense points at a deleted row."""
+    sb = get_supabase()
+    txns = (
+        sb.table("bank_transactions")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("statement_id", statement_id)
+        .execute()
+        .data
+        or []
+    )
+    tids = [t["id"] for t in txns]
+    if tids:
+        sb.table("expenses").update({"matched_transaction_id": None, "reconciled": False}).eq(
+            "user_id", user_id
+        ).in_("matched_transaction_id", tids).execute()
+    sb.table("bank_statements").delete().eq("user_id", user_id).eq("id", statement_id).execute()
+
+
 DEFAULT_CATEGORIES = [
     "Groceries",
     "Dining & Cafes",

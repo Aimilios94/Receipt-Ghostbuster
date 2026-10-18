@@ -8,16 +8,83 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..services import categorization, extraction, validation, vat
+from ..services import categorization, extraction, receipt_fields, validation, vat
 from .. import repository as repo
 
 router = APIRouter(tags=["extraction"])
+
+
+@router.post("/expenses/{expense_id}/rescan")
+async def rescan_receipt(
+    expense_id: str,
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Replace an existing expense's receipt photo with a newly uploaded one and
+    re-read it: the straightened new image is stored and, when it reads cleanly, the
+    amount / VAT / vendor / date / category / line items are refreshed from it. If the
+    new photo can't be read, the image is still replaced but the existing figures are
+    kept (so a bad re-shot never wipes good data)."""
+    if not settings.llm_configured:
+        raise HTTPException(status_code=503, detail="LLM provider is not configured.")
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty file.")
+
+    result, oriented = extraction.extract_receipt(content, file.filename, settings)
+
+    # Store the straightened new image (best-effort).
+    image_url = None
+    try:
+        image_url = repo.upload_receipt(user_id, f"{uuid.uuid4()}.jpg", oriented, "image/jpeg")
+    except Exception:  # noqa: BLE001
+        image_url = None
+
+    check = validation.validate_receipt(result, confidence_threshold=settings.confidence_threshold)
+
+    # Unreadable new photo: swap the image only, keep the existing figures.
+    if not check["readable"]:
+        patch = {"receipt_image_url": image_url} if image_url else {}
+        updated = repo.update_expense(user_id, expense_id, patch) if patch else None
+        return {
+            "expense": updated,
+            "readable": False,
+            "issues": check["issues"],
+            "message": "New photo saved, but it couldn't be read — kept the existing amounts.",
+        }
+
+    valid = {c["name"] for c in repo.list_categories(user_id)}
+    fields = receipt_fields.compute(result, valid)
+
+    row = {
+        "input_method": "receipt",
+        "vendor": result.vendor,
+        "amount": fields["amount"] or 0.0,
+        "currency": result.currency or settings.default_currency,
+        "expense_date": (result.date or date.today()).isoformat(),
+        "category": fields["category"],
+        "vat_amount": fields["vat_amount"],
+        "vat_rate": fields["vat_rate"],
+        "confidence": round(result.confidence, 3),
+        "raw_extraction": result.model_dump(mode="json"),
+    }
+    if image_url:
+        row["receipt_image_url"] = image_url
+    updated = repo.update_expense(user_id, expense_id, row)
+    try:
+        repo.replace_line_items(user_id, expense_id, fields["line_rows"])
+    except Exception:  # noqa: BLE001 - line items are additive, never fatal
+        pass
+
+    return {"expense": updated, "readable": True}
 
 
 @router.post("/extract")
 async def extract(
     file: UploadFile = File(...),
     source: str = Form("card"),
+    note: str | None = Form(None),
     user_id: str = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ) -> dict:
@@ -38,7 +105,8 @@ async def extract(
         raise HTTPException(status_code=400, detail="Empty file.")
 
     # Returns the read plus the auto-rotated (upright) image bytes we should store.
-    result, oriented = extraction.extract_receipt(content, file.filename, settings)
+    # `note` is an optional hint the uploader typed in to help resolve ambiguity.
+    result, oriented = extraction.extract_receipt(content, file.filename, settings, note=note)
 
     # "Think twice" about a suspicious date: if the first read is missing, in the
     # future, or implausibly old (a misread year — the #1 extraction error on crumpled
@@ -104,9 +172,20 @@ async def extract(
     # printed rate becomes one gross bucket (also what seeds the review VAT editor).
     printed_buckets = vat.tax_line_buckets([tl.model_dump() for tl in result.tax_lines])
     printed_gross = round(sum(b["amount"] for b in printed_buckets), 2)
+    # Relative tie tolerance + scale-to-total so a small OCR digit misread on a
+    # crumpled receipt doesn't drop the authoritative printed table (see receipt_fields).
+    _tol = max(0.10, 0.02 * (result.total or 0.0))
     use_printed = bool(printed_buckets) and (
-        not result.total or abs(printed_gross - result.total) <= 0.05
+        not result.total or abs(printed_gross - result.total) <= _tol
     )
+    if use_printed and result.total and printed_gross and abs(printed_gross - result.total) > 0.01:
+        _scale = result.total / printed_gross
+        for b in printed_buckets:
+            b["amount"] = round(b["amount"] * _scale, 2)
+        _diff = round(result.total - sum(b["amount"] for b in printed_buckets), 2)
+        if _diff:
+            _big = max(printed_buckets, key=lambda b: b["amount"])
+            _big["amount"] = round(_big["amount"] + _diff, 2)
 
     if use_printed:
         line_rows = [

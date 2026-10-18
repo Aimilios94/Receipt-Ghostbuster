@@ -7,6 +7,7 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: Icon.dashboard, end: true },
   { to: "/review", label: "Review queue", icon: Icon.review, badge: "review" },
   { to: "/reconciliation", label: "Reconciliation", icon: Icon.reconcile, badge: "exc" },
+  { to: "/bank-statements", label: "Bank statements", icon: Icon.bank, badge: "statements" },
   { to: "/close", label: "Monthly close", icon: Icon.close },
   { to: "/ledger", label: "Ledger", icon: Icon.ledger },
   { to: "/refunds", label: "Refund Hunter", icon: Icon.refund, badge: "flagged" },
@@ -20,20 +21,28 @@ export default function Sidebar() {
   });
   const { data: exc } = useQuery({ queryKey: ["exceptions"], queryFn: () => api.exceptions() });
   const { data: subs } = useQuery({ queryKey: ["subscriptions"], queryFn: api.listSubscriptions });
+  const { data: statements } = useQuery({ queryKey: ["statements"], queryFn: api.listStatements });
 
   const reviewCount = review?.length || 0;
+  // Unmatched bank payments are surfaced per-statement (Bank statements), not here,
+  // so exclude them from the Reconciliation badge.
   const excCount = exc
-    ? Object.values(exc.counts || {}).reduce((a, b) => a + b, 0)
+    ? Object.entries(exc.counts || {})
+        .filter(([k]) => k !== "unmatched_bank")
+        .reduce((a, [, v]) => a + v, 0)
     : 0;
   const flaggedCount = (subs || []).filter(
     (s) => s.status === "flagged" || (s.status === "active" && s.stale)
   ).length;
+  const statementsNeeding = (statements || []).filter((s) => s.needs_receipt_count > 0).length;
 
   const badgeFor = (kind) => {
     if (kind === "review" && reviewCount)
       return <span className="nav-count">{reviewCount}</span>;
     if (kind === "exc" && excCount)
       return <span className="nav-count amber">{excCount}</span>;
+    if (kind === "statements" && statementsNeeding)
+      return <span className="nav-count amber">{statementsNeeding}</span>;
     if (kind === "flagged" && flaggedCount)
       return <span className="nav-count amber">{flaggedCount}</span>;
     return null;

@@ -29,6 +29,8 @@ See the full plan and status in **[roadmap.md](roadmap.md)**.
   **Per-line VAT** (a receipt can hold multiple rates — summed per rate in code, bucket-rounded to match the printed IVA summary), a **multi-rate VAT editor** in the review queue, **duplicate detection at upload**, clickable Ledger rows → full expense detail, editable rows, and clickable status. From the Round 2 testing session (see [feedback-notes.md](feedback-notes.md)).
 - **v0.2.3 — Extraction robustness & review UX ✅ shipped**
   From a Round 3 session on hard real receipts (3-rate, discounted, no-VAT, sideways, crumpled): **LLM categorization**, the **printed IVA table as VAT source of truth**, **estimated VAT** when none is printed (clearly flagged), **discount handling**, **server-side auto-rotation** (Pillow), **date year-repair**, a **self-consistency guardrail** + **retake** flow, editable Ledger category, and clickable/deletable reconciliation exceptions. Backend tests **53 → 80** (see [feedback-notes.md](feedback-notes.md), [D14–D21](DECISIONS.md)).
+- **v0.2.4 — Bank statements & reconciliation workbench ✅ shipped**
+  From a Round 4 session on a real **Revolut** export: **PDF + Revolut-aware CSV import** (auto-detected columns, skips pending/reverted rows), a **Bank statements** section (each file's period + Spent/Received/Net, drill-down), top-ups/transfers excluded from the receipt cycle, and a hand-drivable **reconciliation workbench** — match / unmatch / not-a-match / **No receipt** for online payments / **Match manually**, with believable suggestions only and **View transaction** (the exact CSV row). Plus **replace-a-receipt-photo** (re-scan) and a printed-VAT consistency fix. Backend tests **80 → 97** (see [feedback-notes.md](feedback-notes.md), [D22–D25](DECISIONS.md)).
 - **v0.3 — Advice ⬜ planned**
   Budget-vs-actual variance, rule-based overspend nudges, and an insights feed.
 
@@ -74,8 +76,8 @@ Supabase (Postgres + Auth + Storage)   n8n (Docker, :5678) → Gmail draft (draf
 ## Results
 
 - **Extraction:** verified end-to-end on real Portuguese receipts (vendor, total, date, VAT, line items) on upright photos; routes bad/rotated photos to review instead of mis-posting.
-- **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest).
-- **Tests:** 80 passing (reconciliation, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization, date re-read + year-repair, discounts, estimated/0% VAT, duplicates, close, exceptions, validation, subscriptions).
+- **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest). Bank import handles a real Revolut CSV and text-based PDF statements; reconciliation can be driven by hand (match / unmatch / not-a-match / no-receipt) with believable suggestions only.
+- **Tests:** 97 passing (reconciliation + manual-match helpers, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization, date re-read + year-repair, discounts, estimated/0% VAT, duplicates, close, exceptions, validation, subscriptions, CSV/PDF bank import, statement aggregation).
 - **Impact:** turns a manual personal month-end into minutes; surfaces forgotten subscriptions by annual cost.
 
 > A measured **extraction-accuracy table** (field-level accuracy over a labeled receipt set) is the next deliverable — the eval harness is in progress.

@@ -105,6 +105,19 @@ class ColumnMapping(BaseModel):
     credit: str | None = None
 
 
+class BankNoReceiptRequest(BaseModel):
+    """Acknowledge (or un-acknowledge) a bank transaction as a no-receipt payment."""
+    transaction_id: str
+    no_receipt: bool = True
+
+
+class ManualMatchRequest(BaseModel):
+    """Manually link an expense to a bank transaction (or unlink — transaction_id
+    is optional for unmatch, since the expense already knows its current match)."""
+    expense_id: str
+    transaction_id: str | None = None
+
+
 # --- Phase 2: subscriptions (Refund Hunter) --------------------------------
 class SubscriptionUpdate(BaseModel):
     """User-owned fields on a detected subscription. (Realized savings are

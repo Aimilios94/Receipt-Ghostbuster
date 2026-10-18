@@ -81,24 +81,44 @@ export const api = {
   lineItems: () => request("/expenses/line-items").then((r) => r.line_items),
   expenseLineItems: (id) => request(`/expenses/${id}/line-items`),
 
+  // Replace an existing expense's receipt photo and re-read it.
+  rescanReceipt: (id, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request(`/expenses/${id}/rescan`, { method: "POST", form });
+  },
+
   // ----- receipt extraction -----
-  extract: (file, source = "card") => {
+  extract: (file, source = "card", note) => {
     const form = new FormData();
     form.append("file", file);
     form.append("source", source);
+    if (note && note.trim()) form.append("note", note.trim());
     return request("/extract", { method: "POST", form });
   },
 
   // ----- bank import -----
-  importBank: (file, mapping) => {
+  importBank: (file, mapping, note) => {
     const form = new FormData();
     form.append("file", file);
     if (mapping) form.append("mapping", JSON.stringify(mapping));
+    if (note && note.trim()) form.append("note", note.trim());
     return request("/bank/import", { method: "POST", form });
   },
+  // Imported statement files (one row per upload), with a live needs-receipt count.
+  listStatements: () => request("/bank/statements").then((r) => r.statements),
+  statementTransactions: (id) => request(`/bank/statements/${id}/transactions`),
+  deleteStatement: (id) => request(`/bank/statements/${id}`, { method: "DELETE" }),
 
   // ----- reconcile / exceptions / close -----
   reconcile: () => request("/reconcile", { method: "POST" }),
+  reconcileState: () => request("/reconcile/state"),
+  matchExpense: (expenseId, transactionId) =>
+    request("/reconcile/match", { method: "POST", body: { expense_id: expenseId, transaction_id: transactionId } }),
+  unmatchExpense: (expenseId, transactionId) =>
+    request("/reconcile/unmatch", { method: "POST", body: { expense_id: expenseId, transaction_id: transactionId } }),
+  markNoReceipt: (transactionId, noReceipt = true) =>
+    request("/reconcile/no-receipt", { method: "POST", body: { transaction_id: transactionId, no_receipt: noReceipt } }),
   exceptions: (month) => request(`/exceptions${month ? `?month=${month}` : ""}`),
   close: (month) => request(`/close${month ? `?month=${month}` : ""}`),
 

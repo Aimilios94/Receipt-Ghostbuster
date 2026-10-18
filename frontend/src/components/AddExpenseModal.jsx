@@ -102,6 +102,7 @@ function SnapForm({ onDone, onRefresh, onClose, defaultSource }) {
   const toast = useToast();
   const [file, setFile] = useState(null);
   const [source, setSource] = useState(defaultSource);
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [issues, setIssues] = useState([]);
@@ -144,7 +145,7 @@ function SnapForm({ onDone, onRefresh, onClose, defaultSource }) {
     setErr(null);
     setIssues([]);
     try {
-      const res = await api.extract(file, source);
+      const res = await api.extract(file, source, note);
       // Guardrail: unreadable receipt — keep the modal open, ask for a better photo.
       if (res.readable === false) {
         setErr("We couldn't read this receipt clearly. Try a flatter, well-lit photo with the total and date in frame.");
@@ -279,6 +280,17 @@ function SnapForm({ onDone, onRefresh, onClose, defaultSource }) {
           <option value="card">Card</option>
           <option value="cash">Cash</option>
         </select>
+      </div>
+
+      <div className="field">
+        <label>Note for the extractor (optional)</label>
+        <textarea
+          className="input"
+          rows={2}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="A hint if something's hard to read — e.g. 'the date is handwritten at the top', 'this is a fuel receipt', 'VAT is 0% (tobacco)'."
+        />
       </div>
 
       <div className="hint">

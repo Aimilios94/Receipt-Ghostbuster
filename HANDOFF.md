@@ -6,7 +6,70 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-15, end of day 5)
+## 🟢 RESUME HERE — current status (as of 2026-10-18, end of day 6)
+
+**Day 6 = a big Round-4 real-testing session (user driving) → bank-statement import + a hand-drivable
+reconciliation workbench, shipped as `v0.2.4`. Backend tests 80 → 97 passing, frontend build clean,
+all verified in-browser against live Supabase.** The user imported a real **Revolut CSV**
+(`octomber-2026.csv`) and re-read real receipts; every issue was fixed and verified the same day.
+
+**What day 6 shipped (grouped; see DECISIONS D22–D25 + feedback-notes Round 4):**
+- **PDF bank import (D22):** Import dialog accepts a text-based PDF as well as CSV — `pdfplumber` text
+  extraction → gpt-4o structuring (reads only; amounts/dates re-parsed + signed in code) → deterministic
+  regex fallback. Scanned PDFs rejected clearly. `backend/app/services/pdf_import.py`.
+- **Revolut-aware CSV import:** `services/csv_import.py` auto-detects column names (incl. `Completed
+  Date`, debit/credit) across EN/PT/ES/DE, sniffs the delimiter, strips the time off `D/M/YYYY HH:MM`
+  dates, skips PENDING/REVERTED rows, never stores a blank date. Import errors now return 400/502 (with
+  CORS headers) — fixed the "can't reach backend" that was really a 500 on an empty date.
+- **Top-ups/transfers aren't purchases (D23):** `reconciliation.is_reconcilable` — only money-out,
+  non-transfer lines need a receipt (detected via raw `Type` or description). Used in reconcile +
+  `exceptions.unmatched_bank` + statement needs-receipt counts.
+- **Bank statements section (D24):** new `bank_statements` table + `statement_id` FK on
+  bank_transactions (schema applied live). New page `/bank-statements` (list: file, upload date, period,
+  Spent/Received/Net, needs-receipt, delete → cascade; click → transactions detail). Dashboard +
+  Reconciliation collapse unmatched bank lines into **one row per statement** (NEW-flag via
+  `lib/useSeen.js`). Endpoints `GET /bank/statements`, `/bank/statements/{id}/transactions`, `DELETE`.
+- **Reconciliation workbench (D25):** `components/ReconcileResultModal.jsx` — opens after Run
+  reconciliation OR via a new **Match manually** button (`GET /reconcile/state`, no auto-run). Matched
+  receipt↔bank pairs (View receipt + View transaction = exact CSV row), unmatched expenses with a
+  **believable** suggestion (same vendor OR exact amount within a few days — NOT closest-by-amount) +
+  **Match → / Not a match / Others**, and bank payments needing a receipt with a **No receipt** action
+  (`no_receipt` flag → leaves the cycle). Endpoints `POST /reconcile/match · /unmatch · /no-receipt`.
+- **Replace receipt photo (re-scan):** `EditReceiptButton.jsx` next to every View receipt (reconcile
+  popup, ExpenseDetailModal, DrillModal) → `POST /expenses/{id}/rescan` re-reads a new photo and updates
+  the expense (field math shared via `services/receipt_fields.py`).
+- **Fixes:** printed IVA table now accepted within a RELATIVE tolerance and scaled to the exact total
+  (fixed a Pingo Doce showing net 37.50 under a 48.24 total — extends D14, in receipt_fields AND
+  extract.py); **per-thread Supabase client** (`supabase_client.py`) — killed the transient Windows
+  `WinError 10035` "can't reach backend" under concurrent load; frontend `retry: 2`.
+- **Data:** sample bank statements + the 5 sample subscriptions were PURGED at the user's request — the
+  ledger now shows only his real uploads (17 expenses + `octomber-2026.csv`). **Reload before a recruiter
+  demo:** `scripts/load_sample_data.py` + `scripts/load_phase2_demo.py`. Reconcile links were reset to a
+  clean slate.
+
+### 👋 Message to tomorrow's agent (read this)
+Everything day 6 is committed as `v0.2.4`. When you resume:
+1. Read this RESUME section + the auto-memory file (path at bottom) + **DECISIONS.md** (now D1–D25) and
+   **feedback-notes.md** (Rounds 1–4). Keep the **authenticity rule**: real testing → real
+   feedback-notes → real decisions. Never invent feedback or metrics.
+2. Start the three servers (commands below). **Check the two 7-day expiries first** (Supabase pause, n8n
+   Gmail OAuth — memory `demo-prep-7day-expiries`). Run ONE backend uvicorn, **no `--reload`**. If a
+   recent frontend change doesn't show, restart `npm run dev` (stale HMR). Provider = OpenAI gpt-4o.
+3. **Do NOT re-litigate settled decisions** (D1–D25). Confirm priority with the user before large new
+   directions. The backend talks to Supabase with a **per-thread** client now (don't revert to the
+   `@lru_cache` singleton — it caused Windows socket errors under load).
+4. **Open items, in the user's chosen order:**
+   - **Extraction-accuracy eval harness** (`backend/scripts/eval_extraction.py` + labelled receipts) →
+     the README "Results" number. Authentic, not invented.
+   - Optional refinement: preserve the printed per-rate VAT *exactly* on scaled receipts (scale NET not
+     gross) — currently within ~2¢ on a crumpled-digit misread; deferred.
+   - Then **v0.3 — Advice** (budget vs actual, overspend nudges, insights feed) + a hosted demo.
+5. **Note:** test receipts live in the PARENT folder `C:\Users\aimilios\Desktop\CV-creation\`
+   (`1000017846.jpg`, `octomber-2026.csv`, etc.) — NOT in the repo. The user drives real testing.
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-15, end of day 5)
 
 **Day 5 = a big Round-3 real-receipt testing session (user driving) → ~20 extraction-robustness
 fixes, shipped as `v0.2.3` and pushed to GitHub. Backend tests 53 → 80 passing, frontend build

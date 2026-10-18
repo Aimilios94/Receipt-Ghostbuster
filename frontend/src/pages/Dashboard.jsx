@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
 import { money, monthLabel, currentMonth, latestMonth, pct } from "../lib/format.js";
@@ -9,15 +9,18 @@ import {
   CategoryBars,
   ReviewItem,
   ExceptionItem,
+  BankStatementAlert,
   exceptionExpense,
   flattenExceptions,
   LedgerTable,
 } from "../components/sections.jsx";
+import { useSeen } from "../lib/useSeen.js";
 import { postedMessage } from "./ReviewQueue.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import ImportBankModal from "../components/ImportBankModal.jsx";
 import DrillModal from "../components/DrillModal.jsx";
 import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
+import StatementDetailModal from "../components/StatementDetailModal.jsx";
 import { useToast } from "../components/toast.jsx";
 
 // Recency of the expense (or bank txn) behind an exception — newest first.
@@ -39,6 +42,7 @@ export default function Dashboard() {
   const [busyId, setBusyId] = useState(null);
   const qc = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
 
   const expQ = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
   const reviewQ = useQuery({ queryKey: ["review-queue"], queryFn: api.reviewQueue });
@@ -52,6 +56,35 @@ export default function Dashboard() {
   // Exceptions are scoped to the same month so older bank history (Refund
   // Hunter) doesn't inflate this month's "needs attention".
   const excQ = useQuery({ queryKey: ["exceptions", month], queryFn: () => api.exceptions(month) });
+  const stmtQ = useQuery({ queryKey: ["statements"], queryFn: api.listStatements });
+
+  // Imported statements that still have unmatched purchases AND cover the month on
+  // screen — each shows as ONE collapsed row in the exceptions card (rather than
+  // every individual bank payment).
+  const alertStatements = useMemo(
+    () =>
+      (stmtQ.data || []).filter(
+        (s) =>
+          s.needs_receipt_count > 0 &&
+          s.period_start &&
+          s.period_start.slice(0, 7) <= month &&
+          s.period_end.slice(0, 7) >= month
+      ),
+    [stmtQ.data, month]
+  );
+  const stmtIds = useMemo(() => (stmtQ.data || []).map((s) => s.id), [stmtQ.data]);
+  const { isNew: stmtIsNew, mark: markStmtSeen } = useSeen("rg_seen_statements", stmtIds);
+  const [stmtDetailId, setStmtDetailId] = useState(null);
+  // Clicking the row shows the transactions popup right here (no navigation);
+  // "View" takes you to the Bank statements section (and doesn't auto-open a popup).
+  const openStatement = (s) => {
+    markStmtSeen(s.id);
+    setStmtDetailId(s.id);
+  };
+  const viewStatement = (s) => {
+    markStmtSeen(s.id);
+    navigate("/bank-statements");
+  };
 
   const close = closeQ.data;
   const review = reviewQ.data || [];
@@ -245,7 +278,8 @@ export default function Dashboard() {
 
   if (closeQ.isLoading && expQ.isLoading) return <Loading label="Loading your month…" />;
 
-  const attention = review.length + excList.length;
+  const attention = review.length + excList.length + alertStatements.length;
+  const openExcCount = excList.length + alertStatements.length;
   const totalOut = close?.total_out || 0;
 
   return (
@@ -361,10 +395,19 @@ export default function Dashboard() {
           <div className="card-head">
             <div>
               <div className="card-title">Reconciliation exceptions</div>
-              <div className="card-desc">Card expenses that don't line up with your imported bank statement.</div>
+              <div className="card-desc">Imported statements and expenses that don't line up yet.</div>
             </div>
-            {excList.length ? <span className="tag-open">{excList.length} open</span> : null}
+            {openExcCount ? <span className="tag-open">{openExcCount} open</span> : null}
           </div>
+          {alertStatements.map((s) => (
+            <BankStatementAlert
+              key={s.id}
+              statement={s}
+              isNew={stmtIsNew(s.id)}
+              onOpen={openStatement}
+              onView={viewStatement}
+            />
+          ))}
           {excList.length ? (
             excList.slice(0, 4).map((x, i) => {
               const exp = exceptionExpense(x.type, x.data);
@@ -379,9 +422,9 @@ export default function Dashboard() {
                 />
               );
             })
-          ) : (
+          ) : alertStatements.length === 0 ? (
             <Empty icon={<Icon.check size={26} />}>Everything reconciles. No exceptions.</Empty>
-          )}
+          ) : null}
           {excList.length > 4 ? (
             <div style={{ marginTop: 12, textAlign: "center" }}>
               <Link to="/reconciliation" className="btn btn-sm btn-ghost">
@@ -424,6 +467,9 @@ export default function Dashboard() {
         />
       )}
       {excDetail && <ExpenseDetailModal expense={excDetail} onClose={() => setExcDetail(null)} />}
+      {stmtDetailId && (
+        <StatementDetailModal id={stmtDetailId} onClose={() => setStmtDetailId(null)} />
+      )}
     </div>
   );
 }

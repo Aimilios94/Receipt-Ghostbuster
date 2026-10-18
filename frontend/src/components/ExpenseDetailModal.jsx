@@ -2,22 +2,33 @@
 // line items, VAT categorized per rate (computed in code by the backend), and
 // the receipt image. "Every number traces back to the ledger", one row deep.
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Modal, Badge, StatusBadge, Loading } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
 import { money, shortDate, sourceLabel } from "../lib/format.js";
+import EditReceiptButton from "./EditReceiptButton.jsx";
 
 function paidWith(e) {
   return e.source === "card" ? "Card ending 4821" : sourceLabel(e.source);
 }
 
-export default function ExpenseDetailModal({ expense, onClose }) {
+export default function ExpenseDetailModal({ expense: expenseProp, onClose }) {
   const [showReceipt, setShowReceipt] = useState(false);
+  // Local copy so a receipt re-scan updates this view in place.
+  const [expense, setExpense] = useState(expenseProp);
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["line-items", expense.id],
     queryFn: () => api.expenseLineItems(expense.id),
   });
+
+  const onRescanned = (updated) => {
+    if (updated) setExpense(updated);
+    ["expenses", "line-items", "exceptions", "close", "statements"].forEach((k) =>
+      qc.invalidateQueries({ queryKey: [k] })
+    );
+  };
 
   const lines = data?.line_items || [];
   const breakdown = data?.vat_breakdown;
@@ -144,14 +155,19 @@ export default function ExpenseDetailModal({ expense, onClose }) {
           </span>
         </div>
 
-        {/* Receipt image */}
-        {expense.receipt_image_url ? (
-          <div style={{ marginTop: 4 }}>
+        {/* Receipt image + replace-photo */}
+        <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {expense.receipt_image_url ? (
             <button type="button" className="btn btn-sm btn-ghost" onClick={() => setShowReceipt(true)}>
               <Icon.receipt size={13} /> View receipt
             </button>
-          </div>
-        ) : null}
+          ) : null}
+          <EditReceiptButton
+            expenseId={expense.id}
+            onDone={onRescanned}
+            label={expense.receipt_image_url ? "Edit" : "Add photo"}
+          />
+        </div>
       </div>
 
       {showReceipt ? (

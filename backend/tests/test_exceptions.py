@@ -1,5 +1,33 @@
 """Exception detection — duplicates, unmatched, mismatch, missing VAT. Stdlib only."""
 from app.services import exceptions as exc
+from app.services import reconciliation as recon
+
+
+def test_unmatched_bank_excludes_topups_transfers_and_credits():
+    # A real Revolut mix: a card purchase (needs a receipt), a +100 top-up, a
+    # person-to-person transfer, and a currency exchange. Only the purchase should
+    # be flagged as unmatched/needing a receipt.
+    bank = [
+        {"id": "p", "description": "Continente", "amount": -11.58,
+         "matched_expense_id": None, "raw": {"Type": "Card Payment"}},
+        {"id": "t1", "description": "Google Pay top-up by *6517", "amount": 100.0,
+         "matched_expense_id": None, "raw": {"Type": "Topup"}},
+        {"id": "t2", "description": "To Piero Francisco", "amount": -500.0,
+         "matched_expense_id": None, "raw": {"Type": "Transfer"}},
+        {"id": "t3", "description": "Exchanged to USD", "amount": -20.0,
+         "matched_expense_id": None, "raw": {"Type": "Exchange"}},
+    ]
+    out = exc.unmatched_bank(bank)
+    assert {t["id"] for t in out} == {"p"}
+
+
+def test_is_reconcilable_rules():
+    assert recon.is_reconcilable({"amount": -11.58, "raw": {"Type": "Card Payment"}}) is True
+    assert recon.is_reconcilable({"amount": 100.0, "raw": {"Type": "Topup"}}) is False  # credit
+    assert recon.is_reconcilable({"amount": -500.0, "raw": {"Type": "Transfer"}}) is False
+    # No Type column (generic bank): infer a transfer from the description.
+    assert recon.is_reconcilable({"amount": -30.0, "description": "TRANSFER TO J. SMITH"}) is False
+    assert recon.is_reconcilable({"amount": -8.5, "description": "PINGO DOCE LISBOA"}) is True
 
 
 def test_cash_not_flagged_unmatched():

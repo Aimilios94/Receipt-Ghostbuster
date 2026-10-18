@@ -167,12 +167,20 @@ Be conservative with confidence: if the image is blurry, cut off, rotated, or am
 report a low value. Do not invent values you cannot read."""
 
 
-def _build_prompt(today: datetime.date | None = None) -> str:
+def _build_prompt(today: datetime.date | None = None, note: str | None = None) -> str:
     """Fill the recency anchor into the prompt. Uses .replace (not .format) because
-    the prompt contains literal JSON braces."""
+    the prompt contains literal JSON braces. An optional user `note` is appended as a
+    hint (e.g. "the date is handwritten at the top", "this is a fuel receipt")."""
     today = today or datetime.date.today()
     line = f"today's date is {today.isoformat()}."
-    return EXTRACTION_PROMPT.replace("{today_line}", line)
+    prompt = EXTRACTION_PROMPT.replace("{today_line}", line)
+    if note and note.strip():
+        prompt += (
+            "\n\nHINT FROM THE PERSON WHO UPLOADED THIS (use it to resolve ambiguity — "
+            "e.g. which vendor, the correct date, or which number is the total — but still "
+            f"READ the printed figures and never invent values): {note.strip()}"
+        )
+    return prompt
 
 
 # Focused second pass used ONLY when the first date read looks wrong (future or very
@@ -428,6 +436,7 @@ def extract_receipt(
     image_bytes: bytes,
     filename: str | None,
     settings: Settings,
+    note: str | None = None,
 ) -> tuple[ExtractionResult, bytes]:
     """Extract a receipt, auto-correcting orientation server-side.
 
@@ -442,7 +451,7 @@ def extract_receipt(
     if provider == "mock":
         return _to_result(_extract_mock(image_bytes, filename)), image_bytes
 
-    prompt = _build_prompt()
+    prompt = _build_prompt(note=note)
     oriented, landscape = _exif_orient(image_bytes)
     media_type = _guess_media_type(filename if not _PIL_OK else "r.jpg", oriented)
 

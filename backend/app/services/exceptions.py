@@ -32,11 +32,17 @@ def unmatched_expenses(
 def unmatched_bank(
     bank_txns: list[dict[str, Any]], exclude_ids: set | None = None
 ) -> list[dict[str, Any]]:
+    """Card purchases on the statement with no matching expense/receipt. Top-ups,
+    transfers, exchanges and incoming credits aren't purchases, so they're never
+    flagged as 'missing a receipt' (see reconciliation.is_reconcilable)."""
     exclude_ids = exclude_ids or set()
     return [
         t
         for t in bank_txns
-        if not t.get("matched_expense_id") and t.get("id") not in exclude_ids
+        if not t.get("matched_expense_id")
+        and t.get("id") not in exclude_ids
+        and reconciliation.is_reconcilable(t)
+        and not t.get("no_receipt")
     ]
 
 

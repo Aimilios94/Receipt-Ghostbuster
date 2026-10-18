@@ -31,6 +31,43 @@ def vendor_score(a: str | None, b: str | None) -> float:
     return float(fuzz.token_set_ratio(a.lower(), b.lower()))
 
 
+# Statement row kinds that are NOT purchases, so they never need a matching receipt:
+# account top-ups, transfers (to people or between your own accounts), currency
+# exchanges, ATM withdrawals. Read from the raw `Type` column when present (e.g.
+# Revolut), else inferred from the description.
+_NON_PURCHASE_TYPES = {
+    "topup", "top-up", "top up", "transfer", "exchange", "atm",
+    "withdrawal", "cashback", "interest", "reward",
+}
+_NON_PURCHASE_DESC_HINTS = (
+    "top-up", "topup", "top up", "transfer to", "transfer from", "to revolut",
+    "revolut bank", "revolut ltd", "google pay top-up",
+)
+
+
+def is_reconcilable(txn: dict[str, Any]) -> bool:
+    """Whether this bank line is a purchase we'd expect to match to an expense/receipt.
+
+    A credit (money IN, amount >= 0) never matches an expense. Top-ups, transfers and
+    exchanges aren't purchases either — identify them via the raw statement `Type`
+    column (Revolut etc.) or, failing that, the description. Everything else (card
+    payments, direct debits) is reconcilable.
+    """
+    try:
+        if float(txn.get("amount") or 0) >= 0:
+            return False  # top-up / salary / refund-in: no expense to match
+    except (TypeError, ValueError):
+        return False
+    raw = txn.get("raw") or {}
+    ttype = str(raw.get("Type") or raw.get("type") or "").strip().lower()
+    if ttype and ttype in _NON_PURCHASE_TYPES:
+        return False
+    desc = (txn.get("description") or "").lower()
+    if any(h in desc for h in _NON_PURCHASE_DESC_HINTS):
+        return False
+    return True
+
+
 @dataclass
 class ReconcileResult:
     matches: list[dict[str, Any]] = field(default_factory=list)   # {expense_id, transaction_id, ...}
@@ -61,6 +98,10 @@ def reconcile(
         for txn in bank_txns:
             if txn.get("matched_expense_id"):
                 continue
+            if txn.get("no_receipt"):
+                continue  # acknowledged online payment — out of the reconcile cycle
+            if not is_reconcilable(txn):
+                continue  # top-ups / transfers / credits aren't purchases
             amount_diff = abs(abs(float(txn["amount"])) - exp_amount)
             if amount_diff > amount_tolerance:
                 continue

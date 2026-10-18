@@ -9,7 +9,9 @@ import "./styles/index.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { refetchOnWindowFocus: false, retry: 1, staleTime: 15_000 },
+    // retry a couple of times: a heavy write (reconcile) can briefly overlap with
+    // refetches and cause a transient server socket blip that recovers on retry.
+    queries: { refetchOnWindowFocus: false, retry: 2, retryDelay: 400, staleTime: 15_000 },
   },
 });
 

@@ -491,16 +491,64 @@ export function ExceptionItem({ type, data, onOpenExpense, isNew, onDelete }) {
 }
 
 // Flatten the exceptions payload into a single ordered list of {type, data}.
+// NOTE: `unmatched_bank` is deliberately NOT flattened here — unmatched bank
+// payments are collapsed into a single per-statement row (see BankStatementAlert
+// and the Bank statements page), so they don't flood this list one-by-one.
 export function flattenExceptions(exc) {
   if (!exc) return [];
   const out = [];
   const e = exc.exceptions || {};
-  (e.unmatched_bank || []).forEach((d) => out.push({ type: "unmatched_bank", data: d }));
   (e.duplicates || []).forEach((d) => out.push({ type: "duplicates", data: d }));
   (e.amount_mismatch || []).forEach((d) => out.push({ type: "amount_mismatch", data: d }));
   (e.missing_vat || []).forEach((d) => out.push({ type: "missing_vat", data: d }));
   (e.unmatched_expenses || []).forEach((d) => out.push({ type: "unmatched_expenses", data: d }));
   return out;
+}
+
+// Compact one-row summary of an imported statement that still has unmatched
+// purchases — shown in the Reconciliation exceptions area in place of the many
+// individual bank rows. Clicking it opens the statement in the Bank statements page.
+export function BankStatementAlert({ statement: s, isNew, onOpen, onView }) {
+  const period = s.period_start ? `${shortDate(s.period_start)} – ${shortDate(s.period_end)}` : "";
+  const n = s.needs_receipt_count || 0;
+  // The body opens the transactions popup in place; "View" navigates to the section.
+  const open = () => onOpen?.(s);
+  const view = () => (onView || onOpen)?.(s);
+  return (
+    <div className={`exc${isNew ? " exc-new" : ""}`}>
+      <span className="exc-ico amber">
+        <Icon.bank size={16} />
+      </span>
+      <div
+        className="exc-body exc-body-click"
+        role="button"
+        tabIndex={0}
+        title="See this statement's transactions"
+        onClick={open}
+        onKeyDown={(ev) => {
+          if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
+            open();
+          }
+        }}
+      >
+        <div className="exc-kind amber">
+          Bank statement imported
+          {isNew ? <span className="exc-new-tag">New</span> : null}
+        </div>
+        <div className="exc-vendor">{s.filename || "Bank statement"}</div>
+        <div className="exc-detail">
+          {n} payment{n === 1 ? "" : "s"} still need{n === 1 ? "s" : ""} a receipt
+          {period ? ` · ${period}` : ""} · {s.txn_count} transactions
+        </div>
+      </div>
+      <div className="exc-actions">
+        <button type="button" className="btn btn-sm" title="Open the Bank statements section" onClick={view}>
+          View →
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /* ---------- Ledger table ---------- */

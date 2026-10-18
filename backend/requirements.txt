@@ -11,6 +11,7 @@ anthropic>=0.42
 openai>=1.50            # alternative vision provider (LLM_PROVIDER=openai)
 rapidfuzz>=3.12
 Pillow>=11.0             # server-side receipt auto-rotation (EXIF + orientation retry)
+pdfplumber>=0.11         # bank-statement PDF import fallback (text extraction)
 PyJWT>=2.10
 pytest>=8.3
 httpx>=0.28

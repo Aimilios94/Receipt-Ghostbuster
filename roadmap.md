@@ -43,6 +43,23 @@ Status: **shipped.**
 
 ---
 
+## v0.2.4 — Bank statements & reconciliation workbench ✅
+
+**Goal:** make bank import work with a real-world export and turn reconciliation from a one-shot auto-pass into a view the user can drive and trust.
+
+Scope delivered:
+- **PDF bank-statement import** alongside CSV (text-extracted + LLM-structured, with a deterministic fallback); scanned PDFs rejected clearly ([D22](DECISIONS.md)).
+- **Robust CSV import** — auto-detects column names (incl. Revolut `Completed Date`, debit/credit) across EN/PT/ES/DE, sniffs the delimiter, strips time components, skips not-yet-settled rows; never stores a blank date.
+- **Top-ups / transfers aren't purchases** — excluded from the "needs a receipt" cycle ([D23](DECISIONS.md)).
+- **Bank statements section** — each imported file as a first-class entity (period, Spent/Received/Net, drill into transactions); unmatched bank lines collapse into one row per statement ([D24](DECISIONS.md)).
+- **Reconciliation workbench** — a results popup with match / unmatch / not-a-match, believable suggestions only, **No receipt** for online payments, **Match manually** on demand, and **View transaction** (the exact CSV row) ([D25](DECISIONS.md)).
+- **Replace-a-receipt-photo (re-scan)** from anywhere a receipt is shown — uploads a new photo, replaces the image, and re-reads it.
+- **Fixes:** printed IVA table accepted within a relative tolerance and scaled to the exact total (consistent net/VAT/paid, extends [D14](DECISIONS.md)); per-thread Supabase client (no transient Windows socket errors under concurrent load).
+
+Status: **shipped.** Backend tests **80 → 97**.
+
+---
+
 ## v0.3 — Advice ⬜
 
 **Goal:** move from recording the past to guiding the next decision — lightweight, rule-based, not a heavy AI advisor.
@@ -62,6 +79,7 @@ Status: **planned** — not started.
 - **Duplicate detection at upload.** ✅ Built — `/extract` checks for an existing row with the same vendor + amount + date and routes a match to the review queue with an in-app warning, before anything posts (see [D13](DECISIONS.md#d13--flag-duplicates-at-upload-before-they-post-r2)).
 - **LLM-assisted categorization.** ✅ Built — rules first, gpt-4o fills unknown vendors (Continente/Pingo Doce → Groceries), validated against the category list; added a Tobacco category (see [D15](DECISIONS.md)).
 - **Extraction robustness (Round 3).** ✅ Built — printed IVA table as VAT source of truth, discount handling, estimated VAT when none is printed, date year-repair + re-read, net-vs-gross correction, server-side auto-rotation, and a self-consistency guardrail + retake flow (see [D14–D21](DECISIONS.md)). Backend tests 53 → 80.
+- **Bank statements & reconciliation workbench (Round 4).** ✅ Built — PDF import, Revolut-aware CSV import, statements as first-class entities, collapsed exceptions, and a hand-drivable reconciliation popup (match / unmatch / not-a-match / no-receipt / re-scan) with believable suggestions only (see [D22–D25](DECISIONS.md)). Backend tests 80 → 97.
 - **Extraction-accuracy eval harness.** ⬜ Next — a labelled receipt set + `scripts/eval_extraction.py` for a real field-level accuracy number.
 - **Read-twice-and-compare** consensus mode. ⬜ Deferred option for maximum reliability on hard receipts.
 

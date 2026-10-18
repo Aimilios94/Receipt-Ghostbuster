@@ -75,6 +75,36 @@ begin
   end if;
 end $$;
 
+-- bank_statements -------------------------------------------------------------
+-- One row per imported bank-statement FILE (CSV or PDF). Groups the transactions
+-- from a single upload so the UI can show ONE entry per statement — the period it
+-- covers, its money-in/out/net totals — with a drill-down to its transactions.
+create table if not exists public.bank_statements (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  filename      text,
+  source_type   text not null default 'csv' check (source_type in ('csv','pdf')),
+  uploaded_at   timestamptz not null default now(),
+  period_start  date,
+  period_end    date,
+  txn_count     integer not null default 0,
+  total_in      numeric(14,2) not null default 0,   -- sum of credits (money in)
+  total_out     numeric(14,2) not null default 0,   -- abs sum of debits (money out)
+  net_amount    numeric(14,2) not null default 0,   -- signed net change
+  created_at    timestamptz not null default now()
+);
+
+-- Link each bank transaction to the statement file it was imported from. Deleting
+-- a statement cascades to its transactions.
+alter table public.bank_transactions
+  add column if not exists statement_id uuid references public.bank_statements (id) on delete cascade;
+
+-- Acknowledge a bank payment that will never have a receipt (an online/digital
+-- payment, a fee, etc.). Such rows leave the reconciliation cycle: they are not
+-- flagged "needs a receipt" and are not offered as match candidates.
+alter table public.bank_transactions
+  add column if not exists no_receipt boolean not null default false;
+
 -- expense_line_items ---------------------------------------------------------
 -- One row per itemized line on a receipt, each carrying its OWN VAT rate. This is
 -- what lets a single receipt hold multiple VAT rates (e.g. 6% food + 23% other):
@@ -102,6 +132,8 @@ create index if not exists idx_expenses_status      on public.expenses (user_id,
 create index if not exists idx_expenses_reconciled  on public.expenses (user_id, reconciled);
 create index if not exists idx_bank_user_date       on public.bank_transactions (user_id, txn_date);
 create index if not exists idx_bank_matched         on public.bank_transactions (user_id, matched_expense_id);
+create index if not exists idx_bank_statement        on public.bank_transactions (user_id, statement_id);
+create index if not exists idx_bank_statements_user  on public.bank_statements (user_id, uploaded_at);
 
 -- ============================================================================
 -- Row Level Security — authenticated owner only
@@ -110,6 +142,7 @@ alter table public.categories         enable row level security;
 alter table public.expenses           enable row level security;
 alter table public.expense_line_items enable row level security;
 alter table public.bank_transactions  enable row level security;
+alter table public.bank_statements    enable row level security;
 
 -- One policy per table covering all verbs; owner = auth.uid().
 drop policy if exists categories_owner on public.categories;
@@ -132,6 +165,12 @@ create policy line_items_owner on public.expense_line_items
 
 drop policy if exists bank_txn_owner on public.bank_transactions;
 create policy bank_txn_owner on public.bank_transactions
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists bank_statements_owner on public.bank_statements;
+create policy bank_statements_owner on public.bank_statements
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
