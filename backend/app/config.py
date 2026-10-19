@@ -44,6 +44,19 @@ class Settings(BaseSettings):
     # --- Confidence gate ---
     confidence_threshold: float = 0.8
 
+    # --- Structured output (Instructor) ---
+    # How many times Instructor re-prompts the model when its output fails schema
+    # validation before we fall back to tolerant JSON parsing.
+    instructor_max_retries: int = 2
+
+    # --- LangSmith tracing (optional, opt-in) ---
+    # When enabled with a key, every LLM call is also traced to the user's LangSmith
+    # project (prompt, response, tokens). Off by default so the app runs with no
+    # external dependency; sends data to LangSmith's cloud when on.
+    langsmith_tracing: bool = False
+    langsmith_api_key: str = ""
+    langsmith_project: str = "receipt-ghostbuster"
+
     # --- Reconciliation tuning ---
     reconcile_amount_tolerance: float = 0.01
     reconcile_date_window_days: int = 3
@@ -75,6 +88,10 @@ class Settings(BaseSettings):
     @property
     def n8n_configured(self) -> bool:
         return bool(self.n8n_webhook_url)
+
+    @property
+    def langsmith_configured(self) -> bool:
+        return bool(self.langsmith_tracing and self.langsmith_api_key)
 
     @property
     def cors_origin_list(self) -> list[str]:

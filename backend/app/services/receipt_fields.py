@@ -100,4 +100,8 @@ def compute(result: ExtractionResult, valid_categories: set[str] | None) -> dict
         "vat_rate": vat_info["vat_rate"],
         "category": category,
         "line_rows": line_rows,
+        # Signals the gate decision needs (see services/gating.decide_gate): whether
+        # the printed VAT table was trusted, and the code-summed VAT breakdown.
+        "use_printed": use_printed,
+        "breakdown": breakdown,
     }

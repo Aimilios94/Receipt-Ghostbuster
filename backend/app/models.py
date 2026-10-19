@@ -5,7 +5,7 @@ import datetime
 from datetime import date
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # --- Manual / cash expense entry (T3) --------------------------------------
@@ -90,6 +90,20 @@ class ExtractionResult(BaseModel):
     # code applies rules first and validates this against the real category list.
     category: str | None = None
     confidence: float = 0.0
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _clamp_confidence(cls, v: Any) -> float:
+        """Keep confidence a sane 0–1 probability. Tolerates a model that returns a
+        percentage (e.g. 95 -> 0.95) or a non-numeric; clamps rather than rejecting,
+        so a good read is never thrown away over its confidence field."""
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return 0.0
+        if 1 < v <= 100:
+            v = v / 100.0
+        return max(0.0, min(1.0, v))
 
 
 # --- Bank CSV import (T6) ----------------------------------------------------

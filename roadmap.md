@@ -88,7 +88,24 @@ Status: **shipped.** Backend tests **99 → 109**.
 
 ---
 
-## v0.3 — Advice ⬜
+## v0.3.0 — LLM Observability & Evaluation ✅
+
+**Goal:** turn the extraction from "a model call that seems to work" into a system you can measure, observe and trust — the layers a production LLM feature has and a demo usually skips.
+
+Scope delivered ([D30](DECISIONS.md)):
+- **Validated structured outputs (Instructor)** — the model's JSON is validated against `ExtractionResult` with automatic re-prompting, and a tolerant raw-parse fallback. Prompt unchanged; measured eval accuracy **93% → 98%**.
+- **Per-call tracing** — latency, tokens, estimated cost and the gate outcome recorded to an `llm_traces` table for every read (the SDK usage used to be discarded).
+- **Measured guardrails** — the gate was factored into one pure `decide_gate` used by both `/extract` and the eval, so the eval reports the **false-auto-post rate**, **over-review rate** and **confidence calibration** of the shipped gate.
+- **Model & Evals dashboard** (`/model-evals`) — accuracy by field, guardrail effectiveness, calibration, and live latency/cost/outcome per read.
+- **Optional LangSmith** — opt-in tracing + a dataset/experiment script; off by default, no hard dependency.
+
+Honest finding the eval surfaced: the self-reported confidence is poorly calibrated (0.7–0.8 reads were 100% correct, 0.8–0.9 only 75%), so the gate over-reviews correct reads — quantifying the deferred "auto-post on reconcile" question with data.
+
+Status: **shipped.** Backend tests **109 → 128**.
+
+---
+
+## v0.4 — Advice ⬜
 
 **Goal:** move from recording the past to guiding the next decision — lightweight, rule-based, not a heavy AI advisor.
 

@@ -2,7 +2,7 @@
 
 *Each entry is **Problem → Evidence → Decision → Result**. Evidence comes from real testing in [feedback-notes.md](feedback-notes.md) or from the design constraints in [problem-statement.md](problem-statement.md). This is the record of *why* the product is the way it is.*
 
-Legend for Evidence source: `[design]` = decided up front from the problem; `[R1]` = Round 1 testing (2026-10-12); `[R2]` = Round 2 (2026-10-13); `[R3]` = Round 3 (2026-10-15); `[R5]` = Round 5 (2026-10-18); `[R6]` = Round 6 (2026-10-19); `[req]` = a direct user requirement raised during use.
+Legend for Evidence source: `[design]` = decided up front from the problem; `[R1]` = Round 1 testing (2026-10-12); `[R2]` = Round 2 (2026-10-13); `[R3]` = Round 3 (2026-10-15); `[R5]` = Round 5 (2026-10-18); `[R6]` = Round 6 (2026-10-19); `[req]` = a direct user requirement raised during use; `[eng]` = an engineering decision made while building a milestone.
 
 ---
 
@@ -210,10 +210,21 @@ Legend for Evidence source: `[design]` = decided up front from the problem; `[R1
 - **Decision:** Fingerprint a duplicate on the **strong, stable fields** — the **vendor** (matched by *brand prefix*: one name's leading tokens are a prefix of the other's, so `Pingo Doce` ≡ `Pingo Doce - PD Olaias`) and the **total to the cent** — within a **±30-day window** rather than an exact date (and vendor+total alone when either date is unreadable). The matching logic is a pure, unit-tested helper (`repository.match_duplicate_rows`). The image itself can't be the automatic key — two photos of one receipt differ in pixels, and two different receipts can look alike — so the existing **compare-both-receipts-and-decide** popup ([D13](#d13--flag-duplicates-at-upload-before-they-post-r2)) remains the human source of truth. Supersedes the exact-date/exact-vendor match in D13; the human-confirm gate (route to review, never auto-post a suspected duplicate) is unchanged.
 - **Result:** Re-uploading the same receipt now routes to review as a possible duplicate even when the date or vendor reads differently (verified against the live ledger for `Pingo Doce`, `PINGO DOCE`, and the branch form, while a different vendor / far-off date / different amount correctly do not match). **Honest limit:** a genuine repeat purchase that rings up to the identical cent within 30 days is also flagged — and dismissed in review — which is the safe direction to err.
 
+## D30 — Measure, observe and validate the LLM layer, don't just assert it `[eng]`
+
+- **Problem:** The extraction pipeline *claimed* accuracy and *had* guardrails, but three things working LLM systems rely on were missing: nothing measured whether the guardrails actually catch bad reads; no call was observable (latency, tokens and cost were read from the SDK response and thrown away); and the model's JSON was parsed ad-hoc with no schema validation or retry.
+- **Evidence (eng):** A system you operate has to answer *"what happened on that read, and did the safety net hold?"* — and *"is a change (prompt, model) actually helping?"* Eyeballing one upload can't. The existing eval scored field accuracy but never ran the gate, so the guardrails' real-world effectiveness was unknown.
+- **Decision:** Add three layers, each built to stay honest and self-contained.
+  1. **Validated structured output** — the extraction parses through **Instructor** (`response_model=ExtractionResult`, `instructor_max_retries`), so malformed output is re-prompted against the schema; on any failure it falls back to the previous tolerant JSON parse and records `fell_back` on the trace. The prompt is unchanged, so this can only hold or improve accuracy.
+  2. **Self-contained observability** — every call is timed and its tokens/estimated cost captured (`services/llm_trace.py`) and persisted to an `llm_traces` table (services stay DB-free; the router persists). A **Model & Evals** page surfaces accuracy, guardrail effectiveness, confidence calibration and live latency/cost/outcome per read. **LangSmith** tracing + a dataset/experiment script are available but strictly **opt-in** behind an env flag, so the app and the eval never depend on a hosted service.
+  3. **One gate, measured** — the routing logic was factored out of the `/extract` endpoint into a pure `services/gating.decide_gate`, called by **both** the endpoint and the eval harness. The eval now runs the *shipped* gate over the labelled set and reports **false-auto-post rate**, **over-review rate** and **confidence calibration** (`services/eval_metrics.py`).
+- **Result:** Instructor lifted the eval from **93% → 98%** overall (10/11 receipts fully correct). The guardrail metrics immediately earned their keep with honest findings: on the set the one wrong read — a date off by a single day that otherwise reconciles — **auto-posted** (no guardrail can detect a plausible, self-consistent wrong date), and **70% of correct reads were sent to review** because the gate trusts a **poorly-calibrated** confidence score (reads at 0.7–0.8 were 100% correct, 0.8–0.9 only 75%). That quantifies the deferred question in [D21/D27](#d27--vision-model--gpt-5-mini-a-reasoning-model-that-reads-dense-vat-tables-r5) — *should a cent-perfect reconciling read auto-post?* — with data, rather than leaving it to intuition. Every read now carries a real latency/token/cost number.
+
 ---
 
 ## Planned (decided, not yet built)
 
+- **Auto-post a cent-perfect reconciling read** — the eval ([D30](#d30--measure-observe-and-validate-the-llm-layer-dont-just-assert-it-eng)) shows the confidence gate over-reviews correct reads because confidence is poorly calibrated; letting a read that reconciles to the cent auto-post would cut that friction. Deferred (risk: a self-consistent-but-wrong read auto-posting), now measurable.
 - **Read-twice-and-compare** consensus mode (optional, ~2× cost) for maximum reliability on the hardest (crumpled + rotated) receipts — discussed in R3/R5, deferred.
-- **`claude-opus-4-8` eval comparison** — run the harness on Claude Opus for a cross-model column once Anthropic credits are topped up.
-- **v0.3 — Advice** (budget vs actual, overspend nudges, insights feed).
+- **`claude-opus-4-8` eval comparison** — run the harness (or the LangSmith experiment) on Claude Opus for a cross-model column once Anthropic credits are topped up.
+- **v0.4 — Advice** (budget vs actual, overspend nudges, insights feed).

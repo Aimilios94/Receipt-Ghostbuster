@@ -133,4 +133,12 @@ export const Icon = {
       <path d="M21 21l-4-4" />
     </Svg>
   ),
+  gauge: (p) => (
+    <Svg {...p}>
+      <path d="M3 21h18" />
+      <rect x="4" y="12" width="4" height="7" rx="1" />
+      <rect x="10" y="7" width="4" height="12" rx="1" />
+      <rect x="16" y="3" width="4" height="16" rx="1" />
+    </Svg>
+  ),
 };

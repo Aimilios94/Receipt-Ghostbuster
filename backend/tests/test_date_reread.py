@@ -24,19 +24,20 @@ def test_parse_iso_date_tolerant():
 
 
 def test_reread_accepts_plausible_recent_date(monkeypatch):
-    monkeypatch.setattr(extraction, "_extract_openai", lambda *a, **k: {"date": "2026-10-14"})
+    # _extract_openai now returns (payload, LlmCall); reread_date unpacks the tuple.
+    monkeypatch.setattr(extraction, "_extract_openai", lambda *a, **k: ({"date": "2026-10-14"}, None))
     out = extraction.reread_date(b"img", "r.jpg", _settings(), TODAY)
     assert out == date(2026, 10, 14)
 
 
 def test_reread_rejects_future_date(monkeypatch):
-    monkeypatch.setattr(extraction, "_extract_openai", lambda *a, **k: {"date": "2027-01-01"})
+    monkeypatch.setattr(extraction, "_extract_openai", lambda *a, **k: ({"date": "2027-01-01"}, None))
     assert extraction.reread_date(b"img", "r.jpg", _settings(), TODAY) is None
 
 
 def test_reread_rejects_absurdly_old_date(monkeypatch):
     # A second reading that is STILL years old is not trusted — keep the original.
-    monkeypatch.setattr(extraction, "_extract_openai", lambda *a, **k: {"date": "2023-10-14"})
+    monkeypatch.setattr(extraction, "_extract_openai", lambda *a, **k: ({"date": "2023-10-14"}, None))
     assert extraction.reread_date(b"img", "r.jpg", _settings(), TODAY) is None
 
 

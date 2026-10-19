@@ -279,3 +279,36 @@ create policy refund_actions_owner on public.refund_actions
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+
+-- ============================================================================
+-- v0.3.0 — LLM Observability
+-- One row per model call (or per multi-orientation extraction): latency, tokens,
+-- estimated cost, success, and the gate outcome (in `meta`). Powers the live
+-- "Model & Evals" dashboard. The model only reads; this is operational telemetry.
+-- ============================================================================
+create table if not exists public.llm_traces (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at     timestamptz not null default now(),
+  kind           text not null default 'receipt_extract',   -- receipt_extract | date_reread | pdf_structure | refund_draft
+  provider       text,                                       -- openai | anthropic | mock
+  model          text,
+  latency_ms     integer not null default 0,                 -- summed across orientation reads
+  input_tokens   integer not null default 0,
+  output_tokens  integer not null default 0,
+  est_cost_usd   numeric(12,6) not null default 0,           -- approximate, from a per-model price table
+  success        boolean not null default true,
+  error          text,
+  meta           jsonb                                       -- reads/retries/fell_back + gated_to/confidence/issues/filename
+);
+
+create index if not exists idx_llm_traces_user on public.llm_traces (user_id, created_at desc);
+
+alter table public.llm_traces enable row level security;
+
+drop policy if exists llm_traces_owner on public.llm_traces;
+create policy llm_traces_owner on public.llm_traces
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

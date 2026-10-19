@@ -3,6 +3,21 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.3.0] — 2026-10-19
+
+An LLM observability & evaluation layer: validated structured outputs, per-call tracing with cost, a measured guardrail story, and an in-app **Model & Evals** dashboard (see [D30](DECISIONS.md)). Backend tests **109 → 128**.
+
+### Added
+- **Model & Evals dashboard** (`/model-evals`) — a new page showing extraction accuracy by field, **guardrail effectiveness** (did the review gate catch the reads that were actually wrong?), **confidence calibration** (does higher self-reported confidence mean a more accurate read?), and **live model operations** (latency p50/p95, estimated cost, tokens, and a recent-reads table with each read's gate outcome). Backed by `GET /metrics/eval` (the committed offline-eval aggregates) and `GET /metrics/llm` (live, from the trace table).
+- **LLM call tracing** — every receipt read now records latency, input/output tokens, an estimated cost, and the gate outcome to a new `llm_traces` table (`services/llm_trace.py`); the SDK's token usage used to be discarded. Services stay DB-free (the router persists), so the eval harness is unaffected.
+- **Guardrail-effectiveness + confidence-calibration metrics in the eval** — `scripts/eval_extraction.py` now runs the shipped gate (`services/gating.decide_gate`) over the labelled set and reports the **false-auto-post rate**, **over-review rate** and a **calibration table**, alongside the existing field accuracy. Written to `RESULTS.md` and a committable `eval/metrics.json` (`services/eval_metrics.py`, unit-tested).
+- **Optional LangSmith integration** — with `LANGSMITH_TRACING=true` + a key, every call is also traced to your LangSmith project, and `scripts/langsmith_eval.py` runs the eval as a LangSmith **Experiment** (uploads the labelled set as a Dataset, scores each field with the same matchers). Strictly opt-in and off by default — the app and the offline eval never depend on it. (Privacy: when on, receipt images/prompts are sent to LangSmith's cloud.)
+
+### Changed
+- **Receipt extraction now uses validated structured outputs (Instructor).** The model's JSON is parsed into `ExtractionResult` with schema validation and automatic re-prompting on failure (`instructor_max_retries`), instead of a hand-rolled `json.loads`. On any failure it falls back to the previous tolerant parse and records `fell_back` on the trace, so the accuracy-critical path stays safe. The prompt is unchanged; measured eval accuracy went **93% → 98%** (10/11 receipts fully correct).
+- **The receipt gate decision was factored into one pure function** (`services/gating.decide_gate`) called by both `/extract` and the eval harness, so the measured gate is the shipped gate. No behaviour change to the endpoint.
+- `/health` now reports `langsmith_tracing`.
+
 ## [0.2.6] — 2026-10-19
 
 Duplicate detection that survives a misread, and a receipt viewer that keeps your place — from the Round 6 testing session on two look-alike real receipts (see [D29](DECISIONS.md), [feedback-notes Round 6](feedback-notes.md)). Backend tests **99 → 109**.

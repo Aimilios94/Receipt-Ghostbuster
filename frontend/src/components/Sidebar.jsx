@@ -11,6 +11,7 @@ const NAV = [
   { to: "/close", label: "Monthly close", icon: Icon.close },
   { to: "/ledger", label: "Ledger", icon: Icon.ledger },
   { to: "/refunds", label: "Refund Hunter", icon: Icon.refund, badge: "flagged" },
+  { to: "/model-evals", label: "Model & Evals", icon: Icon.gauge },
 ];
 
 export default function Sidebar() {

@@ -35,7 +35,9 @@ See the full plan and status in **[roadmap.md](roadmap.md)**.
   Built a field-level **extraction-accuracy eval harness**, which showed `gpt-4o` mis-reads dense multi-rate VAT tables — so receipt reading moved to the **`gpt-5-mini` reasoning model** (**84% → 93%**). Plus read-every-orientation rotation handling, a retake prompt that trusts reconciliation over self-reported confidence, an Uber-Eats→Dining fix, and a **"No bank line"** action so the reconciliation Unmatched list can reach a clean state. Backend tests **97 → 99** (see [feedback-notes.md](feedback-notes.md), [D26–D28](DECISIONS.md)).
 - **v0.2.6 — Robust duplicate detection & a self-contained receipt viewer ✅ shipped**
   From a Round 6 session on two look-alike real receipts: **duplicate detection now matches on vendor + total within a ±30-day window** (brand-prefix vendor match), not on an exact date — so a re-upload is caught even when the model reads the date or vendor slightly differently. Plus a shared receipt lightbox where **Esc / ✕ / backdrop close only the image**, not the dialog behind it. Backend tests **99 → 109** (see [feedback-notes.md](feedback-notes.md), [D29](DECISIONS.md)).
-- **v0.3 — Advice ⬜ planned**
+- **v0.3.0 — LLM Observability & Evaluation ✅ shipped**
+  Validated structured outputs (**Instructor** + Pydantic, with a safe fallback), per-call **tracing** (latency / tokens / estimated cost / gate outcome) in a new `llm_traces` table, a **measured guardrail** story (the gate is factored into one function the eval also runs — reporting false-auto-post rate, over-review rate and confidence calibration), and an in-app **Model & Evals** dashboard. Optional **LangSmith** tracing + experiments, opt-in. Structured outputs lifted eval accuracy **93% → 98%**. Backend tests **109 → 128** (see [D30](DECISIONS.md)).
+- **v0.4 — Advice ⬜ planned**
   Budget-vs-actual variance, rule-based overspend nudges, and an insights feed.
 
 ---
@@ -83,11 +85,12 @@ Supabase (Postgres + Auth + Storage)   n8n (Docker, :5678) → Gmail draft (draf
 
   | vendor | date | total | vat amount | vat rate | category | **overall** |
   |---:|---:|---:|---:|---:|---:|---:|
-  | 100% | 91% | 91% | 89% | 89% | 100% | **93%** |
+  | 100% | 91% | 100% | 100% | 100% | 100% | **98%** |
 
-  Choosing the model was itself eval-driven: `gpt-4o` scored **84%** and reliably mis-read dense 3-rate VAT tables; swapping in the `gpt-5-mini` reasoning model (which reads those tables correctly) lifted it to **93%**. The remaining misses are the hardest photo in the set — crumpled **and** rotated **and** dark — which the pipeline routes to review rather than mis-posting, which is the point. Flat, upright photos read cleanly. See [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). *(A `claude-opus-4-8` comparison column is pending Anthropic API credits.)*
+  Choosing the model was itself eval-driven: `gpt-4o` scored **84%** and reliably mis-read dense 3-rate VAT tables; swapping in the `gpt-5-mini` reasoning model (which reads those tables correctly) lifted it to **93%**, and validated structured outputs (Instructor, v0.3.0) took it to **98%**. The remaining miss is a date read one day off on one receipt. See [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). *(A `claude-opus-4-8` comparison column is pending Anthropic API credits.)*
+- **Guardrails, measured (not asserted):** the same harness runs the shipped review gate over the set and reports whether it actually catches bad reads — the **false-auto-post rate**, the **over-review rate**, and a **confidence-calibration** table — surfaced in an in-app **Model & Evals** dashboard alongside live per-read latency/cost. An honest finding it produced: the model's self-reported confidence is poorly calibrated (0.7–0.8 reads were 100% correct, 0.8–0.9 only 75%), so the gate currently over-reviews correct reads. See [D30](DECISIONS.md).
 - **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest). Bank import handles a real Revolut CSV and text-based PDF statements; reconciliation can be driven by hand (match / unmatch / not-a-match / no-receipt) with believable suggestions only.
-- **Tests:** 109 passing (reconciliation + manual-match + no-bank-match helpers, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization incl. food-delivery rules, date re-read + year-repair, discounts, estimated/0% VAT, duplicate fingerprinting incl. vendor-brand + date-window, close, exceptions, validation, subscriptions, CSV/PDF bank import, statement aggregation).
+- **Tests:** 128 passing (reconciliation + manual-match + no-bank-match helpers, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization incl. food-delivery rules, date re-read + year-repair, discounts, estimated/0% VAT, duplicate fingerprinting, the gate decision + guardrail/calibration metrics, LLM-trace cost/usage helpers, close, exceptions, validation, subscriptions, CSV/PDF bank import, statement aggregation).
 - **Impact:** turns a manual personal month-end into minutes; surfaces forgotten subscriptions by annual cost.
 
 ---

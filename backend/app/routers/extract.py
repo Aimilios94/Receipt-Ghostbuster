@@ -8,10 +8,18 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..services import categorization, extraction, receipt_fields, validation, vat
+from ..services import categorization, extraction, gating, receipt_fields, validation, vat
 from .. import repository as repo
 
 router = APIRouter(tags=["extraction"])
+
+
+def _record_trace(user_id: str, trace: dict, **meta) -> None:
+    """Persist an LLM-call trace, best-effort — observability must never break a read."""
+    try:
+        repo.insert_llm_trace(user_id, trace, meta)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 @router.post("/expenses/{expense_id}/rescan")
@@ -32,7 +40,7 @@ async def rescan_receipt(
     if not content:
         raise HTTPException(status_code=400, detail="Empty file.")
 
-    result, oriented = extraction.extract_receipt(content, file.filename, settings)
+    result, oriented, trace = extraction.extract_receipt(content, file.filename, settings)
 
     # Store the straightened new image (best-effort).
     image_url = None
@@ -45,6 +53,9 @@ async def rescan_receipt(
 
     # Unreadable new photo: swap the image only, keep the existing figures.
     if not check["readable"]:
+        _record_trace(user_id, trace, source="rescan", expense_id=expense_id,
+                      gated_to="unreadable", readable=False, confidence=round(result.confidence, 3),
+                      issues=check["issues"])
         patch = {"receipt_image_url": image_url} if image_url else {}
         updated = repo.update_expense(user_id, expense_id, patch) if patch else None
         return {
@@ -77,6 +88,8 @@ async def rescan_receipt(
     except Exception:  # noqa: BLE001 - line items are additive, never fatal
         pass
 
+    _record_trace(user_id, trace, source="rescan", expense_id=expense_id,
+                  gated_to="rescan", readable=True, confidence=round(result.confidence, 3))
     return {"expense": updated, "readable": True}
 
 
@@ -106,7 +119,7 @@ async def extract(
 
     # Returns the read plus the auto-rotated (upright) image bytes we should store.
     # `note` is an optional hint the uploader typed in to help resolve ambiguity.
-    result, oriented = extraction.extract_receipt(content, file.filename, settings, note=note)
+    result, oriented, trace = extraction.extract_receipt(content, file.filename, settings, note=note)
 
     # "Think twice" about a suspicious date: if the first read is missing, in the
     # future, or implausibly old (a misread year — the #1 extraction error on crumpled
@@ -131,22 +144,18 @@ async def extract(
             result.date = fixed
 
     # Guardrails run in code, independent of the model's self-reported confidence.
+    # The full routing decision (readable/estimated-VAT/self-consistency/retake, plus
+    # the year-repair and duplicate overrides) is made by gating.decide_gate below —
+    # the SAME function the eval harness uses to measure the gate.
     check = validation.validate_receipt(
         result, confidence_threshold=settings.confidence_threshold
     )
 
-    # A repaired year is an inference, not a reading — never auto-post it.
-    if year_repair is not None:
-        old, new = year_repair
-        check["issues"].insert(
-            0,
-            f"The year looked misread — corrected {old.isoformat()} to {new.isoformat()}. "
-            "Please confirm the date before posting.",
-        )
-        check["auto_post"] = False
-
     # Unreadable -> don't create a junk ledger row; ask for a clearer photo.
     if not check["readable"]:
+        _record_trace(user_id, trace, source="extract", filename=file.filename,
+                      gated_to="rejected", readable=False, confidence=round(result.confidence, 3),
+                      issues=check["issues"])
         return {
             "expense": None,
             "extraction": result.model_dump(mode="json"),
@@ -268,6 +277,7 @@ async def extract(
     # Consistent with the human-confirm-gate rule.
     dup_date = (result.date or date.today()).isoformat()
     duplicates = repo.find_duplicates(user_id, result.vendor, result.total, dup_date)
+    dup_issue = None
     if duplicates:
         d = duplicates[0]
         existing_date = d.get("expense_date") or "an unknown date"
@@ -277,85 +287,25 @@ async def extract(
             if same_day
             else f"dated {existing_date} (this one reads {dup_date} — dates often misread)"
         )
-        check["issues"].insert(
-            0,
+        dup_issue = (
             f"Possible duplicate — {result.vendor} for €{float(result.total or 0):.2f} "
-            f"is already in your ledger {when}. Compare the receipts before posting.",
+            f"is already in your ledger {when}. Compare the receipts before posting."
         )
-        check["auto_post"] = False
 
-    # Estimated VAT (the receipt printed none, so we inferred rates from product type).
-    # Surface it and send to review so the user confirms the estimate before it posts.
-    if result.vat_estimated and vat_info.get("vat_amount") is not None:
-        check["issues"].append(
-            f"VAT isn't printed on this receipt — estimated €{vat_info['vat_amount']:.2f} "
-            "from the product types (e.g. prepared food 13%, drinks 23%). Confirm or edit."
-        )
-        check["auto_post"] = False
-
-    # Self-consistency guardrail: when the model read BOTH a printed VAT table and item
-    # lines, their per-rate gross should agree (on these chains the printed item prices
-    # are already net of any loyalty discount). A large mismatch = an unreliable/
-    # hallucinated read (even if it happens to sum to the total) — don't auto-post it.
-    def _rate_gross(pairs) -> dict[int, float]:
-        m: dict[int, float] = {}
-        for rate, gross in pairs:
-            if gross is None:
-                continue
-            key = round(float(rate or 0))
-            m[key] = m.get(key, 0.0) + float(gross)
-        return m
-
-    vat_inconsistent = False
-    if result.tax_lines and result.line_items:
-        tax_map = _rate_gross(
-            (tl.rate, tl.gross if tl.gross is not None else (tl.net or 0) + (tl.vat or 0))
-            for tl in result.tax_lines
-        )
-        line_map = _rate_gross((li.vat_rate, li.amount) for li in result.line_items)
-        if tax_map and line_map:
-            rates = set(tax_map) | set(line_map)
-            max_div = max(abs(tax_map.get(r, 0.0) - line_map.get(r, 0.0)) for r in rates)
-            if max_div > max(1.0, 0.10 * (result.total or 0.0)):
-                vat_inconsistent = True
-    if vat_inconsistent:
-        check["issues"].append(
-            "The printed VAT table and the item lines disagree on the per-rate amounts — "
-            "this read looks unreliable. Retake a flat photo, or fix the VAT lines."
-        )
-        check["auto_post"] = False
-
-    # Low-quality read signal: when the read looks unreliable (the printed VAT table or
-    # item lines don't reconcile, a misread/repaired date, or low model confidence), a
-    # cleaner photo would likely fix it — suggest a retake at upload. Duplicates and
-    # estimated-VAT are NOT quality problems, so they don't trigger it.
-    reconcile_issue = vat_inconsistent or any(
-        ("VAT table totals" in i) or ("add up to" in i) for i in check["issues"]
+    # The full gate decision (estimated-VAT, self-consistency, retake, plus the
+    # year-repair and duplicate overrides) — the SAME pure function the eval uses.
+    gate = gating.decide_gate(
+        result,
+        check,
+        {"use_printed": use_printed, "breakdown": breakdown, "vat_amount": vat_info.get("vat_amount")},
+        settings,
+        today,
+        year_repair=year_repair,
+        duplicate_issue=dup_issue,
     )
-    date_issue = year_repair is not None or (
-        result.date is not None
-        and (result.date > today or (today - result.date).days > validation.MAX_AGE_DAYS)
-    )
-    # A read that RECONCILES to the cent (the printed VAT table, or the item lines,
-    # sum to the total) is trustworthy even when the model self-reports modest
-    # confidence on a crumpled photo — a stronger, deterministic signal than the
-    # model's own confidence. So low confidence ALONE must not nag a retake; only a
-    # genuinely inconsistent read (or a suspect date) should. (It still goes to review
-    # for a quick human confirm — we just don't tell the user to re-photograph a
-    # receipt we actually read correctly.)
-    _rtol = max(0.10, 0.02 * (result.total or 0.0))
-    read_reconciles = bool(use_printed) or (
-        bool(result.total) and bool(breakdown["gross"])
-        and abs(breakdown["gross"] - result.total) <= _rtol
-    )
-    retake_suggested = bool(
-        reconcile_issue
-        or date_issue
-        or (result.confidence < settings.confidence_threshold and not read_reconciles)
-    )
-
-    # Gate decided in code: auto-post only if confident AND no validation issues.
-    status = "posted" if check["auto_post"] else "pending_review"
+    check["issues"] = gate["issues"]
+    retake_suggested = gate["retake_suggested"]
+    status = gate["gated_to"]
 
     row = {
         "source": source if source in ("card", "cash", "bank") else "card",
@@ -384,6 +334,12 @@ async def extract(
             line_items = repo.insert_line_items(user_id, created["id"], line_rows)
         except Exception:  # noqa: BLE001 - line items are additive, never fatal
             line_items = []
+
+    _record_trace(user_id, trace, source="extract", filename=file.filename,
+                  gated_to=status, readable=True, confidence=round(result.confidence, 3),
+                  retake_suggested=retake_suggested, duplicate=bool(duplicates),
+                  guardrails_fired=gate["guardrails_fired"],
+                  issues=check["issues"], expense_id=created["id"])
 
     return {
         "expense": created,

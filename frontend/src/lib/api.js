@@ -140,4 +140,8 @@ export const api = {
   updateRefundAction: (id, patch) =>
     request(`/refund-actions/${id}`, { method: "POST", body: patch }).then((r) => r.refund_action),
   deliverRefundAction: (id) => request(`/refund-actions/${id}/deliver`, { method: "POST" }),
+
+  // ----- model & evals (v0.3.0 — observability) -----
+  evalMetrics: () => request("/metrics/eval"),
+  llmMetrics: () => request("/metrics/llm"),
 };

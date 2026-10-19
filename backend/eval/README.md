@@ -8,7 +8,8 @@ backend/eval/
   receipts/            real receipt photos          (git-ignored — personal data)
   labels.json          ground truth for each photo  (git-ignored — personal data)
   labels.example.json  the label format, synthetic  (committed)
-  RESULTS.md           aggregate accuracy table     (committed — safe to publish)
+  RESULTS.md           aggregate accuracy + guardrail table   (committed — safe to publish)
+  metrics.json         machine-readable aggregates  (committed — served by /metrics/eval)
   results.detail.json  per-receipt breakdown        (git-ignored)
   .cache/              cached LLM reads per image    (git-ignored)
 ```
@@ -49,6 +50,29 @@ fields that actually land on the ledger, not just the raw LLM JSON.
 | `vat_amount` | within €0.02 |
 | `vat_rate` | dominant rate, integer match |
 | `category` | exact against the category list |
+
+## Guardrail effectiveness & calibration (v0.3.0)
+
+Beyond field accuracy, the harness runs the **shipped review gate**
+(`services/gating.decide_gate`) over the same set and compares its decision to
+whether each read was actually correct — so it measures whether the guardrails do
+their job, not just whether the model reads well:
+
+- **false auto-post rate** — of the reads that were *wrong*, how many still auto-posted (the dangerous miss).
+- **over-review rate** — of the *correct* reads, how many were sent to review anyway (friction).
+- **confidence calibration** — accuracy grouped by the model's self-reported confidence.
+
+These are written to `RESULTS.md` and to `metrics.json` (aggregates only, committed),
+which the `GET /metrics/eval` endpoint serves to the in-app **Model & Evals** page.
+An optional `expected_gate` label per receipt (`auto_post` | `review` | `reject`)
+adds an expected-vs-actual confusion matrix, but the metrics above need no extra
+labelling — they reuse the field ground truth you already have.
+
+## LangSmith (optional)
+
+With `LANGSMITH_TRACING=true` + a key, `python scripts/langsmith_eval.py` uploads
+this set as a LangSmith **Dataset** and runs the pipeline as a LangSmith
+**Experiment** (same field matchers). Opt-in only; the harness above needs none of it.
 
 ## Labelling
 

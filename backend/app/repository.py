@@ -122,6 +122,44 @@ def insert_expense(user_id: str, row: dict[str, Any]) -> dict[str, Any]:
     return get_supabase().table("expenses").insert(row).execute().data[0]
 
 
+# --------------------------------------------------------------------------- #
+# LLM observability traces (one row per model call / extraction)
+# --------------------------------------------------------------------------- #
+_TRACE_COLS = {
+    "kind", "provider", "model", "latency_ms",
+    "input_tokens", "output_tokens", "est_cost_usd", "success", "error",
+}
+
+
+def insert_llm_trace(user_id: str, trace: dict[str, Any], meta: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Persist one LLM-call trace. `trace` is the aggregate from llm_trace; any
+    keys outside the table columns (reads/retries/fell_back, …) plus the caller's
+    `meta` are stored together in the jsonb `meta` column."""
+    row: dict[str, Any] = {"user_id": user_id}
+    extra: dict[str, Any] = dict(meta or {})
+    for k, v in trace.items():
+        if k in _TRACE_COLS:
+            row[k] = v
+        else:
+            extra[k] = v
+    row["meta"] = extra
+    return get_supabase().table("llm_traces").insert(row).execute().data[0]
+
+
+def list_llm_traces(user_id: str, *, limit: int = 50) -> list[dict[str, Any]]:
+    return (
+        get_supabase()
+        .table("llm_traces")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+        .data
+        or []
+    )
+
+
 def update_expense(user_id: str, expense_id: str, patch: dict[str, Any]) -> dict[str, Any]:
     data = (
         get_supabase()

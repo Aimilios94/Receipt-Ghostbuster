@@ -11,10 +11,17 @@ import base64
 import datetime
 import io
 import json
+import time
 from typing import Any
 
 from ..config import Settings
 from ..models import ExtractionResult
+from .llm_trace import (
+    LlmCall,
+    aggregate,
+    wrap_anthropic_if_enabled,
+    wrap_openai_if_enabled,
+)
 
 try:  # Pillow is optional — without it we just skip server-side rotation.
     from PIL import Image, ImageOps
@@ -228,9 +235,9 @@ def reread_date(
     prompt = DATE_REREAD_PROMPT.replace("{today_line}", f"today's date is {today.isoformat()}.")
     try:
         if provider == "openai":
-            payload = _extract_openai(image_bytes, media_type, settings, prompt)
+            payload, _ = _extract_openai(image_bytes, media_type, settings, prompt, kind="date_reread")
         elif provider == "anthropic":
-            payload = _extract_anthropic(image_bytes, media_type, settings, prompt)
+            payload, _ = _extract_anthropic(image_bytes, media_type, settings, prompt, kind="date_reread")
         else:
             return None
     except Exception:  # noqa: BLE001 - re-read is best-effort
@@ -331,29 +338,53 @@ def _parse_json_payload(text: str) -> dict[str, Any]:
     return json.loads(text)
 
 
-def _extract_anthropic(image_bytes: bytes, media_type: str, settings: Settings, prompt: str) -> dict[str, Any]:
+def _extract_anthropic(
+    image_bytes: bytes, media_type: str, settings: Settings, prompt: str, kind: str = "receipt_extract"
+) -> tuple[dict[str, Any], LlmCall]:
     import anthropic
 
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = wrap_anthropic_if_enabled(anthropic.Anthropic(api_key=settings.anthropic_api_key))
     b64 = base64.standard_b64encode(image_bytes).decode("ascii")
-    resp = client.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=1024,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {"type": "base64", "media_type": media_type, "data": b64},
-                    },
-                    {"type": "text", "text": prompt},
-                ],
-            }
-        ],
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": media_type, "data": b64},
+                },
+                {"type": "text", "text": prompt},
+            ],
+        }
+    ]
+
+    # Structured output first (see _extract_openai); raw parse is the fallback.
+    started = time.perf_counter()
+    try:
+        import instructor
+
+        ic = instructor.from_anthropic(client)
+        obj, raw = ic.messages.create_with_completion(
+            model=settings.anthropic_model,
+            max_tokens=1024,
+            response_model=ExtractionResult,
+            max_retries=settings.instructor_max_retries,
+            messages=messages,
+        )
+        call = LlmCall.timed(
+            provider="anthropic", model=settings.anthropic_model, kind=kind, started=started, resp=raw
+        )
+        return obj.model_dump(mode="json"), call
+    except Exception:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
+        pass
+
+    started = time.perf_counter()
+    resp = client.messages.create(model=settings.anthropic_model, max_tokens=1024, messages=messages)
+    call = LlmCall.timed(
+        provider="anthropic", model=settings.anthropic_model, kind=kind, started=started, resp=resp, fell_back=True
     )
     text = "".join(block.text for block in resp.content if getattr(block, "type", None) == "text")
-    return _parse_json_payload(text)
+    return _parse_json_payload(text), call
 
 
 def _is_reasoning_model(model: str) -> bool:
@@ -364,10 +395,12 @@ def _is_reasoning_model(model: str) -> bool:
     return m.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
-def _extract_openai(image_bytes: bytes, media_type: str, settings: Settings, prompt: str) -> dict[str, Any]:
+def _extract_openai(
+    image_bytes: bytes, media_type: str, settings: Settings, prompt: str, kind: str = "receipt_extract"
+) -> tuple[dict[str, Any], LlmCall]:
     from openai import OpenAI
 
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = wrap_openai_if_enabled(OpenAI(api_key=settings.openai_api_key))
     b64 = base64.standard_b64encode(image_bytes).decode("ascii")
     # Reasoning models need the completion-token param + a budget big enough to
     # cover the reasoning tokens before the JSON (1024 would often return empty).
@@ -376,25 +409,52 @@ def _extract_openai(image_bytes: bytes, media_type: str, settings: Settings, pro
         if _is_reasoning_model(settings.openai_model)
         else {"max_tokens": 1024}
     )
-    resp = client.chat.completions.create(
-        model=settings.openai_model,
-        **token_arg,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        # "high" detail = full-resolution tiling. Much better OCR on
-                        # dense, crumpled, or rotated receipts (worth the extra tokens).
-                        "image_url": {"url": f"data:{media_type};base64,{b64}", "detail": "high"},
-                    },
-                ],
-            }
-        ],
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    # "high" detail = full-resolution tiling. Much better OCR on
+                    # dense, crumpled, or rotated receipts (worth the extra tokens).
+                    "image_url": {"url": f"data:{media_type};base64,{b64}", "detail": "high"},
+                },
+            ],
+        }
+    ]
+
+    # Structured output first: Instructor validates the model's JSON against
+    # ExtractionResult and re-prompts (up to instructor_max_retries) on a schema
+    # violation. On ANY failure — including structured mode being unsupported for
+    # this model — fall back to a plain call + tolerant parse (the previous
+    # behaviour) and flag fell_back on the trace. This keeps the accuracy-critical
+    # path safe while giving us validated output + a measurable fallback rate.
+    started = time.perf_counter()
+    try:
+        import instructor
+
+        ic = instructor.from_openai(client)
+        obj, raw = ic.chat.completions.create_with_completion(
+            model=settings.openai_model,
+            response_model=ExtractionResult,
+            max_retries=settings.instructor_max_retries,
+            **token_arg,
+            messages=messages,
+        )
+        call = LlmCall.timed(
+            provider="openai", model=settings.openai_model, kind=kind, started=started, resp=raw
+        )
+        return obj.model_dump(mode="json"), call
+    except Exception:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
+        pass
+
+    started = time.perf_counter()
+    resp = client.chat.completions.create(model=settings.openai_model, **token_arg, messages=messages)
+    call = LlmCall.timed(
+        provider="openai", model=settings.openai_model, kind=kind, started=started, resp=resp, fell_back=True
     )
-    return _parse_json_payload(resp.choices[0].message.content or "{}")
+    return _parse_json_payload(resp.choices[0].message.content or "{}"), call
 
 
 def _extract_mock(image_bytes: bytes, filename: str | None) -> dict[str, Any]:
@@ -440,7 +500,9 @@ def _to_result(payload: dict[str, Any]) -> ExtractionResult:
     )
 
 
-def _extract_once(image_bytes: bytes, media_type: str, provider: str, settings: Settings, prompt: str) -> dict[str, Any]:
+def _extract_once(
+    image_bytes: bytes, media_type: str, provider: str, settings: Settings, prompt: str
+) -> tuple[dict[str, Any], LlmCall]:
     if provider == "anthropic":
         return _extract_anthropic(image_bytes, media_type, settings, prompt)
     if provider == "openai":
@@ -453,20 +515,24 @@ def extract_receipt(
     filename: str | None,
     settings: Settings,
     note: str | None = None,
-) -> tuple[ExtractionResult, bytes]:
+) -> tuple[ExtractionResult, bytes, dict[str, Any]]:
     """Extract a receipt, auto-correcting orientation server-side.
 
-    Returns (result, oriented_bytes). We first apply the photo's EXIF orientation,
-    then — because a sideways receipt is the top cause of misread dates/VAT — try
-    rotating the pixels and keep the read that looks most upright/correct (by
-    `_read_score`). `oriented_bytes` is the image of the chosen orientation, so the
-    caller can store the straightened receipt. Pillow-optional: without it we do a
+    Returns (result, oriented_bytes, trace). We first apply the photo's EXIF
+    orientation, then — because a sideways receipt is the top cause of misread
+    dates/VAT — try rotating the pixels and keep the read that looks most
+    upright/correct (by `_read_score`). `oriented_bytes` is the image of the chosen
+    orientation, so the caller can store the straightened receipt. `trace` is an
+    observability record aggregating every orientation read made (latency, tokens,
+    estimated cost); the caller persists it. Pillow-optional: without it we do a
     single read of the original image.
     """
     provider = settings.llm_provider.lower()
     if provider == "mock":
-        return _to_result(_extract_mock(image_bytes, filename)), image_bytes
+        trace = aggregate([LlmCall(provider="mock", model="mock")], provider="mock", model="mock", kind="receipt_extract")
+        return _to_result(_extract_mock(image_bytes, filename)), image_bytes, trace
 
+    model = settings.anthropic_model if provider == "anthropic" else settings.openai_model
     prompt = _build_prompt(note=note)
     oriented, landscape = _exif_orient(image_bytes)
     media_type = _guess_media_type(filename if not _PIL_OK else "r.jpg", oriented)
@@ -476,13 +542,16 @@ def extract_receipt(
     # one; a portrait photo usually needs none.
     angles = [90, 270, 180, 0] if (_PIL_OK and landscape) else [0]
 
+    calls: list[LlmCall] = []
     best: tuple[float, ExtractionResult, bytes] | None = None
     for angle in angles:
         candidate = _rotate(oriented, angle) if angle else oriented
         try:
-            result = _to_result(_extract_once(candidate, media_type, provider, settings, prompt))
+            payload, call = _extract_once(candidate, media_type, provider, settings, prompt)
         except Exception:  # noqa: BLE001 - a bad rotation shouldn't kill the whole read
             continue
+        calls.append(call)
+        result = _to_result(payload)
         score = _read_score(result)
         if best is None or score > best[0]:
             best = (score, result, candidate)
@@ -495,7 +564,9 @@ def extract_receipt(
     if _PIL_OK and not landscape and best is not None and best[0] < _WEAK_SCORE:
         try:
             flipped = _rotate(oriented, 180)
-            r = _to_result(_extract_once(flipped, media_type, provider, settings, prompt))
+            payload, call = _extract_once(flipped, media_type, provider, settings, prompt)
+            calls.append(call)
+            r = _to_result(payload)
             if _read_score(r) > best[0]:
                 best = (_read_score(r), r, flipped)
         except Exception:  # noqa: BLE001
@@ -504,5 +575,9 @@ def extract_receipt(
     if best is None:
         # Every attempt errored — surface a normal read of the oriented image so the
         # caller still gets a (failing) result or a raised provider error.
-        return _to_result(_extract_once(oriented, media_type, provider, settings, prompt)), oriented
-    return best[1], best[2]
+        payload, call = _extract_once(oriented, media_type, provider, settings, prompt)
+        calls.append(call)
+        trace = aggregate(calls, provider=provider, model=model, kind="receipt_extract")
+        return _to_result(payload), oriented, trace
+    trace = aggregate(calls, provider=provider, model=model, kind="receipt_extract")
+    return best[1], best[2], trace

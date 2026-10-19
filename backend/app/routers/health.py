@@ -20,6 +20,7 @@ def health(settings: Settings = Depends(get_settings)) -> dict:
             "confidence_threshold": settings.confidence_threshold,
             "default_currency": settings.default_currency,
             "n8n_configured": settings.n8n_configured,
+            "langsmith_tracing": settings.langsmith_configured,
             "auth_mode": "jwt" if settings.supabase_jwt_secret else ("dev" if settings.dev_user_id else "none"),
         },
     }

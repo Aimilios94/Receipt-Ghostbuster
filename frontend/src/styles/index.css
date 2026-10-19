@@ -1885,3 +1885,93 @@ table.ledger tbody tr:hover {
   outline: 2px solid var(--primary-ring);
   outline-offset: 2px;
 }
+
+/* ============================================================ */
+/* Model & Evals dashboard (v0.3.0)                              */
+/* ============================================================ */
+.me-note {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  max-width: 70ch;
+}
+.me-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.me-bar-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 150px;
+  align-items: center;
+  gap: 12px;
+}
+.me-bar-label {
+  font-size: 13px;
+  color: var(--text);
+}
+.me-bar-track {
+  height: 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.me-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width 0.4s ease;
+}
+.me-bar-fill.tone-good { background: var(--green); }
+.me-bar-fill.tone-accent { background: var(--primary); }
+.me-bar-fill.tone-warn { background: var(--amber); }
+.me-bar-val {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: right;
+}
+.me-subhead {
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--text);
+  margin: 20px 0 10px;
+}
+.me-table-wrap { overflow-x: auto; }
+.me-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.me-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-dim);
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.me-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.me-table .num { text-align: right; }
+.me-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+.me-tag.out-posted { background: var(--green-soft); color: var(--green); }
+.me-tag.out-pending_review { background: rgba(226, 162, 74, 0.14); color: var(--amber); }
+.me-tag.out-rejected { background: var(--red-soft); color: var(--red); }
+.me-guardrails {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}

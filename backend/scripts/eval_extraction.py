@@ -49,12 +49,16 @@ CACHE_DIR = EVAL_DIR / ".cache"
 LABELS = EVAL_DIR / "labels.json"
 RESULTS_MD = EVAL_DIR / "RESULTS.md"
 DETAIL_JSON = EVAL_DIR / "results.detail.json"
+METRICS_JSON = EVAL_DIR / "metrics.json"   # aggregates only — committable, served by the API
 
 # Import the app the same way uvicorn would.
 sys.path.insert(0, str(BACKEND))
 from app.config import Settings  # noqa: E402
 from app.models import ExtractionResult  # noqa: E402
-from app.services import extraction, receipt_fields, validation  # noqa: E402
+from app.services import eval_metrics, extraction, gating, receipt_fields, validation  # noqa: E402
+
+# Map the gate's status to the eval's gate vocabulary.
+_GATE_MAP = {"posted": "auto_post", "pending_review": "review", "rejected": "reject"}
 
 # The category list the extraction prompt offers (kept in sync with extraction.py /
 # receipt_fields). Lets the harness validate the LLM's category suggestion offline,
@@ -150,7 +154,7 @@ def _extract(path: Path, settings: Settings, today: datetime.date, *, use_cache:
         return ExtractionResult.model_validate_json(cache.read_text(encoding="utf-8"))
 
     image_bytes = path.read_bytes()
-    result, oriented = extraction.extract_receipt(image_bytes, path.name, settings)
+    result, oriented, _trace = extraction.extract_receipt(image_bytes, path.name, settings)
 
     # Mirror the router: re-read a suspicious date, then deterministically repair a
     # misread year. On a recent, clean set these are no-ops, but we keep them so the
@@ -170,9 +174,8 @@ def _extract(path: Path, settings: Settings, today: datetime.date, *, use_cache:
     return result
 
 
-def _predict(result: ExtractionResult) -> dict[str, Any]:
+def _predict(result: ExtractionResult, fields: dict[str, Any]) -> dict[str, Any]:
     """Turn a raw read into the user-facing fields the app would store."""
-    fields = receipt_fields.compute(result, CATEGORIES)
     return {
         "vendor": result.vendor,
         "date": result.date.isoformat() if result.date else None,
@@ -236,6 +239,7 @@ def main() -> int:
     tally: dict[str, list[int]] = {f: [0, 0] for f in FIELDS}
     receipts_fully_correct = 0
     details: list[dict[str, Any]] = []
+    gate_rows: list[dict[str, Any]] = []   # one per read, for the guardrail metrics
 
     for label in labels:
         name = label["file"]
@@ -247,7 +251,8 @@ def main() -> int:
             continue
         try:
             result = _extract(path, settings, today, use_cache=not args.refresh)
-            pred = _predict(result)
+            fields = receipt_fields.compute(result, CATEGORIES)
+            pred = _predict(result, fields)
         except Exception as exc:  # noqa: BLE001 - a failed read scores as all-miss
             print(f"  ERROR    {name}: {exc}")
             traceback.print_exc()
@@ -263,6 +268,22 @@ def main() -> int:
             tally[f][1] += 1
         all_ok = all(scored.values())
         receipts_fully_correct += int(all_ok)
+
+        # Run the SHIPPED gate (gating.decide_gate — the same function /extract uses)
+        # and record it against whether the read was actually correct, so we can
+        # measure the guardrails (did a wrong read get caught?). expected_gate is an
+        # OPTIONAL hand label; the core metrics don't need it. Year-repair isn't
+        # separately exercised here (the set is recent, so it's a no-op).
+        check = validation.validate_receipt(result, confidence_threshold=settings.confidence_threshold)
+        gate = gating.decide_gate(result, check, fields, settings, today)
+        gate_rows.append({
+            "file": name,
+            "expected_gate": label.get("expected_gate"),
+            "predicted_gate": _GATE_MAP.get(gate["gated_to"]),
+            "field_correct": all_ok if scored else None,
+            "confidence": result.confidence,
+            "guardrails_fired": gate["guardrails_fired"],
+        })
 
         mark = "OK  " if all_ok else "MISS"
         misses = [f for f, ok in scored.items() if not ok]
@@ -298,6 +319,29 @@ def main() -> int:
     print(f"{'receipts 100%':<14}{pct(receipts_fully_correct, n):>10}{f'{receipts_fully_correct}/{n}':>18}")
     print("=" * 52)
 
+    # Guardrail effectiveness: did the gate catch the reads that were actually wrong?
+    routing = eval_metrics.routing_scores(gate_rows)
+    calibration = eval_metrics.confidence_calibration(gate_rows)
+    confusion = eval_metrics.confusion_matrix(gate_rows) if routing["n_labelled"] else None
+
+    def rpct(v: Any) -> str:
+        return "n/a" if v is None else f"{100.0 * v:.0f}%"
+
+    print("\nGuardrail effectiveness")
+    print("-" * 52)
+    print(f"  wrong reads caught by the gate : {rpct(routing['guardrail_recall_on_wrong'])} "
+          f"({routing['wrong_reads'] - routing['false_auto_posts']}/{routing['wrong_reads']})")
+    print(f"  false auto-posts (wrong & posted): {routing['false_auto_posts']} "
+          f"({rpct(routing['false_auto_post_rate'])} of wrong reads)")
+    print(f"  over-review (correct, held back) : {rpct(routing['over_review_rate'])} "
+          f"({routing['over_reviewed']}/{routing['correct_reads']})")
+    print("\nConfidence calibration (accuracy by self-reported confidence)")
+    print("-" * 52)
+    for b in calibration:
+        if b["n"]:
+            print(f"  {b['range']:>9} : {rpct(b['accuracy']):>5}  (n={b['n']})")
+    print("=" * 52)
+
     # A run where nothing read successfully (e.g. the provider is out of credits or
     # unreachable) must NOT clobber a good RESULTS.md with zeros.
     if n == 0:
@@ -305,17 +349,23 @@ def main() -> int:
               "Check the provider/API errors above.")
         return 1
 
-    _write_results_md(settings, tally, total_correct, total_scored, receipts_fully_correct, n, today)
+    _write_results_md(settings, tally, total_correct, total_scored, receipts_fully_correct,
+                      n, today, routing, calibration)
+    _write_metrics_json(settings, tally, total_correct, total_scored, receipts_fully_correct,
+                        n, today, routing, calibration, confusion)
     DETAIL_JSON.write_text(json.dumps(details, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\nWrote {RESULTS_MD.relative_to(BACKEND.parent)} (aggregate, committable) and "
-          f"{DETAIL_JSON.name} (per-receipt, git-ignored).")
+    print(f"\nWrote {RESULTS_MD.relative_to(BACKEND.parent)} + {METRICS_JSON.name} (aggregates, "
+          f"committable) and {DETAIL_JSON.name} (per-receipt, git-ignored).")
     return 0
 
 
 def _write_results_md(settings, tally, total_correct, total_scored,
-                      fully_correct, n, today) -> None:
+                      fully_correct, n, today, routing, calibration) -> None:
     def pct(c, t):
         return f"{100.0 * c / t:.1f}%" if t else "n/a"
+
+    def rpct(v):
+        return "n/a" if v is None else f"{100.0 * v:.0f}%"
 
     model = settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
     lines = [
@@ -345,8 +395,61 @@ def _write_results_md(settings, tally, total_correct, total_scored,
         "are scored only on receipts that print a VAT table (dominant rate for the "
         "single-rate column); vendor matching is fuzzy (merchant or payment processor).",
         "",
+        "## Guardrail effectiveness",
+        "",
+        "Does the review gate actually catch the reads that are wrong? Measured by "
+        "running the shipped gate (`services/gating.decide_gate`) over the same set and "
+        "comparing its decision against whether each read was actually correct.",
+        "",
+        "| Metric | Value | |",
+        "|---|---:|---|",
+        f"| Wrong reads caught by the gate | **{rpct(routing['guardrail_recall_on_wrong'])}** | "
+        f"{routing['wrong_reads'] - routing['false_auto_posts']}/{routing['wrong_reads']} wrong reads routed to review |",
+        f"| False auto-posts | **{routing['false_auto_posts']}** | a wrong read that still auto-posted "
+        f"({rpct(routing['false_auto_post_rate'])} of wrong reads) |",
+        f"| Over-review | {rpct(routing['over_review_rate'])} | correct reads sent to review anyway "
+        f"({routing['over_reviewed']}/{routing['correct_reads']}) — friction, not risk |",
+        "",
+        "## Confidence calibration",
+        "",
+        "Accuracy grouped by the model's self-reported confidence — does higher "
+        "confidence actually mean a more accurate read?",
+        "",
+        "| Confidence | Accuracy | Reads |",
+        "|---|---:|---:|",
     ]
+    for b in calibration:
+        if b["n"]:
+            lines.append(f"| {b['range']} | {rpct(b['accuracy'])} | {b['n']} |")
+    lines.append("")
     RESULTS_MD.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_metrics_json(settings, tally, total_correct, total_scored,
+                        fully_correct, n, today, routing, calibration, confusion) -> None:
+    """Aggregate metrics for the API/dashboard. Aggregates only — no receipt data —
+    so it is safe to commit."""
+    model = settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
+    data = {
+        "provider": settings.llm_provider,
+        "model": model,
+        "run_date": today.isoformat(),
+        "n_receipts": n,
+        "fields": {
+            f: {"accuracy": (tally[f][0] / tally[f][1]) if tally[f][1] else None,
+                "correct": tally[f][0], "scored": tally[f][1]}
+            for f in FIELDS
+        },
+        "overall": {
+            "accuracy": (total_correct / total_scored) if total_scored else None,
+            "correct": total_correct, "scored": total_scored,
+        },
+        "receipts_fully_correct": {"count": fully_correct, "n": n},
+        "guardrails": routing,
+        "calibration": calibration,
+        "confusion": confusion,
+    }
+    METRICS_JSON.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
