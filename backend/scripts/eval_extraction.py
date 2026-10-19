@@ -203,6 +203,7 @@ def _fmt(v: Any) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Receipt extraction-accuracy eval.")
     ap.add_argument("--labels", default=str(LABELS), help="path to labels.json")
+    ap.add_argument("--receipts", default=str(RECEIPTS_DIR), help="dir of receipt images (default eval/receipts)")
     ap.add_argument("--provider", default=None, help="override LLM_PROVIDER (anthropic|openai|mock)")
     ap.add_argument("--model", default=None, help="override the model (e.g. gpt-5-mini); also keys the cache")
     ap.add_argument("--limit", type=int, default=None, help="only the first N receipts")
@@ -216,6 +217,7 @@ def main() -> int:
     labels: list[dict[str, Any]] = json.loads(labels_path.read_text(encoding="utf-8"))
     if args.limit:
         labels = labels[: args.limit]
+    receipts_dir = Path(args.receipts)
 
     settings = Settings(_env_file=str(BACKEND / ".env"))
     if args.provider:
@@ -243,10 +245,10 @@ def main() -> int:
 
     for label in labels:
         name = label["file"]
-        path = RECEIPTS_DIR / name
+        path = receipts_dir / name
         row: dict[str, Any] = {"file": name}
         if not path.exists():
-            print(f"  MISSING  {name} — not in {RECEIPTS_DIR}")
+            print(f"  MISSING  {name} — not in {receipts_dir}")
             details.append({**row, "error": "image missing"})
             continue
         try:

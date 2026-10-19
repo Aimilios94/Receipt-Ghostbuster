@@ -1,0 +1,10 @@
+[
+  {
+    "file": "mock.jpg",
+    "_note": "CI smoke fixture for --provider mock (deterministic mock output). Not real data.",
+    "vendor": "MOCK VENDOR",
+    "total": 12.30,
+    "vat_amount": 2.02,
+    "vat_rate": 23
+  }
+]
