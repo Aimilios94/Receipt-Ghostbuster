@@ -260,17 +260,27 @@ async def extract(
         valid_categories=valid or None,
     )
 
-    # Duplicate check at UPLOAD time: if an identical purchase (same vendor + amount
-    # + date) is already on the ledger, never auto-post — route to review so the user
-    # double-checks before it lands. Consistent with the human-confirm-gate rule.
+    # Duplicate check at UPLOAD time: if the SAME purchase (same vendor + total,
+    # within ~30 days) is already on the ledger, never auto-post — route to review
+    # so the user double-checks before it lands. We match on vendor + exact total
+    # (the strong fingerprint) with a date window, because the date is the most-
+    # misread field (D16) — two photos of one receipt often disagree on it.
+    # Consistent with the human-confirm-gate rule.
     dup_date = (result.date or date.today()).isoformat()
     duplicates = repo.find_duplicates(user_id, result.vendor, result.total, dup_date)
     if duplicates:
         d = duplicates[0]
+        existing_date = d.get("expense_date") or "an unknown date"
+        same_day = existing_date == dup_date
+        when = (
+            f"on {existing_date}"
+            if same_day
+            else f"dated {existing_date} (this one reads {dup_date} — dates often misread)"
+        )
         check["issues"].insert(
             0,
-            f"Possible duplicate — {result.vendor} for €{float(result.total or 0):.2f} on "
-            f"{dup_date} is already in your ledger. Check before posting.",
+            f"Possible duplicate — {result.vendor} for €{float(result.total or 0):.2f} "
+            f"is already in your ledger {when}. Compare the receipts before posting.",
         )
         check["auto_post"] = False
 

@@ -8,6 +8,7 @@ import { Modal, Badge } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
+import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 import { money, shortDate, sourceLabel, vatByRate } from "../lib/format.js";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
 import EditReceiptButton from "./EditReceiptButton.jsx";
@@ -192,11 +193,7 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
         )}
       </div>
 
-      {receipt ? (
-        <div className="overlay receipt-lightbox" onMouseDown={() => setReceipt(null)}>
-          <img src={receipt} alt="Receipt" onMouseDown={(e) => e.stopPropagation()} />
-        </div>
-      ) : null}
+      {receipt ? <ReceiptLightbox src={receipt} onClose={() => setReceipt(null)} /> : null}
 
       {editing ? (
         <ExpenseEditModal

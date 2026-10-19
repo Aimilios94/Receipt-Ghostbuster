@@ -8,6 +8,7 @@ import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
 import { money, shortDate, sourceLabel } from "../lib/format.js";
 import EditReceiptButton from "./EditReceiptButton.jsx";
+import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 function paidWith(e) {
   return e.source === "card" ? "Card ending 4821" : sourceLabel(e.source);
@@ -171,9 +172,7 @@ export default function ExpenseDetailModal({ expense: expenseProp, onClose }) {
       </div>
 
       {showReceipt ? (
-        <div className="overlay receipt-lightbox" onMouseDown={() => setShowReceipt(false)}>
-          <img src={expense.receipt_image_url} alt="Receipt" onMouseDown={(ev) => ev.stopPropagation()} />
-        </div>
+        <ReceiptLightbox src={expense.receipt_image_url} onClose={() => setShowReceipt(false)} />
       ) : null}
     </Modal>
   );

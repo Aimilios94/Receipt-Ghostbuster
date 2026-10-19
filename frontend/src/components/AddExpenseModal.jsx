@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Modal, Button } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
+import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
 import { currentMonth, money, shortDate } from "../lib/format.js";
@@ -219,11 +220,7 @@ function SnapForm({ onDone, onRefresh, onClose, defaultSource }) {
           </Button>
         </div>
         {err ? <div className="error-banner" style={{ margin: 0 }}>{err}</div> : null}
-        {lightbox ? (
-          <div className="overlay receipt-lightbox" onMouseDown={() => setLightbox(null)}>
-            <img src={lightbox} alt="Receipt" onMouseDown={(e) => e.stopPropagation()} />
-          </div>
-        ) : null}
+        {lightbox ? <ReceiptLightbox src={lightbox} onClose={() => setLightbox(null)} /> : null}
       </div>
     );
   }

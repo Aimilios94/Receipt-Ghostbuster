@@ -1861,3 +1861,27 @@ table.ledger tbody tr:hover {
   box-shadow: var(--shadow-pop);
   cursor: default;
 }
+.lightbox-close {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 61;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: var(--shadow-pop);
+}
+.lightbox-close:hover {
+  background: var(--surface-2);
+}
+.lightbox-close:focus-visible {
+  outline: 2px solid var(--primary-ring);
+  outline-offset: 2px;
+}

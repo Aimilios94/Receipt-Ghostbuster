@@ -3,6 +3,16 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.2.6] — 2026-10-19
+
+Duplicate detection that survives a misread, and a receipt viewer that keeps your place — from the Round 6 testing session on two look-alike real receipts (see [D29](DECISIONS.md), [feedback-notes Round 6](feedback-notes.md)). Backend tests **99 → 109**.
+
+### Changed
+- **A duplicate is now matched on vendor + total, not on an exact date** ([D29](DECISIONS.md)). The upload-time duplicate check used to require the same vendor **and** amount **and** the exact same date — so two photos of one receipt that the model read with different dates (2026-10-08 vs 2026-10-03) slipped through as two separate rows. The date is the most-misread field, so it's the worst thing to key on. Detection now fingerprints the **stable** fields — the **vendor** (matched by *brand prefix*, so `Pingo Doce` and `Pingo Doce - PD Olaias` are the same store) and the **total to the cent** — within a **±30-day window**. A re-upload is caught even when the date or vendor reads slightly differently, and routed to review for a compare-and-decide (never auto-posted). The matcher is a pure, unit-tested helper.
+
+### Fixed
+- **Viewing a receipt no longer closes the popup you opened it from.** Receipt images open in a lightbox that layers over the current dialog (duplicate compare, expense detail, reconciliation results, dashboard drill-down, ledger detail). Pressing **Esc** used to bubble up to the parent modal and tear down the whole view — e.g. closing the duplicate-compare popup and dropping you into the review queue before you'd decided. The lightbox is now a shared component where **Esc, a new ✕ button, and a backdrop click close only the image**, leaving the underlying dialog open. Applied consistently to all six receipt viewers in the app.
+
 ## [0.2.5] — 2026-10-18
 
 Measured extraction accuracy and acted on it: a field-level eval harness showed `gpt-4o` mis-reads dense multi-rate VAT tables, so receipt reading moved to the `gpt-5-mini` reasoning model (eval **84% → 93%**). Plus rotation/retake refinements for hard photos and a "No bank line" action so reconciliation can reach a clean state (see [D26–D28](DECISIONS.md), [feedback-notes Round 5](feedback-notes.md)). Backend tests **97 → 99**.

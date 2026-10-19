@@ -7,6 +7,7 @@ import { Icon } from "./icons.jsx";
 import { Button, Badge, StatusBadge } from "./ui.jsx";
 import { api } from "../lib/api.js";
 import { money, shortDate, pct, sourceLabel, confPct, CATEGORY_COLORS, vatByRateLines } from "../lib/format.js";
+import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 /* ---------- Spending by category ---------- */
 export function CategoryBars({ byCategory, total, limit, onPick }) {
@@ -387,9 +388,7 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
       </div>
 
       {showReceipt ? (
-        <div className="overlay receipt-lightbox" onMouseDown={() => setShowReceipt(false)}>
-          <img src={expense.receipt_image_url} alt="Receipt" onMouseDown={(e) => e.stopPropagation()} />
-        </div>
+        <ReceiptLightbox src={expense.receipt_image_url} onClose={() => setShowReceipt(false)} />
       ) : null}
     </div>
   );
@@ -700,11 +699,7 @@ export function LedgerTable({ expenses, onDelete, busyId, duplicateIds, onRowCli
         </tbody>
       </table>
 
-      {lightbox ? (
-        <div className="overlay receipt-lightbox" onMouseDown={() => setLightbox(null)}>
-          <img src={lightbox} alt="Receipt" onMouseDown={(ev) => ev.stopPropagation()} />
-        </div>
-      ) : null}
+      {lightbox ? <ReceiptLightbox src={lightbox} onClose={() => setLightbox(null)} /> : null}
     </div>
   );
 }

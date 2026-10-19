@@ -5,9 +5,96 @@ or filters `user_id` explicitly. Keeping these in one place keeps the routers th
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from .supabase_client import get_supabase
+
+# A duplicate upload shares the vendor and the exact total; the DATE is the
+# least reliable field (it's the most-misread — see DECISIONS D16), so two
+# photos of the same receipt often disagree on the date. We therefore match on
+# vendor + amount within a generous date window rather than an exact date.
+DUPLICATE_WINDOW_DAYS = 30
+
+
+def _parse_iso_date(value: Any) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def _vendor_tokens(vendor: str | None) -> list[str]:
+    """Lower-cased alphanumeric tokens of a vendor name, so 'Pingo Doce - PD
+    Olaias' -> ['pingo', 'doce', 'pd', 'olaias']."""
+    if not vendor:
+        return []
+    cleaned = "".join(ch if ch.isalnum() else " " for ch in vendor.lower())
+    return cleaned.split()
+
+
+def _vendor_matches(a: str | None, b: str | None) -> bool:
+    """Same store? The model reads the vendor inconsistently — sometimes just the
+    brand ('Pingo Doce'), sometimes with the branch ('Pingo Doce - PD Olaias') —
+    so we match when the shorter token list is a leading prefix of the longer one
+    (brand-prefix), not on an exact string."""
+    ta, tb = _vendor_tokens(a), _vendor_tokens(b)
+    if not ta or not tb:
+        return False
+    short, long = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    return long[: len(short)] == short
+
+
+def match_duplicate_rows(
+    rows: list[dict[str, Any]],
+    vendor: str | None,
+    amount: float | None,
+    expense_date: str | None,
+    *,
+    window_days: int = DUPLICATE_WINDOW_DAYS,
+) -> list[dict[str, Any]]:
+    """Pure matcher (no DB): rows that look like the SAME purchase as the given
+    vendor+amount. Same vendor + same total to the cent is the fingerprint; the
+    dates must fall within ``window_days`` of each other, UNLESS either date is
+    missing/unparseable (then vendor+amount alone flags it, since the date is
+    the weak signal — better to surface for a human check than to miss it)."""
+    if not vendor or amount is None:
+        return []
+    new_d = _parse_iso_date(expense_date)
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        if not _vendor_matches(r.get("vendor"), vendor):
+            continue
+        if abs(float(r.get("amount") or 0) - float(amount)) >= 0.005:
+            continue
+        existing_d = _parse_iso_date(r.get("expense_date"))
+        if new_d and existing_d and abs((existing_d - new_d).days) > window_days:
+            continue
+        out.append(r)
+    return out
+
+
+def find_duplicates(
+    user_id: str, vendor: str | None, amount: float | None, expense_date: str | None
+) -> list[dict[str, Any]]:
+    """Existing ledger rows that look like the SAME purchase (same vendor +
+    amount, within ~30 days) — used to flag a likely duplicate at upload time,
+    before posting. Keyed on the strong fields (vendor + exact total) with a
+    date window, so a re-upload with a misread date is still caught."""
+    if not vendor or amount is None:
+        return []
+    rows = (
+        get_supabase()
+        .table("expenses")
+        .select("*")
+        .eq("user_id", user_id)
+        .execute()
+        .data
+        or []
+    )
+    return match_duplicate_rows(rows, vendor, amount, expense_date)
 
 
 def list_expenses(user_id: str, *, status: str | None = None) -> list[dict[str, Any]]:
@@ -28,32 +115,6 @@ def list_bank_transactions(user_id: str) -> list[dict[str, Any]]:
         .data
         or []
     )
-
-
-def find_duplicates(
-    user_id: str, vendor: str | None, amount: float | None, expense_date: str | None
-) -> list[dict[str, Any]]:
-    """Existing ledger rows that look like the SAME purchase (same vendor + amount
-    + date) — used to flag a likely duplicate at upload time, before posting."""
-    if not vendor or amount is None or not expense_date:
-        return []
-    rows = (
-        get_supabase()
-        .table("expenses")
-        .select("*")
-        .eq("user_id", user_id)
-        .eq("expense_date", expense_date)
-        .execute()
-        .data
-        or []
-    )
-    v = vendor.strip().lower()
-    return [
-        r
-        for r in rows
-        if (r.get("vendor") or "").strip().lower() == v
-        and abs(float(r.get("amount") or 0) - float(amount)) < 0.005
-    ]
 
 
 def insert_expense(user_id: str, row: dict[str, Any]) -> dict[str, Any]:

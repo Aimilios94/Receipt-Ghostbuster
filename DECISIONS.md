@@ -2,7 +2,7 @@
 
 *Each entry is **Problem → Evidence → Decision → Result**. Evidence comes from real testing in [feedback-notes.md](feedback-notes.md) or from the design constraints in [problem-statement.md](problem-statement.md). This is the record of *why* the product is the way it is.*
 
-Legend for Evidence source: `[design]` = decided up front from the problem; `[R1]` = Round 1 testing (2026-10-12); `[R2]` = Round 2 (2026-10-13); `[R3]` = Round 3 (2026-10-15); `[req]` = a direct user requirement raised during use.
+Legend for Evidence source: `[design]` = decided up front from the problem; `[R1]` = Round 1 testing (2026-10-12); `[R2]` = Round 2 (2026-10-13); `[R3]` = Round 3 (2026-10-15); `[R5]` = Round 5 (2026-10-18); `[R6]` = Round 6 (2026-10-19); `[req]` = a direct user requirement raised during use.
 
 ---
 
@@ -202,6 +202,13 @@ Legend for Evidence source: `[design]` = decided up front from the problem; `[R1
 - **Evidence (R5):** Several real card expenses (restaurant receipts, a twice-uploaded Pingo Doce) have no corresponding line in the imported Revolut statement. "Not a match" only rejects one *suggestion*; the bank side already had **No receipt** to drop a line out of the cycle, but the expense side had no mirror.
 - **Decision:** Add the expense-side mirror — a **No bank line** button on each unmatched expense (backed by a `no_bank_match` flag and `POST /reconcile/no-bank-match`). An acknowledged expense leaves the Unmatched list and the reconciliation cycle (not flagged as an exception, not offered for matching); it's reversible, and matching it later clears the flag. Extends [D25](#d25--reconciliation-is-a-hand-drivable-workbench-online-payments-can-opt-out-req) from the bank side to the expense side.
 - **Result:** The Unmatched section can now actually reach a clean/empty state — the user clears the expenses that genuinely have no bank match, instead of staring at them forever.
+
+## D29 — A duplicate is the same vendor + total, not the same date `[R6]`
+
+- **Problem:** Two ledger rows were obviously the same Pingo Doce receipt (same €48.24), yet duplicate detection never flagged them — one re-uploaded over the other, both posted.
+- **Evidence (R6):** The upload-time check ([D13](#d13--flag-duplicates-at-upload-before-they-post-r2)) keyed on **vendor + amount + *exact date***. But the two reads disagreed on the date (2026-10-08 vs 2026-10-03) *and* on the vendor string (`Pingo Doce` vs `Pingo Doce - PD Olaias`) — the model reads both fields inconsistently across two photos of one receipt. The date is in fact the single most-misread field (it has its own repair logic, [D16](#d16--deterministic-date-year-repair--focused-re-read-r3)), so requiring an exact date to catch a duplicate is backwards: a real duplicate will often have a *different* date precisely because of a misread.
+- **Decision:** Fingerprint a duplicate on the **strong, stable fields** — the **vendor** (matched by *brand prefix*: one name's leading tokens are a prefix of the other's, so `Pingo Doce` ≡ `Pingo Doce - PD Olaias`) and the **total to the cent** — within a **±30-day window** rather than an exact date (and vendor+total alone when either date is unreadable). The matching logic is a pure, unit-tested helper (`repository.match_duplicate_rows`). The image itself can't be the automatic key — two photos of one receipt differ in pixels, and two different receipts can look alike — so the existing **compare-both-receipts-and-decide** popup ([D13](#d13--flag-duplicates-at-upload-before-they-post-r2)) remains the human source of truth. Supersedes the exact-date/exact-vendor match in D13; the human-confirm gate (route to review, never auto-post a suspected duplicate) is unchanged.
+- **Result:** Re-uploading the same receipt now routes to review as a possible duplicate even when the date or vendor reads differently (verified against the live ledger for `Pingo Doce`, `PINGO DOCE`, and the branch form, while a different vendor / far-off date / different amount correctly do not match). **Honest limit:** a genuine repeat purchase that rings up to the identical cent within 30 days is also flagged — and dismissed in review — which is the safe direction to err.
 
 ---
 

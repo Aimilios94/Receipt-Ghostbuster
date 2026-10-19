@@ -5,6 +5,7 @@ import { money, shortDate } from "../lib/format.js";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
 import EditReceiptButton from "./EditReceiptButton.jsx";
+import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 function dayDiff(a, b) {
   const da = Date.parse(a), db = Date.parse(b);
@@ -375,11 +376,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
         ) : null}
       </div>
 
-      {lightbox ? (
-        <div className="overlay receipt-lightbox" onMouseDown={() => setLightbox(null)}>
-          <img src={lightbox} alt="Receipt" onMouseDown={(ev) => ev.stopPropagation()} />
-        </div>
-      ) : null}
+      {lightbox ? <ReceiptLightbox src={lightbox} onClose={() => setLightbox(null)} /> : null}
 
       {txnDetail ? <BankTxnDetail txn={txnDetail} onClose={() => setTxnDetail(null)} /> : null}
     </Modal>

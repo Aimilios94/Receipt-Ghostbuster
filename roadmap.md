@@ -76,6 +76,18 @@ Status: **shipped.** Backend tests **97 → 99**.
 
 ---
 
+## v0.2.6 — Robust duplicate detection & a self-contained receipt viewer ✅
+
+**Goal:** make the upload-time duplicate check survive the model's own misreads, and stop receipt viewing from throwing the user out of the dialog they were working in.
+
+Scope delivered:
+- **Duplicate fingerprint = vendor + total, within a ±30-day window** — no longer an exact-date match. Vendor is matched by *brand prefix* (`Pingo Doce` ≡ `Pingo Doce - PD Olaias`), so a re-upload is caught even when the date or vendor reads differently; still routed to review, never auto-posted ([D29](DECISIONS.md)).
+- **Shared `ReceiptLightbox`** — Esc, a ✕ button, and a backdrop click close only the image, leaving the dialog behind it open; rolled out to all six receipt viewers.
+
+Status: **shipped.** Backend tests **99 → 109**.
+
+---
+
 ## v0.3 — Advice ⬜
 
 **Goal:** move from recording the past to guiding the next decision — lightweight, rule-based, not a heavy AI advisor.
