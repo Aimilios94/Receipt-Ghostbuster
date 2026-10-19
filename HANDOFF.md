@@ -6,7 +6,84 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-18, day 6 — Round 5, shipped v0.2.5)
+## 🟢 RESUME HERE — current status (as of 2026-10-19, day 7 — shipped v0.2.6, v0.3.0 + CI)
+
+**Day 7 shipped three things, all committed and pushed to `main`:** a real testing fix (**v0.2.6**),
+a new milestone (**v0.3.0 — LLM Observability & Evaluation**), and a **CI regression gate**. Backend
+tests **109 → 128**, frontend build clean, verified end-to-end against live Supabase.
+
+**What day 7 shipped (newest first):**
+- **CI regression gate (commit `0ec19cb`):** `.github/workflows/ci.yml` runs on every push/PR —
+  installs backend deps, runs `pytest -q` (128), then smoke-runs the eval harness in **mock** mode
+  (no secrets, no personal data) so the whole pipeline is exercised offline. Needed a committed
+  fixture because the real `receipts/` + `labels.json` are git-ignored: added a `--receipts` flag to
+  `scripts/eval_extraction.py` + `backend/eval/fixtures/mock.jpg` + `backend/eval/labels.mock.json`.
+  **First run GREEN in 29s.** `gh` CLI is present + authed (`gh run watch <id> --exit-status`).
+- **v0.3.0 — LLM Observability & Evaluation (commit `ec02398`, see DECISIONS D30):** the production-LLM
+  layer around the existing eval + guardrails.
+  - **Instructor structured outputs** — the vision read parses through `instructor.from_openai/anthropic`
+    (`response_model=ExtractionResult`, `instructor_max_retries`) with a tolerant **raw-parse fallback**
+    (records `fell_back`). Prompt unchanged; **eval 93% → 98%**. ⚠️ Installing instructor **downgraded
+    openai 3.24 → 3.3.0** (still satisfies `>=1.50`, verified working). ⚠️ **Reads are now SLOWER**
+    (~35–50s with Instructor/tools on gpt-5-mini vs ~20s raw; a landscape receipt doing multiple
+    orientation reads can take 1–2 min — by design, not a hang).
+  - **Per-call tracing** (`services/llm_trace.py`) — latency, tokens, estimated cost (`price_usd` table)
+    and the gate outcome persisted to a new **`llm_traces`** table (schema applied live). Services stay
+    DB-free; the router persists. `extract_receipt` now returns a **3-tuple `(result, oriented, trace)`**.
+  - **One measured gate** (`services/gating.py::decide_gate`) — the routing logic was factored out of
+    `routers/extract.py` into a pure function used by **both** `/extract` and the eval harness.
+  - **Guardrail + calibration metrics** (`services/eval_metrics.py`) — the eval now reports false-auto-post
+    rate, over-review rate and confidence calibration → `RESULTS.md` + committable `eval/metrics.json`.
+  - **Model & Evals dashboard** at `/model-evals` (sidebar `Icon.gauge`) reading `GET /metrics/eval` +
+    `GET /metrics/llm`. Built with existing CSS/SVG (no charting dep).
+  - **Optional LangSmith** — `wrap_openai/anthropic_if_enabled` (soft, env-gated) + `scripts/langsmith_eval.py`
+    (uploads the set as a LangSmith Dataset, runs an Experiment). **Off by default**; opt-in via `LANGSMITH_TRACING`.
+  - **Honest findings the eval surfaced (real, not invented):** gpt-5-mini's self-reported confidence is
+    **poorly calibrated** (0.7–0.8 reads 100% correct, 0.8–0.9 only 75%), so the gate **over-reviews ~70% of
+    correct reads**; the 1 wrong read (a date off by a day that reconciles) auto-posted because no guardrail
+    can catch a plausible self-consistent wrong date.
+- **v0.2.6 — robust duplicate detection + self-contained receipt viewer (commit `063534f`, D29, Round 6):**
+  duplicate detection now matches on **vendor (brand-prefix) + total-to-the-cent within ±30 days**, not
+  exact date (the date is the most-misread field); fixed a stale shadow `find_duplicates`. Plus a shared
+  `components/ReceiptLightbox.jsx` where **Esc / ✕ / backdrop close only the image**, not the dialog behind
+  it (rolled out to all 6 lightboxes).
+
+### 👋 Message to the next agent (read this)
+Everything is committed and pushed (`main` at `0ec19cb`); working tree clean, CI green. The user was about
+to do **manual testing** of day-7 work at the end of the session — next session likely **starts with their
+testing feedback**, or moves to **v0.4 — Advice**. When you resume:
+1. **Read, in order:** this RESUME section → the auto-memory status file (path at bottom) → **DECISIONS.md**
+   (now D1–D30) → **feedback-notes.md** (Rounds 1–6) → the v0.3.0 plan `C:\Users\aimilios\.claude\plans\silly-dazzling-muffin.md`.
+   New v0.3.0 modules to understand: `services/llm_trace.py`, `services/gating.py`, `services/eval_metrics.py`,
+   `routers/metrics.py`, `pages/ModelEvals.jsx`, `scripts/langsmith_eval.py`.
+2. **Start the servers** (commands below). **Provider is OpenAI `gpt-5-mini`** — reads are **slow now
+   (~35–50s, up to ~2 min for a rotated receipt)** because of Instructor's structured-output mode; this is
+   accuracy-for-latency, by design. Run **ONE** backend uvicorn, **no `--reload`** (it may show as a
+   parent+child pair — that's ONE server, fine; the bad case is two *independent* instances). Supabase uses a
+   **per-thread** client. **Check the two 7-day expiries** before any demo (memory `demo-prep-7day-expiries`).
+3. **Do NOT re-litigate settled decisions (D1–D30).** Keep the **authenticity rule**: real testing → real
+   feedback-notes → real decisions; never invent feedback or metrics. v0.3.0 was an *engineering* milestone,
+   so it has **no** feedback round (D30 carries the "why") — that was deliberate, don't add a fake one.
+4. **User preference (now in memory `no-job-seeking-framing-in-docs`):** committed/user-facing docs must NOT
+   describe the project as a job-seeking portfolio or name target roles — present it as engineering on its merits.
+5. **Open items (user's choice next):**
+   - **v0.4 — Advice** (budget vs actual, overspend nudges, insights feed) — the next planned milestone.
+   - **Auto-post a cent-perfect reconciling read** — the eval now quantifies the over-review cost; the user
+     deferred this (risk: a self-consistent-but-wrong read auto-posting). Decide with the user.
+   - **`claude-opus-4-8` / Claude Sonnet·Haiku eval comparison** — pending Anthropic credits (currently out).
+     Offered but not built: add `--provider/--model` flags to `scripts/langsmith_eval.py` so model comparison
+     in LangSmith is one command per model (the offline harness already has those flags).
+   - Grow the labelled eval set (11 receipts is small) for a more robust number.
+6. **LangSmith for real data (user wants this for evidence):** set `LANGSMITH_TRACING=true` + `LANGSMITH_API_KEY`
+   in `backend/.env`, restart backend → traces appear in their LangSmith project; `python scripts/langsmith_eval.py`
+   creates an Experiment. Privacy: with it on, receipt images/prompts go to LangSmith's cloud (user accepted).
+7. **Note:** real test receipts live in the PARENT folder `C:\Users\aimilios\Desktop\CV-creation\` (git-ignored
+   copies in `backend/eval/receipts/`). Ledger currently = **16 real expenses** + `octomber-2026.csv`. The
+   Model & Evals dashboard has **1 real trace** on it (from an end-to-end verification upload).
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-18, day 6 — Round 5, shipped v0.2.5)
 
 **Day 6 continued (Round 5) = measured extraction accuracy, then acted on it. Shipped as `v0.2.5`.
 Backend tests 97 → 99 passing, frontend build clean, all verified against live Supabase.** This was the
