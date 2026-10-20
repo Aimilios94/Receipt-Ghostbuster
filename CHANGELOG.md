@@ -3,6 +3,20 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.3.1] — 2026-10-20
+
+Made the opt-in **LangSmith** tracing shipped in 0.3.0 actually fire on real data (it silently never did), and
+verified it end-to-end against the cloud. No product behaviour change; the offline app/eval still never depend on
+LangSmith. Backend tests unchanged (**128**). See the [D30 follow-up](DECISIONS.md).
+
+### Fixed
+- **LangSmith tracing now actually traces.** With `LANGSMITH_TRACING=true`, no run ever reached LangSmith because
+  (1) the `LANGSMITH_*` vars lived only in pydantic `Settings`, not `os.environ`, where the LangSmith SDK reads them,
+  and (2) the LangSmith `requests` client had no CA bundle on this Python build (OpenAI/Supabase use httpx+certifi, so
+  only LangSmith was affected). `backend/app/config.py` now loads `backend/.env` into `os.environ` at import and sets
+  `SSL_CERT_FILE`/`REQUESTS_CA_BUNDLE` to `certifi.where()` (idempotent, never overriding an existing value). Verified:
+  the LangSmith project auto-created on the first trace and an Experiment ran over the 11-receipt eval dataset.
+
 ## [0.3.0] — 2026-10-19
 
 An LLM observability & evaluation layer: validated structured outputs, per-call tracing with cost, a measured guardrail story, and an in-app **Model & Evals** dashboard (see [D30](DECISIONS.md)). Backend tests **109 → 128**.

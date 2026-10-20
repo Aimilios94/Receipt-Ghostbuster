@@ -8,9 +8,36 @@ and fails with a clear message only when actually invoked.
 """
 from __future__ import annotations
 
+import os
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Load backend/.env into the real process environment (not just pydantic Settings).
+# Pydantic's env_file only feeds the Settings object; the LangSmith SDK and our
+# llm_trace.langsmith_enabled() read os.environ directly, so without this live
+# tracing (LANGSMITH_*) would silently never fire. Idempotent; never overrides a
+# var already set in the environment.
+_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+try:  # python-dotenv is a transitive dep; absence must not break import
+    from dotenv import load_dotenv
+
+    load_dotenv(_ENV_FILE)
+except Exception:  # noqa: BLE001
+    pass
+
+# Some Python builds on this platform can't locate a usable CA bundle, which breaks
+# the `requests`-based LangSmith client (OpenAI/Supabase use httpx, which bundles
+# certifi, so they're unaffected). Point TLS at certifi unless the operator already
+# set a bundle — setdefault keeps a real deployment's custom/OS trust store intact.
+try:
+    import certifi
+
+    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+except Exception:  # noqa: BLE001
+    pass
 
 
 class Settings(BaseSettings):

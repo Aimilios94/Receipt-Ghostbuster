@@ -6,7 +6,62 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-19, day 7 — shipped v0.2.6, v0.3.0 + CI)
+## 🟢 RESUME HERE — current status (as of 2026-10-20, day 8 — LangSmith tracing fixed; Round 7 testing in progress)
+
+**Day 8 made the opt-in LangSmith layer actually work on real data, re-verified the eval, and the user
+started a real testing round.** Everything is committed and pushed to `main`; working tree clean.
+
+**What day 8 did (newest first):**
+- **Fixed LangSmith real-data tracing (`v0.3.1`, commit on `main`).** v0.3.0 shipped LangSmith as opt-in, but
+  with `LANGSMITH_TRACING=true` set it **silently never fired** — two reasons, both in `backend/app/config.py`
+  now: (1) pydantic's `env_file` only fed the `Settings` object, so the LangSmith SDK / `llm_trace.langsmith_enabled()`
+  (which read `os.environ` directly) never saw the vars → added a `load_dotenv(backend/.env)` at import;
+  (2) the `requests`-based LangSmith client couldn't find a CA bundle on this Python build → `os.environ.setdefault`
+  `SSL_CERT_FILE`/`REQUESTS_CA_BUNDLE` to `certifi.where()` (OpenAI/Supabase use httpx+certifi, so they were
+  unaffected — that's why only LangSmith was broken). **Verified end-to-end:** auth+TLS reach `eu.smith.langchain.com`,
+  the `Receipt-Ghostbuster` project auto-created on the first trace (proof it never landed before), and the
+  Experiment **`rg-extraction-2b47fb28`** ran over the 11-receipt dataset. `/health` reports `langsmith_tracing:true`.
+  Regression-free: **128 pytest still pass.**
+- **Re-verified the eval — unchanged, 98.4% (60/61 fields)** on the 11 labelled receipts (cached reads, no API
+  cost). The single miss is `1000017708.jpg`: date **truth 2026-10-05, model read 2026-10-06** — the one-day-slip,
+  exactly the [D30](DECISIONS.md) finding (reconciles, so no guardrail catches it; it auto-posts). **We did NOT
+  commit the date-only `RESULTS.md`/`metrics.json` bump** (run_date 10-19→10-20, identical numbers) — it's noise;
+  it regenerates with the next *real* number change when the set grows.
+- **Verified the whole stack runs** (see commands below): backend healthy, **Supabase LIVE** (not paused — 16 real
+  expenses), n8n up, frontend up, LangSmith tracing on.
+- **User started Round 7 real testing** — uploaded ~7 receipts, generating **live traces** ($0.040 total, avg ~22s,
+  p95 ~37s, `fell_back:0`, outcomes 6→review / 1→reject / 0 auto-posted). **Round 7 feedback is NOT yet captured** —
+  the uploads produced observability data, but no product observations were reported yet. **Do not invent a Round 7
+  feedback section** — record only what the user actually reports (authenticity rule).
+
+### 👋 Message to the next agent (read this)
+Working tree clean, `main` pushed, CI green, servers were running at end of session. The user is mid-testing to
+build **two separate recruiter-facing evidence surfaces** — keep them distinct:
+1. **Observability** (LangSmith dashboard) — grows with *any* upload; shows per-read latency/tokens/cost/guardrails.
+   The user's manual part. Recruiter angle offered: a **LangSmith Annotation Queue** (human-grade real traces against
+   a vendor/date/total/VAT/gate rubric), **curate real traces into a golden Dataset**, and the **Experiment compare**
+   view. (Annotation Queues may be plan-gated; the per-trace Feedback panel works on any tier.)
+2. **Evaluation accuracy** (the harness / `RESULTS.md` / `/model-evals`) — grows **only** with *new* receipts that
+   have **true values**. The agent runs + scores + records; **the true values must come from the user** (he has the
+   physical receipt). Critical: don't let the agent *both* label a crumpled receipt *and* run the model on it — a
+   shared misread would score a wrong read as "correct" and poison the number.
+
+**The authentic growth loop (this is the main next action):** when the user gives true values for a new receipt →
+copy the image into `backend/eval/receipts/` + add its label to `backend/eval/labels.json` (every field optional
+except `file`; `total` = amount paid, `vat_rate` = dominant printed rate, `vendor_alt` for platform-vs-merchant) →
+re-run `scripts/eval_extraction.py` → 11 grows to N → **one clean commit** ("eval set 11→N, accuracy X%"). That is
+when the `run_date` legitimately updates.
+
+Also: the **`claude-opus-4-8` comparison column** is still pending Anthropic credits; `scripts/langsmith_eval.py`
+and the offline harness both already take `--provider/--model`. **v0.4 — Advice** remains the next planned milestone
+(budget vs actual, overspend nudges, insights feed) — read [DECISIONS.md](DECISIONS.md) D1–D30 before touching it.
+**Check the two 7-day expiries** before any demo: Supabase was LIVE today; the **n8n Gmail OAuth** may need re-auth,
+but that only affects the Refund-Hunter "deliver draft to Gmail" step, not receipt/reconciliation/eval testing
+(memory `demo-prep-7day-expiries`).
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-19, day 7 — shipped v0.2.6, v0.3.0 + CI)
 
 **Day 7 shipped three things, all committed and pushed to `main`:** a real testing fix (**v0.2.6**),
 a new milestone (**v0.3.0 — LLM Observability & Evaluation**), and a **CI regression gate**. Backend

@@ -219,6 +219,18 @@ Legend for Evidence source: `[design]` = decided up front from the problem; `[R1
   2. **Self-contained observability** — every call is timed and its tokens/estimated cost captured (`services/llm_trace.py`) and persisted to an `llm_traces` table (services stay DB-free; the router persists). A **Model & Evals** page surfaces accuracy, guardrail effectiveness, confidence calibration and live latency/cost/outcome per read. **LangSmith** tracing + a dataset/experiment script are available but strictly **opt-in** behind an env flag, so the app and the eval never depend on a hosted service.
   3. **One gate, measured** — the routing logic was factored out of the `/extract` endpoint into a pure `services/gating.decide_gate`, called by **both** the endpoint and the eval harness. The eval now runs the *shipped* gate over the labelled set and reports **false-auto-post rate**, **over-review rate** and **confidence calibration** (`services/eval_metrics.py`).
 - **Result:** Instructor lifted the eval from **93% → 98%** overall (10/11 receipts fully correct). The guardrail metrics immediately earned their keep with honest findings: on the set the one wrong read — a date off by a single day that otherwise reconciles — **auto-posted** (no guardrail can detect a plausible, self-consistent wrong date), and **70% of correct reads were sent to review** because the gate trusts a **poorly-calibrated** confidence score (reads at 0.7–0.8 were 100% correct, 0.8–0.9 only 75%). That quantifies the deferred question in [D21/D27](#d27--vision-model--gpt-5-mini-a-reasoning-model-that-reads-dense-vat-tables-r5) — *should a cent-perfect reconciling read auto-post?* — with data, rather than leaving it to intuition. Every read now carries a real latency/token/cost number.
+- **Follow-up (day 8, 2026-10-20) — the opt-in LangSmith path was shipped but never actually fired.** With
+  `LANGSMITH_TRACING=true` set, no trace ever reached LangSmith. Two causes, both environmental, not logic: (1)
+  pydantic's `env_file` only populates the `Settings` object, but the LangSmith SDK and `llm_trace.langsmith_enabled()`
+  read `os.environ` directly — so the `LANGSMITH_*` vars were invisible to them; (2) the LangSmith client is
+  `requests`-based and this Python build had no usable CA bundle, so even once enabled its TLS calls would fail
+  (OpenAI/Supabase use httpx, which bundles certifi, so they were unaffected — which is exactly why *only* LangSmith
+  was broken and it went unnoticed). Fixed in `config.py` by loading `backend/.env` into `os.environ` at import and
+  pointing `SSL_CERT_FILE`/`REQUESTS_CA_BUNDLE` at `certifi.where()` (both idempotent; never override an operator's
+  existing value). Verified end-to-end: the `Receipt-Ghostbuster` project **auto-created on the first trace** (proof
+  nothing had ever landed), and an Experiment ran over the 11-receipt dataset. Lesson (reinforces the authenticity
+  rule): a feature that *compiles and is wired* is not a feature that *works* — an opt-in integration has to be
+  switched on and watched reach its destination, or the "optional LangSmith" claim is unverified. 128 tests unchanged.
 
 ---
 
