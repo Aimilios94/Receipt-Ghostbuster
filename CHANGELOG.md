@@ -3,6 +3,22 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.3.2] — 2026-10-21
+
+Took evaluation to the next level: a **multi-model comparison** (accuracy × latency × cost) and **accuracy by receipt type**, so the model choice is defensible on every axis and a strong average can't hide a weak slice (see [D31](DECISIONS.md)). Backend tests **128 → 130**.
+
+### Added
+- **Multi-model comparison** — `scripts/eval_models.py` runs the shipped pipeline across models and writes an accuracy × latency × cost matrix (plus per-receipt-type) to committed `backend/eval/MODELS.md` / `models.json`, capturing each read's latency/token/cost trace. First real run: **gpt-5-mini 98.4%** · **gpt-4o 91.8%** · **claude-haiku-4-5 85.2%** — the spread is almost entirely VAT (vat_amount 100% / 77.8% / 55.6%) and date, reproducing the [D27](DECISIONS.md) "gpt-4o mis-reads dense multi-rate VAT tables" finding at the slice level and showing the cheaper models trade accuracy for speed. gpt-5-mini is the slowest (avg 41s vs 7s / 12s) but the cheapest per read ($0.0092) *and* most accurate. (Honest caveat in `MODELS.md`: n=11, so small differences aren't significant.)
+- **Accuracy by receipt type** — an optional `tags` array on each label (rotated / multi_rate / discount / payment_only / …) drives a shared, unit-tested `eval_metrics.slice_accuracy`; the by-type table is added to `RESULTS.md` and `metrics.json`. On gpt-5-mini: rotated **100%**, multi_rate 97.9%.
+- **Design docs** for two planned milestones — `docs/design/chatbot.md` (a natural-language Q&A layer built on tool-calling where every number is computed in code, with computable-ground-truth evals) and `docs/design/payslip.md`.
+
+### Changed
+- **The single-model `RESULTS.md`/`metrics.json` the in-app page serves is unchanged in contract** — the comparison lives in the new `MODELS.md`/`models.json`.
+- **`scripts/langsmith_eval.py` now takes `--provider/--model`** — each model becomes its own LangSmith Experiment for the compare view (opt-in, otherwise unchanged).
+
+### Fixed
+- **Fair Claude comparison** — a new `anthropic_max_tokens` setting (default 4096) replaces a hard-coded 1024 output ceiling that could truncate a Claude model mid-JSON on a dense multi-rate receipt. (Claude Haiku 4.5 is now in the matrix; the Opus 4.8 column is pending its credits.)
+
 ## [0.3.1] — 2026-10-20
 
 Made the opt-in **LangSmith** tracing shipped in 0.3.0 actually fire on real data (it silently never did), and

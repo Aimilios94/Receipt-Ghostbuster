@@ -1,0 +1,339 @@
+{
+  "run_date": "2026-10-21",
+  "n_receipts": 11,
+  "models": [
+    {
+      "provider": "openai",
+      "model": "gpt-5-mini",
+      "n_receipts": 11,
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "scored": 11
+        },
+        "date": {
+          "accuracy": 0.9090909090909091,
+          "correct": 10,
+          "scored": 11
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "scored": 11
+        },
+        "vat_amount": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 10,
+          "scored": 10
+        }
+      },
+      "overall": {
+        "accuracy": 0.9836065573770492,
+        "correct": 60,
+        "scored": 61
+      },
+      "receipts_fully_correct": {
+        "count": 10,
+        "n": 11
+      },
+      "latency_ms": {
+        "p50": 32377,
+        "p95": 91934,
+        "avg": 41400
+      },
+      "cost_usd": {
+        "total": 0.100874,
+        "avg_per_read": 0.00917
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 1,
+        "false_auto_post_rate": 1.0,
+        "over_review_rate": 0.7
+      },
+      "slices": {
+        "deposit": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "discount": {
+          "correct": 10,
+          "scored": 10,
+          "n_receipts": 2,
+          "accuracy": 1.0
+        },
+        "duplicate_set": {
+          "correct": 18,
+          "scored": 18,
+          "n_receipts": 3,
+          "accuracy": 1.0
+        },
+        "multi_rate": {
+          "correct": 47,
+          "scored": 48,
+          "n_receipts": 8,
+          "accuracy": 0.9792
+        },
+        "no_vat": {
+          "correct": 7,
+          "scored": 7,
+          "n_receipts": 2,
+          "accuracy": 1.0
+        },
+        "payment_only": {
+          "correct": 3,
+          "scored": 3,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "rotated": {
+          "correct": 12,
+          "scored": 12,
+          "n_receipts": 2,
+          "accuracy": 1.0
+        },
+        "upright": {
+          "correct": 48,
+          "scored": 49,
+          "n_receipts": 9,
+          "accuracy": 0.9796
+        }
+      }
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "n_receipts": 11,
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "scored": 11
+        },
+        "date": {
+          "accuracy": 0.8181818181818182,
+          "correct": 9,
+          "scored": 11
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "scored": 11
+        },
+        "vat_amount": {
+          "accuracy": 0.7777777777777778,
+          "correct": 7,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 0.8888888888888888,
+          "correct": 8,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 10,
+          "scored": 10
+        }
+      },
+      "overall": {
+        "accuracy": 0.9180327868852459,
+        "correct": 56,
+        "scored": 61
+      },
+      "receipts_fully_correct": {
+        "count": 7,
+        "n": 11
+      },
+      "latency_ms": {
+        "p50": 4790,
+        "p95": 15311,
+        "avg": 7286
+      },
+      "cost_usd": {
+        "total": 0.216645,
+        "avg_per_read": 0.019695
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 1,
+        "false_auto_post_rate": 0.25,
+        "over_review_rate": 0.5714
+      },
+      "slices": {
+        "deposit": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "discount": {
+          "correct": 8,
+          "scored": 10,
+          "n_receipts": 2,
+          "accuracy": 0.8
+        },
+        "duplicate_set": {
+          "correct": 17,
+          "scored": 18,
+          "n_receipts": 3,
+          "accuracy": 0.9444
+        },
+        "multi_rate": {
+          "correct": 43,
+          "scored": 48,
+          "n_receipts": 8,
+          "accuracy": 0.8958
+        },
+        "no_vat": {
+          "correct": 7,
+          "scored": 7,
+          "n_receipts": 2,
+          "accuracy": 1.0
+        },
+        "payment_only": {
+          "correct": 3,
+          "scored": 3,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "rotated": {
+          "correct": 11,
+          "scored": 12,
+          "n_receipts": 2,
+          "accuracy": 0.9167
+        },
+        "upright": {
+          "correct": 45,
+          "scored": 49,
+          "n_receipts": 9,
+          "accuracy": 0.9184
+        }
+      }
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5",
+      "n_receipts": 11,
+      "fields": {
+        "vendor": {
+          "accuracy": 0.9090909090909091,
+          "correct": 10,
+          "scored": 11
+        },
+        "date": {
+          "accuracy": 0.9090909090909091,
+          "correct": 10,
+          "scored": 11
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "scored": 11
+        },
+        "vat_amount": {
+          "accuracy": 0.5555555555555556,
+          "correct": 5,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 0.7777777777777778,
+          "correct": 7,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 0.9,
+          "correct": 9,
+          "scored": 10
+        }
+      },
+      "overall": {
+        "accuracy": 0.8524590163934426,
+        "correct": 52,
+        "scored": 61
+      },
+      "receipts_fully_correct": {
+        "count": 6,
+        "n": 11
+      },
+      "latency_ms": {
+        "p50": 7751,
+        "p95": 23450,
+        "avg": 11525
+      },
+      "cost_usd": {
+        "total": 0.135858,
+        "avg_per_read": 0.012351
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 1,
+        "false_auto_post_rate": 0.2,
+        "over_review_rate": 0.6667
+      },
+      "slices": {
+        "deposit": {
+          "correct": 5,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 0.8333
+        },
+        "discount": {
+          "correct": 9,
+          "scored": 10,
+          "n_receipts": 2,
+          "accuracy": 0.9
+        },
+        "duplicate_set": {
+          "correct": 14,
+          "scored": 18,
+          "n_receipts": 3,
+          "accuracy": 0.7778
+        },
+        "multi_rate": {
+          "correct": 40,
+          "scored": 48,
+          "n_receipts": 8,
+          "accuracy": 0.8333
+        },
+        "no_vat": {
+          "correct": 7,
+          "scored": 7,
+          "n_receipts": 2,
+          "accuracy": 1.0
+        },
+        "payment_only": {
+          "correct": 3,
+          "scored": 3,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "rotated": {
+          "correct": 9,
+          "scored": 12,
+          "n_receipts": 2,
+          "accuracy": 0.75
+        },
+        "upright": {
+          "correct": 43,
+          "scored": 49,
+          "n_receipts": 9,
+          "accuracy": 0.8776
+        }
+      }
+    }
+  ]
+}

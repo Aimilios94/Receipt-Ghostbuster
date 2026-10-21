@@ -61,6 +61,28 @@ def test_confusion_matrix_only_counts_labelled():
     assert sum(sum(v.values()) for v in m.values()) == 2  # the unlabelled row is excluded
 
 
+def test_slice_accuracy_buckets_fields_per_tag():
+    rows = [
+        {"tags": ["rotated", "multi_rate"], "scored": {"total": True, "date": False}},
+        {"tags": ["multi_rate"], "scored": {"total": True, "vat_rate": True}},
+        {"tags": ["payment_only"], "scored": {"vendor": True}},
+    ]
+    s = eval_metrics.slice_accuracy(rows)
+    # rotated: 1 receipt, 1/2 fields
+    assert s["rotated"] == {"correct": 1, "scored": 2, "n_receipts": 1, "accuracy": 0.5}
+    # multi_rate spans two receipts: (1/2) + (2/2) = 3/4 fields
+    assert s["multi_rate"]["correct"] == 3 and s["multi_rate"]["scored"] == 4
+    assert s["multi_rate"]["n_receipts"] == 2 and s["multi_rate"]["accuracy"] == 0.75
+    assert s["payment_only"]["accuracy"] == 1.0
+    # sorted by tag name
+    assert list(s) == ["multi_rate", "payment_only", "rotated"]
+
+
+def test_slice_accuracy_empty_when_no_tags():
+    rows = [{"tags": [], "scored": {"total": True}}, {"scored": {"date": False}}]
+    assert eval_metrics.slice_accuracy(rows) == {}
+
+
 def test_confidence_calibration_buckets():
     rows = [
         _row(None, "auto_post", True, 0.65),

@@ -242,6 +242,7 @@ def main() -> int:
     receipts_fully_correct = 0
     details: list[dict[str, Any]] = []
     gate_rows: list[dict[str, Any]] = []   # one per read, for the guardrail metrics
+    slice_rows: list[dict[str, Any]] = []  # one per read, for accuracy-by-receipt-type
 
     for label in labels:
         name = label["file"]
@@ -270,6 +271,7 @@ def main() -> int:
             tally[f][1] += 1
         all_ok = all(scored.values())
         receipts_fully_correct += int(all_ok)
+        slice_rows.append({"tags": label.get("tags", []), "scored": scored})
 
         # Run the SHIPPED gate (gating.decide_gate — the same function /extract uses)
         # and record it against whether the read was actually correct, so we can
@@ -325,6 +327,7 @@ def main() -> int:
     routing = eval_metrics.routing_scores(gate_rows)
     calibration = eval_metrics.confidence_calibration(gate_rows)
     confusion = eval_metrics.confusion_matrix(gate_rows) if routing["n_labelled"] else None
+    slices = eval_metrics.slice_accuracy(slice_rows)
 
     def rpct(v: Any) -> str:
         return "n/a" if v is None else f"{100.0 * v:.0f}%"
@@ -344,6 +347,14 @@ def main() -> int:
             print(f"  {b['range']:>9} : {rpct(b['accuracy']):>5}  (n={b['n']})")
     print("=" * 52)
 
+    if slices:
+        print("\nAccuracy by receipt type")
+        print("-" * 52)
+        for tag, s in slices.items():
+            print(f"  {tag:<16} : {rpct(s['accuracy']):>5}  "
+                  f"({s['correct']}/{s['scored']} fields, {s['n_receipts']} receipts)")
+        print("=" * 52)
+
     # A run where nothing read successfully (e.g. the provider is out of credits or
     # unreachable) must NOT clobber a good RESULTS.md with zeros.
     if n == 0:
@@ -352,9 +363,9 @@ def main() -> int:
         return 1
 
     _write_results_md(settings, tally, total_correct, total_scored, receipts_fully_correct,
-                      n, today, routing, calibration)
+                      n, today, routing, calibration, slices)
     _write_metrics_json(settings, tally, total_correct, total_scored, receipts_fully_correct,
-                        n, today, routing, calibration, confusion)
+                        n, today, routing, calibration, confusion, slices)
     DETAIL_JSON.write_text(json.dumps(details, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nWrote {RESULTS_MD.relative_to(BACKEND.parent)} + {METRICS_JSON.name} (aggregates, "
           f"committable) and {DETAIL_JSON.name} (per-receipt, git-ignored).")
@@ -362,7 +373,7 @@ def main() -> int:
 
 
 def _write_results_md(settings, tally, total_correct, total_scored,
-                      fully_correct, n, today, routing, calibration) -> None:
+                      fully_correct, n, today, routing, calibration, slices) -> None:
     def pct(c, t):
         return f"{100.0 * c / t:.1f}%" if t else "n/a"
 
@@ -423,12 +434,26 @@ def _write_results_md(settings, tally, total_correct, total_scored,
     for b in calibration:
         if b["n"]:
             lines.append(f"| {b['range']} | {rpct(b['accuracy'])} | {b['n']} |")
+    if slices:
+        lines += [
+            "",
+            "## Accuracy by receipt type",
+            "",
+            "Field-level accuracy split by receipt characteristic (a receipt counts "
+            "toward every tag it carries), so a strong average can't hide a weak slice.",
+            "",
+            "| Receipt type | Accuracy | Correct / scored | Receipts |",
+            "|---|---:|---:|---:|",
+        ]
+        for tag, s in slices.items():
+            lines.append(f"| {tag} | {pct(s['correct'], s['scored'])} | "
+                         f"{s['correct']}/{s['scored']} | {s['n_receipts']} |")
     lines.append("")
     RESULTS_MD.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _write_metrics_json(settings, tally, total_correct, total_scored,
-                        fully_correct, n, today, routing, calibration, confusion) -> None:
+                        fully_correct, n, today, routing, calibration, confusion, slices) -> None:
     """Aggregate metrics for the API/dashboard. Aggregates only — no receipt data —
     so it is safe to commit."""
     model = settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
@@ -450,6 +475,7 @@ def _write_metrics_json(settings, tally, total_correct, total_scored,
         "guardrails": routing,
         "calibration": calibration,
         "confusion": confusion,
+        "slices": slices,
     }
     METRICS_JSON.write_text(json.dumps(data, indent=2), encoding="utf-8")
 

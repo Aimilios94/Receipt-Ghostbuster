@@ -1,7 +1,7 @@
 {
   "provider": "openai",
   "model": "gpt-5-mini",
-  "run_date": "2026-10-19",
+  "run_date": "2026-10-21",
   "n_receipts": 11,
   "fields": {
     "vendor": {
@@ -83,5 +83,55 @@
       "accuracy": null
     }
   ],
-  "confusion": null
+  "confusion": null,
+  "slices": {
+    "deposit": {
+      "correct": 6,
+      "scored": 6,
+      "n_receipts": 1,
+      "accuracy": 1.0
+    },
+    "discount": {
+      "correct": 10,
+      "scored": 10,
+      "n_receipts": 2,
+      "accuracy": 1.0
+    },
+    "duplicate_set": {
+      "correct": 18,
+      "scored": 18,
+      "n_receipts": 3,
+      "accuracy": 1.0
+    },
+    "multi_rate": {
+      "correct": 47,
+      "scored": 48,
+      "n_receipts": 8,
+      "accuracy": 0.9792
+    },
+    "no_vat": {
+      "correct": 7,
+      "scored": 7,
+      "n_receipts": 2,
+      "accuracy": 1.0
+    },
+    "payment_only": {
+      "correct": 3,
+      "scored": 3,
+      "n_receipts": 1,
+      "accuracy": 1.0
+    },
+    "rotated": {
+      "correct": 12,
+      "scored": 12,
+      "n_receipts": 2,
+      "accuracy": 1.0
+    },
+    "upright": {
+      "correct": 48,
+      "scored": 49,
+      "n_receipts": 9,
+      "accuracy": 0.9796
+    }
+  }
 }

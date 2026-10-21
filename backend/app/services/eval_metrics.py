@@ -75,6 +75,31 @@ def routing_scores(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def slice_accuracy(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Field-level accuracy broken down by receipt *type* tag, so a strong average
+    can't hide a weak slice (e.g. "rotated" at 70% behind a 98% overall).
+
+    A row is one evaluated receipt: ``{"tags": [...], "scored": {field: bool}}``.
+    A receipt contributes its correct/scored field counts to every tag it carries.
+    Returns ``{tag: {correct, scored, accuracy, n_receipts}}`` sorted by tag. Rows
+    with no tags contribute to nothing, so an untagged set yields ``{}`` (the caller
+    simply omits the by-type table).
+    """
+    acc: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        scored = r.get("scored") or {}
+        correct = sum(1 for v in scored.values() if v)
+        total = len(scored)
+        for tag in r.get("tags") or []:
+            b = acc.setdefault(tag, {"correct": 0, "scored": 0, "n_receipts": 0})
+            b["correct"] += correct
+            b["scored"] += total
+            b["n_receipts"] += 1
+    for b in acc.values():
+        b["accuracy"] = _rate(b["correct"], b["scored"])
+    return dict(sorted(acc.items()))
+
+
 def confidence_calibration(
     rows: list[dict[str, Any]], buckets: list[tuple[float, float]] | None = None
 ) -> list[dict[str, Any]]:

@@ -20,9 +20,11 @@ sent to LangSmith's cloud — intended, but see the privacy note in .env.example
 """
 from __future__ import annotations
 
+import argparse
 import datetime
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -44,6 +46,11 @@ def _configured() -> bool:
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description="Run the extraction eval as a LangSmith Experiment.")
+    ap.add_argument("--provider", default=None, help="override LLM_PROVIDER (anthropic|openai)")
+    ap.add_argument("--model", default=None, help="override the model; becomes the experiment name")
+    args = ap.parse_args()
+
     load_env = HERE.parent / ".env"
     try:
         from dotenv import load_dotenv
@@ -68,6 +75,15 @@ def main() -> int:
     labels = json.loads(ev.LABELS.read_text(encoding="utf-8"))
 
     settings = Settings(_env_file=str(ev.BACKEND / ".env"))
+    if args.provider:
+        settings.llm_provider = args.provider
+    if args.model:
+        if (args.provider or settings.llm_provider) == "anthropic":
+            settings.anthropic_model = args.model
+        else:
+            settings.openai_model = args.model
+    model = settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
+    model_tag = re.sub(r"[^a-z0-9]+", "-", model.lower())
     today = datetime.date.today()
 
     try:
@@ -118,12 +134,14 @@ def main() -> int:
 
     evaluators = [overall] + [make_field_eval(f) for f in ev.FIELDS]
 
-    print(f"Running experiment over '{DATASET}' ({len(labels)} receipts)…")
+    print(f"Running experiment over '{DATASET}' ({len(labels)} receipts) with "
+          f"{settings.llm_provider} · {model}…")
     results = evaluate(
         target,
         data=DATASET,
         evaluators=evaluators,
-        experiment_prefix="rg-extraction",
+        experiment_prefix=f"rg-extraction-{model_tag}",
+        metadata={"provider": settings.llm_provider, "model": model},
         client=client,
     )
     url = getattr(results, "experiment_url", None) or getattr(results, "url", None)

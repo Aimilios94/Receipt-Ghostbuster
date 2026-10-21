@@ -83,3 +83,13 @@ drop images in `receipts/` and add their ground truth to `labels.json`.
 
 `currency` may be included for reference but is **not scored** (see the harness
 `FIELDS` note).
+
+### Receipt-type tags (accuracy by slice)
+
+An optional `tags` array labels each receipt by *characteristic* (e.g. `rotated`,
+`multi_rate`, `single_rate`, `discount`, `no_vat`, `payment_only`, `crumpled`). The
+harness then reports **accuracy by receipt type** — a receipt contributes its field
+scores to every tag it carries — so a strong overall average can't hide a weak slice
+(e.g. rotated photos reading worse than flat ones). Tags are free-form; add whatever
+dimensions matter. The breakdown appears in `RESULTS.md` and under `slices` in
+`metrics.json`; an untagged set simply omits the table.

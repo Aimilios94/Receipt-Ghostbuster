@@ -105,6 +105,34 @@ Status: **shipped.** Backend tests **109 → 128**.
 
 ---
 
+## v0.3.2 — Evaluation, next level ✅
+
+**Goal:** go beyond a single accuracy number — compare models on the axes that actually decide a
+production LLM choice (accuracy, latency, cost) and expose where accuracy is weak, not just the average.
+
+Scope:
+- **Multi-model comparison** — `scripts/eval_models.py` runs the shipped pipeline across models
+  (gpt-5-mini incumbent, gpt-4o, Claude Haiku 4.5) and writes an **accuracy × latency × cost** matrix to
+  `backend/eval/MODELS.md` / `models.json`. A fairness fix (Anthropic output-token ceiling) makes Claude's
+  reads of dense multi-rate VAT tables comparable. The single-model `RESULTS.md`/`metrics.json` the in-app
+  page reads stays the canonical shipped number.
+- **Accuracy by receipt type** — optional `tags` on labels (rotated / multi-rate / discount / payment-only
+  …) so the harness breaks accuracy down by slice; a strong average can't hide a weak case.
+- **LangSmith per-model experiments** — `scripts/langsmith_eval.py` takes `--provider/--model`, so each
+  model is its own Experiment for the LangSmith compare view (opt-in, unchanged otherwise).
+- **Honesty:** the comparison states n=11 and that small differences aren't statistically significant.
+
+First run (11 receipts): **gpt-5-mini 98.4%** · **gpt-4o 91.8%** · **claude-haiku-4-5 85.2%** — the spread is
+almost all VAT + date, and gpt-5-mini is the slowest but the cheapest per read *and* most accurate
+([D31](DECISIONS.md), `backend/eval/MODELS.md`). The Opus 4.8 column is pending its Anthropic credits.
+
+Deferred to a later eval round: structured-output reliability taxonomy, an accuracy-regression CI gate,
+and a calibrated LLM-as-judge.
+
+Status: **shipped.** Backend tests **128 → 130**.
+
+---
+
 ## v0.4 — Advice ⬜
 
 **Goal:** move from recording the past to guiding the next decision — lightweight, rule-based, not a heavy AI advisor.
@@ -113,6 +141,38 @@ Planned scope:
 - **Budget vs actual**: per-category budgets → variance view (`categories.budget_amount` already exists in the schema).
 - **Overspend nudges** (`GET /insights`): rule-based signals (category over budget; spend up N% vs last month; paid-but-unused subscription) written to a new `insights` table.
 - **Insights feed** on the dashboard.
+
+Status: **planned** — not started.
+
+---
+
+## v0.5 — Refund Hunter chatbot (NL Q&A) ⬜
+
+**Goal:** let the user *ask* their money questions in plain language — "which day did I spend the most this
+month?", "which week do I usually spend least?", "how much went to Groceries vs last month?" — on top of the
+same one ledger, not just read dashboards.
+
+Planned scope (design: [docs/design/chatbot.md](docs/design/chatbot.md)):
+- **Tool-calling architecture** — the LLM selects and sequences **analytics functions that compute every
+  number in code** (extending [D1](DECISIONS.md) "the AI never does math" to Q&A); it never free-form sums or
+  invents figures.
+- **Grounded answers only** — responses cite the computed result; a question outside the data is declined.
+- **Evaluation built-in** — deterministic questions have a **computable exact ground truth** (so they're
+  scored without a judge); open-ended answers get a **calibrated LLM-as-judge** for faithfulness.
+
+Status: **planned** — not started.
+
+---
+
+## v0.6 — Payslip tracking ⬜
+
+**Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance
+deductions over time, so "where my money goes" includes "what's taken before it arrives."
+
+Planned scope (design: [docs/design/payslip.md](docs/design/payslip.md)):
+- **Payslip extraction** — the same vision-read-then-compute-in-code pipeline as receipts, a new field set
+  (gross, net, income tax, social insurance, other deductions), its own git-ignored labelled eval set.
+- **Over-time analytics** — per-year insurance/tax paid, month-over-month deltas and the reason for a change.
 
 Status: **planned** — not started.
 

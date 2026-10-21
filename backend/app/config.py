@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     # reliably than gpt-4o (93% vs 84% on the eval set) — see eval/RESULTS.md. The
     # OpenAI call path handles its max_completion_tokens requirement automatically.
     openai_model: str = "gpt-5-mini"
+    # Output-token ceiling for Anthropic (Claude) reads. A dense multi-rate
+    # ExtractionResult (line_items + tax_lines) can exceed the old 1024 default and
+    # truncate the JSON, which penalises Claude unfairly in a model comparison. Claude
+    # models aren't reasoning models (no hidden-reasoning budget), so a single raised
+    # ceiling is enough — unlike the gpt-5*/o* path which needs max_completion_tokens.
+    anthropic_max_tokens: int = 4096
 
     # --- Confidence gate ---
     confidence_threshold: float = 0.8

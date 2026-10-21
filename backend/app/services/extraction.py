@@ -366,7 +366,7 @@ def _extract_anthropic(
         ic = instructor.from_anthropic(client)
         obj, raw = ic.messages.create_with_completion(
             model=settings.anthropic_model,
-            max_tokens=1024,
+            max_tokens=settings.anthropic_max_tokens,
             response_model=ExtractionResult,
             max_retries=settings.instructor_max_retries,
             messages=messages,
@@ -379,7 +379,9 @@ def _extract_anthropic(
         pass
 
     started = time.perf_counter()
-    resp = client.messages.create(model=settings.anthropic_model, max_tokens=1024, messages=messages)
+    resp = client.messages.create(
+        model=settings.anthropic_model, max_tokens=settings.anthropic_max_tokens, messages=messages
+    )
     call = LlmCall.timed(
         provider="anthropic", model=settings.anthropic_model, kind=kind, started=started, resp=resp, fell_back=True
     )
