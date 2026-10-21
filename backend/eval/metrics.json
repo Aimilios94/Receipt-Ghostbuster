@@ -2,65 +2,65 @@
   "provider": "openai",
   "model": "gpt-5-mini",
   "run_date": "2026-10-21",
-  "n_receipts": 11,
+  "n_receipts": 20,
   "fields": {
     "vendor": {
       "accuracy": 1.0,
-      "correct": 11,
-      "scored": 11
+      "correct": 20,
+      "scored": 20
     },
     "date": {
-      "accuracy": 0.9090909090909091,
-      "correct": 10,
-      "scored": 11
+      "accuracy": 0.95,
+      "correct": 19,
+      "scored": 20
     },
     "total": {
       "accuracy": 1.0,
-      "correct": 11,
-      "scored": 11
+      "correct": 20,
+      "scored": 20
     },
     "vat_amount": {
-      "accuracy": 1.0,
-      "correct": 9,
-      "scored": 9
+      "accuracy": 0.9411764705882353,
+      "correct": 16,
+      "scored": 17
     },
     "vat_rate": {
-      "accuracy": 1.0,
-      "correct": 9,
-      "scored": 9
+      "accuracy": 0.9411764705882353,
+      "correct": 16,
+      "scored": 17
     },
     "category": {
-      "accuracy": 1.0,
-      "correct": 10,
-      "scored": 10
+      "accuracy": 0.9473684210526315,
+      "correct": 18,
+      "scored": 19
     }
   },
   "overall": {
-    "accuracy": 0.9836065573770492,
-    "correct": 60,
-    "scored": 61
+    "accuracy": 0.9646017699115044,
+    "correct": 109,
+    "scored": 113
   },
   "receipts_fully_correct": {
-    "count": 10,
-    "n": 11
+    "count": 18,
+    "n": 20
   },
   "guardrails": {
-    "n": 11,
-    "wrong_reads": 1,
+    "n": 20,
+    "wrong_reads": 2,
     "false_auto_posts": 1,
-    "false_auto_post_rate": 1.0,
-    "guardrail_recall_on_wrong": 0.0,
-    "correct_reads": 10,
-    "over_reviewed": 7,
-    "over_review_rate": 0.7,
+    "false_auto_post_rate": 0.5,
+    "guardrail_recall_on_wrong": 0.5,
+    "correct_reads": 18,
+    "over_reviewed": 8,
+    "over_review_rate": 0.4444,
     "n_labelled": 0,
     "gate_accuracy": null
   },
   "calibration": [
     {
       "range": "0.0-0.6",
-      "n": 0,
-      "accuracy": null
+      "n": 1,
+      "accuracy": 0.0
     },
     {
       "range": "0.6-0.7",
@@ -74,8 +74,8 @@
     },
     {
       "range": "0.8-0.9",
-      "n": 4,
-      "accuracy": 0.75
+      "n": 12,
+      "accuracy": 0.9167
     },
     {
       "range": "0.9-1.0",
@@ -85,6 +85,12 @@
   ],
   "confusion": null,
   "slices": {
+    "crumpled": {
+      "correct": 6,
+      "scored": 6,
+      "n_receipts": 1,
+      "accuracy": 1.0
+    },
     "deposit": {
       "correct": 6,
       "scored": 6,
@@ -92,9 +98,9 @@
       "accuracy": 1.0
     },
     "discount": {
-      "correct": 10,
-      "scored": 10,
-      "n_receipts": 2,
+      "correct": 16,
+      "scored": 16,
+      "n_receipts": 3,
       "accuracy": 1.0
     },
     "duplicate_set": {
@@ -104,15 +110,15 @@
       "accuracy": 1.0
     },
     "multi_rate": {
-      "correct": 47,
-      "scored": 48,
-      "n_receipts": 8,
-      "accuracy": 0.9792
+      "correct": 71,
+      "scored": 72,
+      "n_receipts": 12,
+      "accuracy": 0.9861
     },
     "no_vat": {
-      "correct": 7,
-      "scored": 7,
-      "n_receipts": 2,
+      "correct": 11,
+      "scored": 11,
+      "n_receipts": 3,
       "accuracy": 1.0
     },
     "payment_only": {
@@ -122,16 +128,16 @@
       "accuracy": 1.0
     },
     "rotated": {
-      "correct": 12,
-      "scored": 12,
-      "n_receipts": 2,
-      "accuracy": 1.0
+      "correct": 19,
+      "scored": 22,
+      "n_receipts": 4,
+      "accuracy": 0.8636
     },
     "upright": {
-      "correct": 48,
-      "scored": 49,
-      "n_receipts": 9,
-      "accuracy": 0.9796
+      "correct": 90,
+      "scored": 91,
+      "n_receipts": 16,
+      "accuracy": 0.989
     }
   }
 }

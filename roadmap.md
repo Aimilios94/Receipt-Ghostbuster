@@ -122,9 +122,10 @@ Scope:
   model is its own Experiment for the LangSmith compare view (opt-in, unchanged otherwise).
 - **Honesty:** the comparison states n=11 and that small differences aren't statistically significant.
 
-First run (11 receipts): **gpt-5-mini 98.4%** · **gpt-4o 91.8%** · **claude-haiku-4-5 85.2%** — the spread is
-almost all VAT + date, and gpt-5-mini is the slowest but the cheapest per read *and* most accurate
-([D31](DECISIONS.md), `backend/eval/MODELS.md`). The Opus 4.8 column is pending its Anthropic credits.
+Run over 20 receipts: **gpt-5-mini 95.6%** · **gpt-4o 92.0%** · **claude-haiku-4-5 85.0%** — the spread is
+mostly VAT, and gpt-5-mini is the slowest but the cheapest per read *and* most accurate
+([D31](DECISIONS.md), `backend/eval/MODELS.md`). Growing the set 11→20 surfaced rotation as the weak slice
+(a rotated 0%-VAT tobacco receipt all models miss). The Opus 4.8 column is pending its Anthropic credits.
 
 Deferred to a later eval round: structured-output reliability taxonomy, an accuracy-regression CI gate,
 and a calibrated LLM-as-judge.
