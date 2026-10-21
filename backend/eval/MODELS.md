@@ -12,6 +12,7 @@ The same shipped pipeline (`extraction.extract_receipt` + the deterministic `rec
 | `gpt-5-mini` | **98.2%** | 95.0% | 95.0% | 100.0% | 100.0% | 100.0% | 100.0% | 18/20 |
 | `gpt-4o` | **94.5%** | 100.0% | 90.0% | 100.0% | 81.2% | 93.8% | 100.0% | 15/20 |
 | `claude-haiku-4-5` | **87.3%** | 85.0% | 85.0% | 95.0% | 75.0% | 87.5% | 94.4% | 13/20 |
+| `claude-opus-4-8` | **98.2%** | 95.0% | 100.0% | 100.0% | 100.0% | 100.0% | 94.4% | 18/20 |
 
 ## Latency, cost & reliability
 
@@ -20,19 +21,20 @@ The same shipped pipeline (`extraction.extract_receipt` + the deterministic `rec
 | `gpt-5-mini` | 26.4s | 80.6s | 36.0s | $0.0083 | $0.1663 | 0 | 1 (50%) | 44% |
 | `gpt-4o` | 4.3s | 15.1s | 6.7s | $0.0194 | $0.3871 | 0 | 1 (20%) | 47% |
 | `claude-haiku-4-5` | 6.3s | 22.9s | 9.7s | $0.0118 | $0.2362 | 0 | 1 (14%) | 54% |
+| `claude-opus-4-8` | 7.5s | 24.6s | 10.5s | $0.3201 | $6.4027 | 0 | 1 (50%) | 17% |
 
 ## Accuracy by receipt type
 
 Field-level accuracy per receipt characteristic (a receipt counts toward every tag it carries) — so a strong average can't hide a weak slice.
 
-| Receipt type | `gpt-5-mini` | `gpt-4o` | `claude-haiku-4-5` |
-|---|---:|---:|---:|
-| crumpled | 100.0% | 100.0% | 100.0% |
-| deposit | 100.0% | 100.0% | 83.3% |
-| discount | 100.0% | 87.5% | 93.8% |
-| duplicate_set | 100.0% | 94.4% | 77.8% |
-| multi_rate | 98.6% | 91.7% | 88.9% |
-| no_vat | 92.9% | 100.0% | 64.3% |
-| payment_only | 83.3% | 100.0% | 66.7% |
-| rotated | 94.7% | 94.7% | 57.9% |
-| upright | 98.9% | 94.5% | 93.4% |
+| Receipt type | `gpt-5-mini` | `gpt-4o` | `claude-haiku-4-5` | `claude-opus-4-8` |
+|---|---:|---:|---:|---:|
+| crumpled | 100.0% | 100.0% | 100.0% | 100.0% |
+| deposit | 100.0% | 100.0% | 83.3% | 100.0% |
+| discount | 100.0% | 87.5% | 93.8% | 100.0% |
+| duplicate_set | 100.0% | 94.4% | 77.8% | 100.0% |
+| multi_rate | 98.6% | 91.7% | 88.9% | 98.6% |
+| no_vat | 92.9% | 100.0% | 64.3% | 92.9% |
+| payment_only | 83.3% | 100.0% | 66.7% | 83.3% |
+| rotated | 94.7% | 94.7% | 57.9% | 89.5% |
+| upright | 98.9% | 94.5% | 93.4% | 100.0% |

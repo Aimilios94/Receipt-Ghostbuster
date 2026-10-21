@@ -352,6 +352,123 @@
           "accuracy": 0.9341
         }
       }
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-opus-4-8",
+      "n_receipts": 20,
+      "fields": {
+        "vendor": {
+          "accuracy": 0.95,
+          "correct": 19,
+          "scored": 20
+        },
+        "date": {
+          "accuracy": 1.0,
+          "correct": 20,
+          "scored": 20
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 20,
+          "scored": 20
+        },
+        "vat_amount": {
+          "accuracy": 1.0,
+          "correct": 16,
+          "scored": 16
+        },
+        "vat_rate": {
+          "accuracy": 1.0,
+          "correct": 16,
+          "scored": 16
+        },
+        "category": {
+          "accuracy": 0.9444444444444444,
+          "correct": 17,
+          "scored": 18
+        }
+      },
+      "overall": {
+        "accuracy": 0.9818181818181818,
+        "correct": 108,
+        "scored": 110
+      },
+      "receipts_fully_correct": {
+        "count": 18,
+        "n": 20
+      },
+      "latency_ms": {
+        "p50": 7523,
+        "p95": 24564,
+        "avg": 10498
+      },
+      "cost_usd": {
+        "total": 6.40266,
+        "avg_per_read": 0.320133
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 1,
+        "false_auto_post_rate": 0.5,
+        "over_review_rate": 0.1667
+      },
+      "slices": {
+        "crumpled": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "deposit": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "discount": {
+          "correct": 16,
+          "scored": 16,
+          "n_receipts": 3,
+          "accuracy": 1.0
+        },
+        "duplicate_set": {
+          "correct": 18,
+          "scored": 18,
+          "n_receipts": 3,
+          "accuracy": 1.0
+        },
+        "multi_rate": {
+          "correct": 71,
+          "scored": 72,
+          "n_receipts": 12,
+          "accuracy": 0.9861
+        },
+        "no_vat": {
+          "correct": 13,
+          "scored": 14,
+          "n_receipts": 4,
+          "accuracy": 0.9286
+        },
+        "payment_only": {
+          "correct": 5,
+          "scored": 6,
+          "n_receipts": 2,
+          "accuracy": 0.8333
+        },
+        "rotated": {
+          "correct": 17,
+          "scored": 19,
+          "n_receipts": 4,
+          "accuracy": 0.8947
+        },
+        "upright": {
+          "correct": 91,
+          "scored": 91,
+          "n_receipts": 16,
+          "accuracy": 1.0
+        }
+      }
     }
   ]
 }
