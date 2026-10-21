@@ -11,11 +11,11 @@ Field-level accuracy of the receipt-extraction pipeline over a hand-labelled set
 | vendor | 100.0% | 20/20 |
 | date | 95.0% | 19/20 |
 | total | 100.0% | 20/20 |
-| vat_amount | 94.1% | 16/17 |
-| vat_rate | 94.1% | 16/17 |
-| category | 94.7% | 18/19 |
-| **Overall** | **96.5%** | 109/113 |
-| Receipts fully correct | 90.0% | 18/20 |
+| vat_amount | 100.0% | 16/16 |
+| vat_rate | 100.0% | 16/16 |
+| category | 100.0% | 18/18 |
+| **Overall** | **99.1%** | 109/110 |
+| Receipts fully correct | 95.0% | 19/20 |
 
 > Notes: `total` is the amount paid after discounts; `vat_amount`/`vat_rate` are scored only on receipts that print a VAT table (dominant rate for the single-rate column); vendor matching is fuzzy (merchant or payment processor).
 
@@ -25,9 +25,9 @@ Does the review gate actually catch the reads that are wrong? Measured by runnin
 
 | Metric | Value | |
 |---|---:|---|
-| Wrong reads caught by the gate | **50%** | 1/2 wrong reads routed to review |
-| False auto-posts | **1** | a wrong read that still auto-posted (50% of wrong reads) |
-| Over-review | 44% | correct reads sent to review anyway (8/18) — friction, not risk |
+| Wrong reads caught by the gate | **0%** | 0/1 wrong reads routed to review |
+| False auto-posts | **1** | a wrong read that still auto-posted (100% of wrong reads) |
+| Over-review | 47% | correct reads sent to review anyway (9/19) — friction, not risk |
 
 ## Confidence calibration
 
@@ -35,7 +35,7 @@ Accuracy grouped by the model's self-reported confidence — does higher confide
 
 | Confidence | Accuracy | Reads |
 |---|---:|---:|
-| 0.0-0.6 | 0% | 1 |
+| 0.0-0.6 | 100% | 1 |
 | 0.6-0.7 | 100% | 2 |
 | 0.7-0.8 | 100% | 5 |
 | 0.8-0.9 | 92% | 12 |
@@ -51,7 +51,7 @@ Field-level accuracy split by receipt characteristic (a receipt counts toward ev
 | discount | 100.0% | 16/16 | 3 |
 | duplicate_set | 100.0% | 18/18 | 3 |
 | multi_rate | 98.6% | 71/72 | 12 |
-| no_vat | 100.0% | 11/11 | 3 |
-| payment_only | 100.0% | 3/3 | 1 |
-| rotated | 86.4% | 19/22 | 4 |
+| no_vat | 100.0% | 14/14 | 4 |
+| payment_only | 100.0% | 6/6 | 2 |
+| rotated | 100.0% | 19/19 | 4 |
 | upright | 98.9% | 90/91 | 16 |

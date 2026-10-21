@@ -9,16 +9,16 @@ The same shipped pipeline (`extraction.extract_receipt` + the deterministic `rec
 
 | Model | Overall | vendor | date | total | vat amt | vat rate | category | Receipts 100% |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `gpt-5-mini` | **95.6%** | 95.0% | 95.0% | 100.0% | 94.1% | 94.1% | 94.7% | 18/20 |
-| `gpt-4o` | **92.0%** | 100.0% | 90.0% | 100.0% | 76.5% | 88.2% | 94.7% | 14/20 |
-| `claude-haiku-4-5` | **85.0%** | 85.0% | 85.0% | 95.0% | 70.6% | 82.4% | 89.5% | 13/20 |
+| `gpt-5-mini` | **98.2%** | 95.0% | 95.0% | 100.0% | 100.0% | 100.0% | 100.0% | 18/20 |
+| `gpt-4o` | **94.5%** | 100.0% | 90.0% | 100.0% | 81.2% | 93.8% | 100.0% | 15/20 |
+| `claude-haiku-4-5` | **87.3%** | 85.0% | 85.0% | 95.0% | 75.0% | 87.5% | 94.4% | 13/20 |
 
 ## Latency, cost & reliability
 
 | Model | Latency p50 | Latency p95 | Avg | $/read | Total $ | Fell back | False auto-posts | Over-review |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `gpt-5-mini` | 26.4s | 80.6s | 36.0s | $0.0083 | $0.1663 | 0 | 1 (50%) | 44% |
-| `gpt-4o` | 4.3s | 15.1s | 6.7s | $0.0194 | $0.3871 | 0 | 1 (17%) | 43% |
+| `gpt-4o` | 4.3s | 15.1s | 6.7s | $0.0194 | $0.3871 | 0 | 1 (20%) | 47% |
 | `claude-haiku-4-5` | 6.3s | 22.9s | 9.7s | $0.0118 | $0.2362 | 0 | 1 (14%) | 54% |
 
 ## Accuracy by receipt type
@@ -32,7 +32,7 @@ Field-level accuracy per receipt characteristic (a receipt counts toward every t
 | discount | 100.0% | 87.5% | 93.8% |
 | duplicate_set | 100.0% | 94.4% | 77.8% |
 | multi_rate | 98.6% | 91.7% | 88.9% |
-| no_vat | 100.0% | 100.0% | 72.7% |
-| payment_only | 100.0% | 100.0% | 100.0% |
-| rotated | 81.8% | 81.8% | 50.0% |
+| no_vat | 92.9% | 100.0% | 64.3% |
+| payment_only | 83.3% | 100.0% | 66.7% |
+| rotated | 94.7% | 94.7% | 57.9% |
 | upright | 98.9% | 94.5% | 93.4% |

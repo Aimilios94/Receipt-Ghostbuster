@@ -20,39 +20,39 @@
       "scored": 20
     },
     "vat_amount": {
-      "accuracy": 0.9411764705882353,
+      "accuracy": 1.0,
       "correct": 16,
-      "scored": 17
+      "scored": 16
     },
     "vat_rate": {
-      "accuracy": 0.9411764705882353,
+      "accuracy": 1.0,
       "correct": 16,
-      "scored": 17
+      "scored": 16
     },
     "category": {
-      "accuracy": 0.9473684210526315,
+      "accuracy": 1.0,
       "correct": 18,
-      "scored": 19
+      "scored": 18
     }
   },
   "overall": {
-    "accuracy": 0.9646017699115044,
+    "accuracy": 0.990909090909091,
     "correct": 109,
-    "scored": 113
+    "scored": 110
   },
   "receipts_fully_correct": {
-    "count": 18,
+    "count": 19,
     "n": 20
   },
   "guardrails": {
     "n": 20,
-    "wrong_reads": 2,
+    "wrong_reads": 1,
     "false_auto_posts": 1,
-    "false_auto_post_rate": 0.5,
-    "guardrail_recall_on_wrong": 0.5,
-    "correct_reads": 18,
-    "over_reviewed": 8,
-    "over_review_rate": 0.4444,
+    "false_auto_post_rate": 1.0,
+    "guardrail_recall_on_wrong": 0.0,
+    "correct_reads": 19,
+    "over_reviewed": 9,
+    "over_review_rate": 0.4737,
     "n_labelled": 0,
     "gate_accuracy": null
   },
@@ -60,7 +60,7 @@
     {
       "range": "0.0-0.6",
       "n": 1,
-      "accuracy": 0.0
+      "accuracy": 1.0
     },
     {
       "range": "0.6-0.7",
@@ -116,22 +116,22 @@
       "accuracy": 0.9861
     },
     "no_vat": {
-      "correct": 11,
-      "scored": 11,
-      "n_receipts": 3,
+      "correct": 14,
+      "scored": 14,
+      "n_receipts": 4,
       "accuracy": 1.0
     },
     "payment_only": {
-      "correct": 3,
-      "scored": 3,
-      "n_receipts": 1,
+      "correct": 6,
+      "scored": 6,
+      "n_receipts": 2,
       "accuracy": 1.0
     },
     "rotated": {
       "correct": 19,
-      "scored": 22,
+      "scored": 19,
       "n_receipts": 4,
-      "accuracy": 0.8636
+      "accuracy": 1.0
     },
     "upright": {
       "correct": 90,

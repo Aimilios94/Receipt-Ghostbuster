@@ -23,25 +23,25 @@
           "scored": 20
         },
         "vat_amount": {
-          "accuracy": 0.9411764705882353,
+          "accuracy": 1.0,
           "correct": 16,
-          "scored": 17
+          "scored": 16
         },
         "vat_rate": {
-          "accuracy": 0.9411764705882353,
+          "accuracy": 1.0,
           "correct": 16,
-          "scored": 17
+          "scored": 16
         },
         "category": {
-          "accuracy": 0.9473684210526315,
+          "accuracy": 1.0,
           "correct": 18,
-          "scored": 19
+          "scored": 18
         }
       },
       "overall": {
-        "accuracy": 0.9557522123893806,
+        "accuracy": 0.9818181818181818,
         "correct": 108,
-        "scored": 113
+        "scored": 110
       },
       "receipts_fully_correct": {
         "count": 18,
@@ -94,22 +94,22 @@
           "accuracy": 0.9861
         },
         "no_vat": {
-          "correct": 11,
-          "scored": 11,
-          "n_receipts": 3,
-          "accuracy": 1.0
+          "correct": 13,
+          "scored": 14,
+          "n_receipts": 4,
+          "accuracy": 0.9286
         },
         "payment_only": {
-          "correct": 3,
-          "scored": 3,
-          "n_receipts": 1,
-          "accuracy": 1.0
+          "correct": 5,
+          "scored": 6,
+          "n_receipts": 2,
+          "accuracy": 0.8333
         },
         "rotated": {
           "correct": 18,
-          "scored": 22,
+          "scored": 19,
           "n_receipts": 4,
-          "accuracy": 0.8182
+          "accuracy": 0.9474
         },
         "upright": {
           "correct": 90,
@@ -140,28 +140,28 @@
           "scored": 20
         },
         "vat_amount": {
-          "accuracy": 0.7647058823529411,
+          "accuracy": 0.8125,
           "correct": 13,
-          "scored": 17
+          "scored": 16
         },
         "vat_rate": {
-          "accuracy": 0.8823529411764706,
+          "accuracy": 0.9375,
           "correct": 15,
-          "scored": 17
+          "scored": 16
         },
         "category": {
-          "accuracy": 0.9473684210526315,
+          "accuracy": 1.0,
           "correct": 18,
-          "scored": 19
+          "scored": 18
         }
       },
       "overall": {
-        "accuracy": 0.9203539823008849,
+        "accuracy": 0.9454545454545454,
         "correct": 104,
-        "scored": 113
+        "scored": 110
       },
       "receipts_fully_correct": {
-        "count": 14,
+        "count": 15,
         "n": 20
       },
       "latency_ms": {
@@ -176,8 +176,8 @@
       "fell_back": 0,
       "guardrails": {
         "false_auto_posts": 1,
-        "false_auto_post_rate": 0.1667,
-        "over_review_rate": 0.4286
+        "false_auto_post_rate": 0.2,
+        "over_review_rate": 0.4667
       },
       "slices": {
         "crumpled": {
@@ -211,22 +211,22 @@
           "accuracy": 0.9167
         },
         "no_vat": {
-          "correct": 11,
-          "scored": 11,
-          "n_receipts": 3,
+          "correct": 14,
+          "scored": 14,
+          "n_receipts": 4,
           "accuracy": 1.0
         },
         "payment_only": {
-          "correct": 3,
-          "scored": 3,
-          "n_receipts": 1,
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 2,
           "accuracy": 1.0
         },
         "rotated": {
           "correct": 18,
-          "scored": 22,
+          "scored": 19,
           "n_receipts": 4,
-          "accuracy": 0.8182
+          "accuracy": 0.9474
         },
         "upright": {
           "correct": 86,
@@ -257,25 +257,25 @@
           "scored": 20
         },
         "vat_amount": {
-          "accuracy": 0.7058823529411765,
+          "accuracy": 0.75,
           "correct": 12,
-          "scored": 17
+          "scored": 16
         },
         "vat_rate": {
-          "accuracy": 0.8235294117647058,
+          "accuracy": 0.875,
           "correct": 14,
-          "scored": 17
+          "scored": 16
         },
         "category": {
-          "accuracy": 0.8947368421052632,
+          "accuracy": 0.9444444444444444,
           "correct": 17,
-          "scored": 19
+          "scored": 18
         }
       },
       "overall": {
-        "accuracy": 0.8495575221238938,
+        "accuracy": 0.8727272727272727,
         "correct": 96,
-        "scored": 113
+        "scored": 110
       },
       "receipts_fully_correct": {
         "count": 13,
@@ -328,22 +328,22 @@
           "accuracy": 0.8889
         },
         "no_vat": {
-          "correct": 8,
-          "scored": 11,
-          "n_receipts": 3,
-          "accuracy": 0.7273
+          "correct": 9,
+          "scored": 14,
+          "n_receipts": 4,
+          "accuracy": 0.6429
         },
         "payment_only": {
-          "correct": 3,
-          "scored": 3,
-          "n_receipts": 1,
-          "accuracy": 1.0
+          "correct": 4,
+          "scored": 6,
+          "n_receipts": 2,
+          "accuracy": 0.6667
         },
         "rotated": {
           "correct": 11,
-          "scored": 22,
+          "scored": 19,
           "n_receipts": 4,
-          "accuracy": 0.5
+          "accuracy": 0.5789
         },
         "upright": {
           "correct": 85,
