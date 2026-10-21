@@ -6,7 +6,75 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-20, day 8 — LangSmith tracing fixed; Round 7 testing in progress)
+## 🟢 RESUME HERE — current status (as of 2026-10-21, day 9 — Evaluation taken to the next level: multi-model comparison, slices, Opus, LangSmith)
+
+**Day 9 shipped `v0.3.2` ("Evaluation, next level") and then grew the eval set on real ground truth.**
+Everything committed + pushed to `main` (head **`97c949f`**), **130 pytest pass**, working tree clean
+(the only untracked file is the local-only `NEXT-AGENT-PROMPT.md`, which is intentionally not committed).
+
+**What day 9 did (newest first):**
+- **LangSmith compare screenshot in README (`97c949f`)** — the hosted 3-model experiment compare
+  (`docs/screenshots/Langsmith-compare-experiments.png`): per-field scores, latency, tokens, cost side by
+  side. Aggregate scores only — no receipt images/vendors/amounts, safe to publish.
+- **Opus 4.8 column + LangSmith per-model experiments (`e7fa159`).** `scripts/eval_models.py` is now
+  **4-wide**. **DECISIVE FINDING: Claude Opus 4.8 TIES gpt-5-mini on accuracy (98.2%) but costs ~39× more**
+  ($0.3201 vs $0.0083/read; $6.40 vs $0.17 over the 20-set) → **gpt-5-mini stays the pick on accuracy AND
+  cost** (Opus is cleaner on date/upright, weaker on rotated — buys nothing here). `langsmith_eval.py
+  --provider/--model` pushed gpt-5-mini / gpt-4o / Haiku as separate Experiments. ⚠️ **Opus is
+  ~$0.26–0.32/read — confirm the spend before ever re-running it.**
+- **Caught + fixed a MISLABEL (`2beaa6e`) — a process lesson, not a model bug.** The first 20-receipt run
+  showed every model "failing" a rotated tobacco receipt (returned no VAT + "Uncategorized"). It was **not**
+  a bug: the receipt **prints no VAT and nothing identifying it as tobacco** — "0% / Tobacco" was the
+  *labeller's outside knowledge*, not on the paper. The model was **right** to not invent it (reads-never-
+  guesses, D1); the **label** was wrong. Corrected → gpt-5-mini **95.6% → 98.2%**. **New rule (D31): an
+  extraction label encodes only what's ON the receipt, never the labeller's private knowledge** — the same
+  poison the authenticity rule guards against, one level up.
+- **Grew eval set 11 → 20 (`cf8796b`)** via the authentic growth loop — the **user supplied TRUE values**
+  for 9 new receipts (Continente, kebab/pizza/burger/chicken diners, a 41%-off discount, a crumpled Pingo
+  Doce, a viva.com payment-only). The agent only labels + scores; the user owns the truth.
+- **v0.3.2 — Evaluation, next level (`4eb5f73`), see [D31](DECISIONS.md).** The multi-model comparison
+  runner (`scripts/eval_models.py` → committed `backend/eval/MODELS.md` / `models.json`, accuracy × latency
+  × cost + per-type), **accuracy-by-receipt-type slices** (optional `tags` on labels → unit-tested
+  `eval_metrics.slice_accuracy`, surfaced in `RESULTS.md`), `anthropic_max_tokens=4096` (fair-Claude fix for
+  a hard-coded 1024 that truncated Claude on dense VAT tables), `langsmith_eval.py --provider/--model`,
+  design docs `docs/design/chatbot.md` + `docs/design/payslip.md` (→ roadmap **v0.5 chatbot**, **v0.6
+  payslip**), and a fresh `/model-evals` screenshot.
+- **GitHub About set** (description + 18 topics) — live the moment the repo goes public. Repo is still
+  **PRIVATE** (the user flips it public when ready to put it on the CV).
+
+**Final numbers (20 labelled receipts, in `backend/eval/MODELS.md`):** **gpt-5-mini 98.2% · gpt-4o 94.5% ·
+claude-haiku-4-5 87.3% · claude-opus-4-8 98.2%**; the single-model canonical `RESULTS.md` scores gpt-5-mini
+**99.1%** (independent non-deterministic pass, ~1pp — honestly recorded). Weak slice = **rotation** (Haiku
+57.9%). `backend/eval/receipts/` now holds **25 images = 20 labelled + 5 UNLABELLED** (`1000017715, 717,
+781, 813, 837`) awaiting the user's true values (eval 20 → 25 is the next authentic growth step).
+
+### 👋 Message to the next agent (read this)
+Clean tree, `main` at `97c949f`, 130 tests, CI green. **Read, in order:** this day-9 RESUME → the auto-memory
+(`MEMORY.md` index, then `receipt-ghostbuster-status.md`) → **`DECISIONS.md` D1–D31** → **`feedback-notes.md`
+Rounds 1–6** → **`roadmap.md`**. Also `NEXT-AGENT-PROMPT.md` (local) has the concepts + why. Then:
+1. **The sacred rule is AUTHENTICITY:** real testing → real feedback-notes → real decisions; never invent
+   feedback, metrics, or a testing round. Today's eval work is `[eng]` (D31), **not** a user-testing round, so
+   `feedback-notes.md` was correctly left untouched. **New corollary (today):** an *extraction label* encodes
+   only what is **extractable from the receipt**, never the labeller's outside knowledge.
+2. **Two distinct recruiter surfaces — keep them separate:** (a) **OBSERVABILITY** = LangSmith (grows with
+   *any* upload); (b) **EVAL ACCURACY** = the harness / `RESULTS.md` / `MODELS.md` (grows ONLY with *new*
+   receipts + **user-supplied TRUE values** — the user gives truth, the agent scores, never both on one
+   receipt or a shared misread poisons the number).
+3. **Do NOT re-litigate settled decisions (D1–D31).** The reading model is **settled: gpt-5-mini** — Opus
+   *ties* it at **39× the cost** (proven today; don't propose Opus). gpt-5-mini is SLOW by design (~36s avg,
+   up to ~100s on a rotated receipt: reasoning + Instructor + up to 4 orientation reads) — not a hang.
+4. **Open items (user picks):** grow eval **20 → 25** (5 receipts queued), the **deferred eval round**
+   (per-model structured-output reliability taxonomy, an **accuracy-regression CI gate** vs a committed
+   baseline, a **calibrated LLM-as-judge**), **v0.4 — Advice**, the designed **v0.5 chatbot** / **v0.6
+   payslip**, and **pre-public polish** (a core-flow **GIF** for the README hero + refreshing the Oct-4 app
+   screenshots). **The tobacco-rotation case is NOT a bug — the label was wrong, already fixed.**
+5. **Ops:** run exactly ONE backend uvicorn, **NO `--reload`**; Supabase uses a **per-thread** client; check
+   the two 7-day expiries before any demo (`demo-prep-7day-expiries`). Anthropic credits now work (Haiku +
+   Opus ran) but **Opus ≈ $0.30/read — confirm spend first.**
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-20, day 8 — LangSmith tracing fixed; Round 7 testing in progress)
 
 **Day 8 made the opt-in LangSmith layer actually work on real data, re-verified the eval, and the user
 started a real testing round.** Everything is committed and pushed to `main`; working tree clean.
