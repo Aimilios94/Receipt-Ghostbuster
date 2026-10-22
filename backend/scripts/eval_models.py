@@ -75,7 +75,11 @@ def _slug(model: str) -> str:
 
 
 def _model_of(settings: Settings) -> str:
-    return settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
+    if settings.llm_provider == "anthropic":
+        return settings.anthropic_model
+    if settings.llm_provider == "ollama":
+        return settings.ollama_model
+    return settings.openai_model
 
 
 def _extract_with_trace(
@@ -125,6 +129,8 @@ def _run_model(
     settings.llm_provider = provider
     if provider == "anthropic":
         settings.anthropic_model = model
+    elif provider == "ollama":
+        settings.ollama_model = model
     else:
         settings.openai_model = model
     if not settings.llm_configured:

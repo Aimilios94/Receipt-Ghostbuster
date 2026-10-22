@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     dev_user_id: str = ""
 
     # --- Vision LLM ---
-    llm_provider: str = "anthropic"          # anthropic | openai | mock
+    llm_provider: str = "anthropic"          # anthropic | openai | ollama | mock
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-4-8"
     openai_api_key: str = ""
@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     # models aren't reasoning models (no hidden-reasoning budget), so a single raised
     # ceiling is enough — unlike the gpt-5*/o* path which needs max_completion_tokens.
     anthropic_max_tokens: int = 4096
+
+    # --- Ollama (local, privacy-first vision model) ---
+    # Ollama exposes an OpenAI-compatible endpoint, so the OpenAI call path is reused
+    # with this base_url and no API key — the receipt image never leaves the machine.
+    # Needs a VISION model pulled locally first: `ollama pull qwen2.5vl:7b`. Slower
+    # than the cloud, but the privacy-maximising option for personal financial data.
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model: str = "qwen2.5vl:7b"
 
     # --- Confidence gate ---
     confidence_threshold: float = 0.8
@@ -112,6 +120,8 @@ class Settings(BaseSettings):
     def llm_configured(self) -> bool:
         if self.llm_provider == "mock":
             return True
+        if self.llm_provider == "ollama":
+            return True  # local; no API key required (needs Ollama running + model pulled)
         if self.llm_provider == "anthropic":
             return bool(self.anthropic_api_key)
         if self.llm_provider == "openai":

@@ -238,6 +238,8 @@ def reread_date(
             payload, _ = _extract_openai(image_bytes, media_type, settings, prompt, kind="date_reread")
         elif provider == "anthropic":
             payload, _ = _extract_anthropic(image_bytes, media_type, settings, prompt, kind="date_reread")
+        elif provider == "ollama":
+            payload, _ = _extract_ollama(image_bytes, media_type, settings, prompt, kind="date_reread")
         else:
             return None
     except Exception:  # noqa: BLE001 - re-read is best-effort
@@ -459,6 +461,62 @@ def _extract_openai(
     return _parse_json_payload(resp.choices[0].message.content or "{}"), call
 
 
+def _extract_ollama(
+    image_bytes: bytes, media_type: str, settings: Settings, prompt: str, kind: str = "receipt_extract"
+) -> tuple[dict[str, Any], LlmCall]:
+    """Local, on-device read via Ollama's OpenAI-compatible endpoint — the receipt
+    image never leaves the machine (the privacy-first option for personal financial
+    data). Needs a VISION model pulled locally (e.g. `ollama pull qwen2.5vl:7b`) and
+    no API key. Mirrors `_extract_openai`: structured output via Instructor (JSON mode,
+    which local models support more reliably than tool-calling) with the same tolerant
+    raw-parse fallback — local models fail schema more often, so the fallback matters
+    more here. Cost is $0 (price_usd returns 0 for an unknown/local model)."""
+    from openai import OpenAI
+
+    # api_key is required by the SDK but ignored by Ollama; base_url points at the
+    # local server. NOT wrapped for LangSmith — this path exists precisely to keep
+    # data local, so it must never be shipped to a hosted tracer.
+    client = OpenAI(base_url=settings.ollama_base_url, api_key="ollama")
+    b64 = base64.standard_b64encode(image_bytes).decode("ascii")
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}},
+            ],
+        }
+    ]
+
+    started = time.perf_counter()
+    try:
+        import instructor
+
+        ic = instructor.from_openai(client, mode=instructor.Mode.JSON)
+        obj, raw = ic.chat.completions.create_with_completion(
+            model=settings.ollama_model,
+            response_model=ExtractionResult,
+            max_retries=settings.instructor_max_retries,
+            max_tokens=4096,
+            messages=messages,
+        )
+        call = LlmCall.timed(
+            provider="ollama", model=settings.ollama_model, kind=kind, started=started, resp=raw
+        )
+        return obj.model_dump(mode="json"), call
+    except Exception:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
+        pass
+
+    started = time.perf_counter()
+    resp = client.chat.completions.create(
+        model=settings.ollama_model, max_tokens=4096, messages=messages
+    )
+    call = LlmCall.timed(
+        provider="ollama", model=settings.ollama_model, kind=kind, started=started, resp=resp, fell_back=True
+    )
+    return _parse_json_payload(resp.choices[0].message.content or "{}"), call
+
+
 def _extract_mock(image_bytes: bytes, filename: str | None) -> dict[str, Any]:
     """Deterministic stand-in so the pipeline works without an API key.
     Confidence is intentionally mid so it lands in the review queue by default."""
@@ -509,6 +567,8 @@ def _extract_once(
         return _extract_anthropic(image_bytes, media_type, settings, prompt)
     if provider == "openai":
         return _extract_openai(image_bytes, media_type, settings, prompt)
+    if provider == "ollama":
+        return _extract_ollama(image_bytes, media_type, settings, prompt)
     raise ValueError(f"Unknown LLM_PROVIDER: {settings.llm_provider!r}")
 
 
@@ -534,7 +594,12 @@ def extract_receipt(
         trace = aggregate([LlmCall(provider="mock", model="mock")], provider="mock", model="mock", kind="receipt_extract")
         return _to_result(_extract_mock(image_bytes, filename)), image_bytes, trace
 
-    model = settings.anthropic_model if provider == "anthropic" else settings.openai_model
+    if provider == "anthropic":
+        model = settings.anthropic_model
+    elif provider == "ollama":
+        model = settings.ollama_model
+    else:
+        model = settings.openai_model
     prompt = _build_prompt(note=note)
     oriented, landscape = _exif_orient(image_bytes)
     media_type = _guess_media_type(filename if not _PIL_OK else "r.jpg", oriented)
