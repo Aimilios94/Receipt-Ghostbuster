@@ -26,6 +26,7 @@ from typing import Any
 
 from ..config import Settings
 from .csv_import import _parse_date, _parse_money
+from .redaction import redact_sensitive
 
 try:  # pdfplumber is optional — the endpoint reports a clear error if absent.
     import pdfplumber
@@ -146,7 +147,10 @@ def _structure_with_llm(text: str, settings: Settings, note: str | None = None) 
             f"\nHINT FROM THE USER (use it to resolve ambiguity, but never invent "
             f"figures): {note.strip()}\n"
         )
-    prompt += "\nBANK STATEMENT TEXT:\n" + text
+    # Data minimisation: mask IBANs / card numbers before the statement text leaves
+    # the machine. The structuring only needs date/description/amount, so redacting
+    # account identifiers costs nothing and keeps them out of the provider's hands.
+    prompt += "\nBANK STATEMENT TEXT:\n" + redact_sensitive(text)
     if provider == "openai":
         from openai import OpenAI
 

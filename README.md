@@ -52,6 +52,7 @@ See the full plan and status in **[roadmap.md](roadmap.md)**.
 | **Nothing financial auto-sends** | Cancellation emails are **draft-only** — n8n creates a Gmail draft, you send it. | [D4](DECISIONS.md) |
 | **Fails safe on bad input** | A sideways photo is **auto-rotated** server-side; a crumpled/unreliable read (incl. a VAT table that disagrees with its own item lines) is routed to review with reasons and a **retake** option, not silently mis-posted. | [D9](DECISIONS.md), [D20](DECISIONS.md), [D21](DECISIONS.md) |
 | **Reads, never guesses** | The printed IVA summary table is the VAT source of truth; discounts are modelled, not treated as products; VAT it can't read is clearly marked an **estimate** for you to confirm. | [D14](DECISIONS.md), [D17](DECISIONS.md), [D18](DECISIONS.md) |
+| **Your data stays yours** | A **local-model option** (Ollama) reads receipts fully **on-device** — nothing leaves the machine; bank-statement text has **IBAN / card numbers redacted** before any cloud call; the LangSmith tracer is opt-in. The privacy↔accuracy cost of going local is **measured**, not assumed. | [PRIVACY.md](docs/PRIVACY.md) |
 
 ---
 
