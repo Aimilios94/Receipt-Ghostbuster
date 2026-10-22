@@ -471,10 +471,13 @@ def _extract_ollama(
     """Local, on-device read via Ollama's OpenAI-compatible endpoint — the receipt
     image never leaves the machine (the privacy-first option for personal financial
     data). Needs a VISION model pulled locally (e.g. `ollama pull qwen2.5vl:7b`) and
-    no API key. Mirrors `_extract_openai`: structured output via Instructor (JSON mode,
-    which local models support more reliably than tool-calling) with the same tolerant
-    raw-parse fallback — local models fail schema more often, so the fallback matters
-    more here. Cost is $0 (price_usd returns 0 for an unknown/local model)."""
+    no API key. Cost is $0 (price_usd returns 0 for an unknown/local model).
+
+    A plain client + the tolerant JSON parser (NOT Instructor): Ollama's default
+    context window (4096) is too small for a full-res receipt image, so we raise it via
+    the `num_ctx` option in extra_body — but `instructor.from_openai` patches the client
+    and drops that option, so the read would 400. The prompt already asks for strict
+    JSON and `_parse_json_payload` is forgiving, which suits a local model well."""
     from openai import OpenAI
 
     # api_key is required by the SDK but ignored by Ollama; base_url points at the
@@ -493,30 +496,14 @@ def _extract_ollama(
     ]
 
     started = time.perf_counter()
-    try:
-        import instructor
-
-        ic = instructor.from_openai(client, mode=instructor.Mode.JSON)
-        obj, raw = ic.chat.completions.create_with_completion(
-            model=settings.ollama_model,
-            response_model=ExtractionResult,
-            max_retries=settings.instructor_max_retries,
-            max_tokens=4096,
-            messages=messages,
-        )
-        call = LlmCall.timed(
-            provider="ollama", model=settings.ollama_model, kind=kind, started=started, resp=raw
-        )
-        return obj.model_dump(mode="json"), call
-    except Exception:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
-        pass
-
-    started = time.perf_counter()
     resp = client.chat.completions.create(
-        model=settings.ollama_model, max_tokens=4096, messages=messages
+        model=settings.ollama_model,
+        max_tokens=4096,
+        extra_body={"options": {"num_ctx": settings.ollama_num_ctx}},
+        messages=messages,
     )
     call = LlmCall.timed(
-        provider="ollama", model=settings.ollama_model, kind=kind, started=started, resp=resp, fell_back=True
+        provider="ollama", model=settings.ollama_model, kind=kind, started=started, resp=resp
     )
     return _parse_json_payload(resp.choices[0].message.content or "{}"), call
 

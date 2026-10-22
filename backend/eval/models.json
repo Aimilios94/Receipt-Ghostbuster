@@ -372,6 +372,129 @@
       }
     },
     {
+      "provider": "ollama",
+      "model": "qwen2.5vl-receipt",
+      "n_receipts": 26,
+      "fields": {
+        "vendor": {
+          "accuracy": 0.88,
+          "correct": 22,
+          "scored": 25
+        },
+        "date": {
+          "accuracy": 0.96,
+          "correct": 24,
+          "scored": 25
+        },
+        "total": {
+          "accuracy": 0.9615384615384616,
+          "correct": 25,
+          "scored": 26
+        },
+        "vat_amount": {
+          "accuracy": 0.8095238095238095,
+          "correct": 17,
+          "scored": 21
+        },
+        "vat_rate": {
+          "accuracy": 0.8571428571428571,
+          "correct": 18,
+          "scored": 21
+        },
+        "category": {
+          "accuracy": 0.875,
+          "correct": 21,
+          "scored": 24
+        }
+      },
+      "overall": {
+        "accuracy": 0.8943661971830986,
+        "correct": 127,
+        "scored": 142
+      },
+      "receipts_fully_correct": {
+        "count": 16,
+        "n": 26
+      },
+      "latency_ms": {
+        "p50": 313918,
+        "p95": 1046179,
+        "avg": 433602
+      },
+      "cost_usd": {
+        "total": 0.0,
+        "avg_per_read": 0.0
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 3,
+        "false_auto_post_rate": 0.3,
+        "over_review_rate": 0.4375
+      },
+      "slices": {
+        "crumpled": {
+          "correct": 10,
+          "scored": 12,
+          "n_receipts": 2,
+          "accuracy": 0.8333
+        },
+        "deposit": {
+          "correct": 11,
+          "scored": 12,
+          "n_receipts": 2,
+          "accuracy": 0.9167
+        },
+        "discount": {
+          "correct": 19,
+          "scored": 22,
+          "n_receipts": 4,
+          "accuracy": 0.8636
+        },
+        "duplicate_set": {
+          "correct": 16,
+          "scored": 18,
+          "n_receipts": 3,
+          "accuracy": 0.8889
+        },
+        "multi_rate": {
+          "correct": 85,
+          "scored": 96,
+          "n_receipts": 16,
+          "accuracy": 0.8854
+        },
+        "no_vat": {
+          "correct": 17,
+          "scored": 17,
+          "n_receipts": 5,
+          "accuracy": 1.0
+        },
+        "payment_only": {
+          "correct": 9,
+          "scored": 9,
+          "n_receipts": 3,
+          "accuracy": 1.0
+        },
+        "prompt_injection": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "rotated": {
+          "correct": 22,
+          "scored": 25,
+          "n_receipts": 5,
+          "accuracy": 0.88
+        },
+        "upright": {
+          "correct": 105,
+          "scored": 117,
+          "n_receipts": 21,
+          "accuracy": 0.8974
+        }
+      }
+    },
+    {
       "provider": "anthropic",
       "model": "claude-opus-4-8",
       "n_receipts": 20,

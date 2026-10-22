@@ -80,7 +80,15 @@ class Settings(BaseSettings):
     # Needs a VISION model pulled locally first: `ollama pull qwen2.5vl:7b`. Slower
     # than the cloud, but the privacy-maximising option for personal financial data.
     ollama_base_url: str = "http://localhost:11434/v1"
-    ollama_model: str = "qwen2.5vl:7b"
+    # A full-res receipt image tokenises to ~5-8k vision tokens, but Ollama's default
+    # context window is 4096 and its OpenAI endpoint ignores a per-request num_ctx, so
+    # a plain `qwen2.5vl:7b` read 400s. We use a derived model with num_ctx baked in via
+    # backend/ollama/Modelfile (one-time: `ollama create qwen2.5vl-receipt -f
+    # backend/ollama/Modelfile`, after `ollama pull qwen2.5vl:7b`).
+    ollama_model: str = "qwen2.5vl-receipt"
+    # Best-effort per-request num_ctx (honoured by Ollama versions that support it on
+    # the OpenAI endpoint; the Modelfile is the reliable path). Headroom for image+JSON.
+    ollama_num_ctx: int = 16384
 
     # --- Confidence gate ---
     confidence_threshold: float = 0.8

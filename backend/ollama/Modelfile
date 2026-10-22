@@ -1,0 +1,13 @@
+# Receipt Ghostbuster local reading model.
+#
+# A full-resolution receipt photo tokenises to ~5-8k vision tokens, but Ollama's
+# default context window is 4096 — so a plain `qwen2.5vl:7b` read 400s with
+# "exceeds the available context size". The OpenAI-compatible endpoint on some
+# Ollama versions ignores a per-request num_ctx, so we bake it into a derived
+# model instead. One-time setup (after `ollama pull qwen2.5vl:7b`):
+#
+#   ollama create qwen2.5vl-receipt -f backend/ollama/Modelfile
+#
+# Then LLM_PROVIDER=ollama uses it (config default OLLAMA_MODEL=qwen2.5vl-receipt).
+FROM qwen2.5vl:7b
+PARAMETER num_ctx 16384
