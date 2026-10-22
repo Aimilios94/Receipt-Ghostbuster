@@ -1,81 +1,81 @@
 {
   "provider": "openai",
   "model": "gpt-5-mini",
-  "run_date": "2026-10-21",
-  "n_receipts": 20,
+  "run_date": "2026-10-22",
+  "n_receipts": 26,
   "fields": {
     "vendor": {
       "accuracy": 1.0,
-      "correct": 20,
-      "scored": 20
+      "correct": 25,
+      "scored": 25
     },
     "date": {
-      "accuracy": 0.95,
-      "correct": 19,
-      "scored": 20
+      "accuracy": 0.96,
+      "correct": 24,
+      "scored": 25
     },
     "total": {
       "accuracy": 1.0,
-      "correct": 20,
-      "scored": 20
+      "correct": 26,
+      "scored": 26
     },
     "vat_amount": {
       "accuracy": 1.0,
-      "correct": 16,
-      "scored": 16
+      "correct": 21,
+      "scored": 21
     },
     "vat_rate": {
       "accuracy": 1.0,
-      "correct": 16,
-      "scored": 16
+      "correct": 21,
+      "scored": 21
     },
     "category": {
       "accuracy": 1.0,
-      "correct": 18,
-      "scored": 18
+      "correct": 24,
+      "scored": 24
     }
   },
   "overall": {
-    "accuracy": 0.990909090909091,
-    "correct": 109,
-    "scored": 110
+    "accuracy": 0.9929577464788732,
+    "correct": 141,
+    "scored": 142
   },
   "receipts_fully_correct": {
-    "count": 19,
-    "n": 20
+    "count": 25,
+    "n": 26
   },
   "guardrails": {
-    "n": 20,
+    "n": 26,
     "wrong_reads": 1,
     "false_auto_posts": 1,
     "false_auto_post_rate": 1.0,
     "guardrail_recall_on_wrong": 0.0,
-    "correct_reads": 19,
-    "over_reviewed": 9,
-    "over_review_rate": 0.4737,
+    "correct_reads": 25,
+    "over_reviewed": 13,
+    "over_review_rate": 0.52,
     "n_labelled": 0,
     "gate_accuracy": null
   },
   "calibration": [
     {
       "range": "0.0-0.6",
-      "n": 1,
-      "accuracy": 1.0
-    },
-    {
-      "range": "0.6-0.7",
       "n": 2,
       "accuracy": 1.0
     },
     {
+      "range": "0.6-0.7",
+      "n": 3,
+      "accuracy": 1.0
+    },
+    {
       "range": "0.7-0.8",
-      "n": 5,
+      "n": 7,
       "accuracy": 1.0
     },
     {
       "range": "0.8-0.9",
-      "n": 12,
-      "accuracy": 0.9167
+      "n": 14,
+      "accuracy": 0.9286
     },
     {
       "range": "0.9-1.0",
@@ -86,21 +86,21 @@
   "confusion": null,
   "slices": {
     "crumpled": {
-      "correct": 6,
-      "scored": 6,
-      "n_receipts": 1,
+      "correct": 12,
+      "scored": 12,
+      "n_receipts": 2,
       "accuracy": 1.0
     },
     "deposit": {
-      "correct": 6,
-      "scored": 6,
-      "n_receipts": 1,
+      "correct": 12,
+      "scored": 12,
+      "n_receipts": 2,
       "accuracy": 1.0
     },
     "discount": {
-      "correct": 16,
-      "scored": 16,
-      "n_receipts": 3,
+      "correct": 22,
+      "scored": 22,
+      "n_receipts": 4,
       "accuracy": 1.0
     },
     "duplicate_set": {
@@ -110,34 +110,40 @@
       "accuracy": 1.0
     },
     "multi_rate": {
-      "correct": 71,
-      "scored": 72,
-      "n_receipts": 12,
-      "accuracy": 0.9861
+      "correct": 95,
+      "scored": 96,
+      "n_receipts": 16,
+      "accuracy": 0.9896
     },
     "no_vat": {
-      "correct": 14,
-      "scored": 14,
-      "n_receipts": 4,
+      "correct": 17,
+      "scored": 17,
+      "n_receipts": 5,
       "accuracy": 1.0
     },
     "payment_only": {
+      "correct": 9,
+      "scored": 9,
+      "n_receipts": 3,
+      "accuracy": 1.0
+    },
+    "prompt_injection": {
       "correct": 6,
       "scored": 6,
-      "n_receipts": 2,
+      "n_receipts": 1,
       "accuracy": 1.0
     },
     "rotated": {
-      "correct": 19,
-      "scored": 19,
-      "n_receipts": 4,
+      "correct": 25,
+      "scored": 25,
+      "n_receipts": 5,
       "accuracy": 1.0
     },
     "upright": {
-      "correct": 90,
-      "scored": 91,
-      "n_receipts": 16,
-      "accuracy": 0.989
+      "correct": 116,
+      "scored": 117,
+      "n_receipts": 21,
+      "accuracy": 0.9915
     }
   }
 }

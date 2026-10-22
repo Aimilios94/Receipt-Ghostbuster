@@ -126,6 +126,8 @@ Run over 20 receipts: **gpt-5-mini 98.2%** · **gpt-4o 94.5%** · **claude-haiku
 98.2%** — Opus *ties* gpt-5-mini on accuracy but costs ~39× more per read, so gpt-5-mini wins on accuracy
 *and* cost ([D31](DECISIONS.md), `backend/eval/MODELS.md`). Growing the set 11→20 surfaced rotation as the
 weak slice (and caught a mislabelled receipt — corrected). Each model is also pushed to LangSmith as an Experiment.
+Grown again **20→26** on 2026-10-22 (incl. a handwritten prompt-injection receipt): **gpt-5-mini 98.6%** ·
+**gpt-4o 92.3%** · **claude-haiku-4-5 86.6%** (Opus frozen at its n=20 number) — gpt-5-mini unchanged as the pick.
 
 Deferred to a later eval round: structured-output reliability taxonomy, an accuracy-regression CI gate,
 and a calibrated LLM-as-judge.
