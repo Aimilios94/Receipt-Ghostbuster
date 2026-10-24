@@ -106,11 +106,14 @@ wasted API calls), and `/rescan` rejects it with a clear `400`. Covered by
 `backend/tests/test_image_guard.py`.
 
 Re-uploading the same file afterwards shows the clean in-app message and produces **no new
-Sentry error** — the complete loop: *observed → caught (scrubbed) → root-caused → fixed +
-tested → verified live → resolved.*
+Sentry error**. The issue was then marked **Resolved** — the closing bookend:
 
-<!-- Add the (redacted/cropped) "after" app screenshot here once it has no ledger data in frame. -->
+![The same issue, resolved in 0.3.4](screenshots/sentry-screen-after-resolve.png)
 
-> Why only the "before" image is published: the "after" screenshot was taken over a live
-> dashboard showing real vendor names and amounts, so it is kept local until cropped — the
-> same "review every screenshot for leaked data" rule this whole setup is built around.
+That's the complete loop: *observed → caught (scrubbed) → root-caused → fixed + tested →
+verified live → resolved.*
+
+> The user-facing "after" (the app's graceful *"not a readable image"* message) isn't shown
+> here: that screenshot was taken over a live dashboard with real vendor names and amounts, so
+> it's kept local until cropped — the same "review every screenshot for leaked data" rule this
+> whole setup is built around.
