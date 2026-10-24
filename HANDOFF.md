@@ -8,8 +8,10 @@
 
 ## 🟢 RESUME HERE — current status (as of 2026-10-24, day 11 — CI regression gate + badges, guardrail/schema tests, opt-in Sentry error tracking; shipped v0.3.4)
 
-**Day 11 shipped `v0.3.4` across three clean commits, plus a day-end Sentry-driven bug fix, all pushed to `main`
-(head `e05003a`).** Working tree clean except deliberately-local files (`NEXT-AGENT-PROMPT.md` and several
+**Day 11 shipped `v0.3.4` across three clean commits, plus a day-end Sentry-driven bug fix (`e05003a`), all
+pushed to `main` — followed by the v0.3.4 CHANGELOG, DECISIONS [D34](DECISIONS.md)/[D35](DECISIONS.md),
+feedback-notes [Round 7](feedback-notes.md), and the Sentry worked-example (`docs/MONITORING.md` + two clean
+screenshots). See `git log` for the exact head.** Working tree clean except deliberately-local files (`NEXT-AGENT-PROMPT.md` and several
 untracked `docs/screenshots/` images — the synthetic Sentry verification shot and real-PII test images; see
 below). **207 pytest pass** (was 137). This session did the three deferred hardening items the user chose, in
 order, then added app-layer error tracking as a new capability, then ran a real testing round that caught and

@@ -3,6 +3,18 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.3.4] — 2026-10-24
+
+Hardened the observability/eval spine before going public, then proved it in a real testing round. Backend tests **137 → 207**.
+
+### Added
+- **Accuracy-regression gate** — `scripts/check_regression.py` fails if any tracked extraction metric drops below a committed floor (`eval/baseline.json`) minus a tolerance band. Runs **locally on the real cached number** (deterministic, $0) and **in CI on a deterministic mock mechanism** (`eval/baseline.mock.json`), so a broken scoring/VAT/gate pipeline fails the build **without exposing the git-ignored receipt data**. README gains **CI + extraction-accuracy badges**. `eval_extraction.py` grew `--metrics-out/--results-out/--detail-out` so a mock run never clobbers the committed `metrics.json`.
+- **Guardrail-matrix + schema-coercion tests** — `test_guardrail_matrix.py` (the real `validate_receipt`→`decide_gate` integration grid, guardrail precedence/stacking, the retake truth table, the self-consistency boundary) and `test_schema_coercion.py` (tolerant JSON parse, payload→model coercion, confidence clamp). +54 tests, no production change.
+- **Opt-in Sentry error tracking** — the app-layer complement to LangSmith + the eval ([D34](DECISIONS.md)). `app/services/monitoring.py` (env-gated, a no-op without a DSN, never raises) + FastAPI auto-capture + explicit capture at the swallowed surfaces; `@sentry/react` + an `ErrorBoundary` on the frontend. **Privacy-first:** `send_default_pii=False` + a `before_send` scrubber strips request body/headers/cookies/query — no receipt/bank/PII leaves the machine; errors only (free tier). A free **Sentry-MCP AI-debug loop**; Seer optional. See `docs/MONITORING.md`.
+
+### Fixed
+- **Undecodable image uploads no longer 500** ([D35](DECISIONS.md), found via Sentry in a real testing round, [Round 7](feedback-notes.md)) — a text file renamed `.jpg` (or a corrupt photo) made the vision call raise a provider 400 that propagated as an **unhandled 500** (shown in the browser as the misleading *"can't reach the backend"*), after burning ~4 vision calls on it. `extraction.is_readable_image()` now validates the upload decodes as PNG/JPEG/GIF/WebP **before** any model call; `/extract` returns a graceful *"not a readable image"* response and `/rescan` a clean `400`. + `test_image_guard.py`. The full observed→caught→fixed→verified→resolved loop is written up in `docs/MONITORING.md`.
+
 ## [0.3.3] — 2026-10-22
 
 Privacy, a local reading option, and prompt-injection hardening — plus the eval set grown on fresh ground truth. Backend tests **130 → 137**.
