@@ -222,3 +222,5 @@ Status: **planned** — not started.
 ## Beyond v0.3 (future work)
 
 Not committed, but the natural directions: a mobile app, support for **more banks** (more CSV formats / open-banking), and **more languages / locales** for receipts and VAT rules. See the README's *Future work* section.
+
+- **Invoice / PDF-receipt support.** Surfaced in testing (2026-10-24): uploading an online-payment **invoice** (net line amounts + a separate tax line) correctly trips the self-consistency guardrail ([D21](DECISIONS.md)) because the receipt pipeline assumes each line amount is **gross** (VAT-inclusive), as supermarket receipts print. The read was still correct (total + vendor + category right, and a prompt-injection line was ignored — [D32](DECISIONS.md)); it just can't auto-post. A dedicated path — render a PDF page to an image, then extract with **net-aware** VAT handling — would make invoices first-class on the receipt side (today PDFs are accepted only for bank statements). Not a bug; a scope extension.

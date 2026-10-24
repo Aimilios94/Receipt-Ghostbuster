@@ -82,3 +82,35 @@ The differentiator isn't just collecting errors — it's closing the loop with a
 > Note on scope: this is a locally-run, single-user app, so Sentry is wired **for
 > production and exercised during local testing** — not a claim of a live multi-user
 > deployment. The value is the instrumentation and the triage loop being real.
+
+## Worked example: a real error, caught and fixed
+
+The first error Sentry caught in local testing was a genuine bug. Uploading a file that
+**isn't a real image** — a text file renamed `.jpg`, or a corrupt/truncated photo — made
+the vision call raise `openai.BadRequestError (invalid_image_format)`, which propagated as
+an **unhandled 500** out of `/extract`. Because an unhandled 500 skips the CORS middleware,
+the browser couldn't read the response and showed the misleading *"Can't reach the
+backend"* — and the pipeline had burned several vision calls on the garbage first.
+
+![Sentry caught the error, request scrubbed](screenshots/sentry-screenshot-bad-request.png)
+
+Note the captured event: `Unhandled`, transaction `/extract`, release `0.3.4` — and the
+request is **scrubbed**. Only the bare endpoint (`/extract`) is shown; the uploaded file
+body, headers and cookies were stripped by `before_send`, so nothing sensitive reached
+Sentry.
+
+**The fix (`e05003a`):** `extraction.is_readable_image()` checks the upload actually decodes
+as PNG/JPEG/GIF/WebP *before* any model call. A non-image now returns the same graceful
+"couldn't read this — use a clear photo" response as an unreadable receipt (no 500, no
+wasted API calls), and `/rescan` rejects it with a clear `400`. Covered by
+`backend/tests/test_image_guard.py`.
+
+Re-uploading the same file afterwards shows the clean in-app message and produces **no new
+Sentry error** — the complete loop: *observed → caught (scrubbed) → root-caused → fixed +
+tested → verified live → resolved.*
+
+<!-- Add the (redacted/cropped) "after" app screenshot here once it has no ledger data in frame. -->
+
+> Why only the "before" image is published: the "after" screenshot was taken over a live
+> dashboard showing real vendor names and amounts, so it is kept local until cropped — the
+> same "review every screenshot for leaked data" rule this whole setup is built around.
