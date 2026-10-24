@@ -39,6 +39,11 @@ async def rescan_receipt(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Empty file.")
+    if not extraction.is_readable_image(content):
+        raise HTTPException(
+            status_code=400,
+            detail="This file isn't a readable image — upload a clear JPG, PNG or WebP photo.",
+        )
 
     result, oriented, trace = extraction.extract_receipt(content, file.filename, settings)
 
@@ -117,6 +122,19 @@ async def extract(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Empty file.")
+
+    # Reject an undecodable upload (a text file renamed .jpg, a corrupt/truncated photo)
+    # up front — before burning several vision calls on it and before the provider's 400
+    # bubbles up as an unhandled 500. Mirror the "unreadable" response so the UI shows a
+    # clear retake prompt instead of "can't reach the backend".
+    if not extraction.is_readable_image(content):
+        return {
+            "expense": None,
+            "extraction": None,
+            "gated_to": None,
+            "readable": False,
+            "issues": ["This file isn't a readable image — upload a clear JPG, PNG or WebP photo of the receipt."],
+        }
 
     # Returns the read plus the auto-rotated (upright) image bytes we should store.
     # `note` is an optional hint the uploader typed in to help resolve ambiguity.

@@ -334,6 +334,29 @@ def _guess_media_type(filename: str | None, content: bytes) -> str:
     return "image/jpeg"
 
 
+def is_readable_image(content: bytes) -> bool:
+    """True if `content` decodes as an image the vision provider accepts (PNG/JPEG/
+    GIF/WebP). A cheap guard so an undecodable upload — e.g. a text file renamed to
+    `.jpg`, or a truncated/corrupt photo — is rejected with a clear message BEFORE the
+    vision call, instead of the provider raising a 400 that bubbles up as an unhandled
+    500 (which also loses CORS headers and shows as "can't reach the backend")."""
+    if not content:
+        return False
+    if _PIL_OK:
+        try:
+            with Image.open(io.BytesIO(content)) as im:
+                im.verify()  # checks structure without fully decoding; raises on garbage
+            return True
+        except Exception:  # noqa: BLE001 - any failure to parse means "not an image"
+            return False
+    # No Pillow: sniff the magic bytes for the formats the vision API accepts.
+    if content[:3] == b"\xff\xd8\xff" or content[:8] == b"\x89PNG\r\n\x1a\n":
+        return True
+    if content[:4] in (b"GIF8",) or (content[:4] == b"RIFF" and content[8:12] == b"WEBP"):
+        return True
+    return False
+
+
 def _parse_json_payload(text: str) -> dict[str, Any]:
     text = text.strip()
     if text.startswith("```"):
