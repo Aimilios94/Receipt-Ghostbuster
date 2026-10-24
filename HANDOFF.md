@@ -6,7 +6,72 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-22, day 10 — Privacy, a local on-device model, injection hardening, eval 20→26; shipped v0.3.3)
+## 🟢 RESUME HERE — current status (as of 2026-10-24, day 11 — CI regression gate + badges, guardrail/schema tests, opt-in Sentry error tracking; shipped v0.3.4)
+
+**Day 11 shipped `v0.3.4` across three clean commits, all pushed to `main` (head `796df44`).** Working tree
+clean except the two deliberately-local files (`NEXT-AGENT-PROMPT.md`, and `docs/screenshots/sentry-issues.png`
+— see below). **201 pytest pass** (was 137). This session did the three deferred hardening items the user chose,
+in order, then added app-layer error tracking as a new capability discussed and agreed up front.
+
+**What day 11 did (newest first):**
+- **Opt-in Sentry error tracking + an AI-debug loop (`796df44`, [D34](DECISIONS.md), v0.3.4).** The app-layer
+  complement to LangSmith (LLM observability) and the eval (accuracy) — the third leg of the triad. New
+  `app/services/monitoring.py` mirrors the LangSmith soft-dependency convention: **opt-in, env-gated, no-op
+  without a DSN, never raises**. `init_sentry_if_enabled` is called in `main.py` **before** `FastAPI()` so the
+  ASGI integration auto-captures unhandled 500s; explicit `monitoring.capture(exc, surface=...)` makes the
+  **swallowed** surfaces visible (`extraction.instructor_fallback` / `date_reread` / `orientation_read`,
+  `extract.record_trace` / `upload_receipt`, `pdf_import.llm_structuring`, `bank.insert_statement` /
+  `insert_transactions`, `refunds.n8n_webhook`). `/health` now reports `sentry_enabled`. Frontend:
+  `@sentry/react` init + an `ErrorBoundary` in `frontend/src/main.jsx`, both guarded by `VITE_SENTRY_DSN`.
+  **Privacy-first and VERIFIED LIVE:** `send_default_pii=False` + a `before_send` scrubber strips request
+  body/headers/cookies/query — a real verification event in the user's dashboard showed **`url --`** (nothing
+  attached). Errors only (`traces_sample_rate=0.0`) → free tier. Docs: `docs/MONITORING.md`, `.env.example`
+  both ends, `test_monitoring.py`. **Cost $0** (Sentry free Developer tier).
+- **Guardrail-matrix + schema-coercion tests (`2e5bf2a`).** `test_guardrail_matrix.py` (the real
+  `validate_receipt`→`decide_gate` **integration** grid + precedence/stacking + the retake truth table +
+  self-consistency boundary) and `test_schema_coercion.py` (tolerant JSON parse, `_to_result` coercion,
+  confidence clamp). No production code changed. **+54 tests overall (137 → 191).**
+- **Accuracy-regression CI gate + README badges (`e441303`).** `scripts/check_regression.py` fails if any
+  tracked metric drops below a committed floor (`eval/baseline.json`) minus a tolerance band. Runs **locally on
+  the REAL number** (cached reads → deterministic, $0; verified it reproduces the committed 99.3% exactly) and
+  **in CI on a deterministic MOCK mechanism** (`baseline.mock.json`) so the public runner catches a broken
+  scoring/VAT/gate pipeline **without exposing the git-ignored receipt data**. `eval_extraction.py` gained
+  `--metrics-out/--results-out/--detail-out` so a mock run writes throwaway `*.mock.json` and never clobbers
+  the committed real `metrics.json` (also fixed that pre-existing footgun). README: **CI status + extraction
+  accuracy badges** (badges render once the repo is public).
+
+**Sentry setup (for the next agent):** org **`aimilios-kamtsisrun`**, projects **`receipt-ghostbuster-backend`**
+(python-fastapi) and **`receipt-ghostbuster-frontend`** (react). DSNs live in `backend/.env` + `frontend/.env`
+(git-ignored). The **Sentry MCP is authenticated in the user's interactive Claude Code** (it is NOT exposed to a
+background agent, so a bg session can't call Sentry MCP tools — guide the user to the UI / their own terminal).
+**Seer is not configured** (optional, paid; the free MCP loop is the path).
+
+### 👋 Message to the next agent (read this)
+Clean tree, `main` pushed at `796df44`, **201 tests pass**. **Read, in order:** this day-11 RESUME → the day-10
+RESUME → the auto-memory (`MEMORY.md` index, then `receipt-ghostbuster-status.md`) → **`DECISIONS.md` D1–D34** →
+**`feedback-notes.md` Rounds 1–6** → **`roadmap.md`**. Also `NEXT-AGENT-PROMPT.md` (local). Then:
+1. **Sacred rule: AUTHENTICITY.** Day 11 was all **`[eng]`** (the CI gate, tests, D34), so `feedback-notes.md`
+   was correctly left untouched. **Specific to Sentry:** do **NOT** publish the synthetic verification-event
+   screenshot as evidence of "error tracking working" — it's a test event. The **gold artifact is a REAL
+   captured bug + its fix** (screenshot the real issue, let the free Sentry-MCP loop or the Seer trial propose a
+   fix, pair the screenshot with the fix commit). `docs/screenshots/sentry-issues.png` is **deliberately
+   untracked** for this reason. A narrow *privacy-proof* screenshot (showing `url --` = the scrubber) is an
+   honest optional. **Review ANY Sentry screenshot for leaked stack-trace/breadcrumb data before committing.**
+2. **Do NOT re-litigate settled decisions (D1–D34).** Reading model = gpt-5-mini; Opus ties at 39× (frozen);
+   local qwen2.5vl:7b is a measured option. Sentry/LangSmith are **opt-in** — never make them hard deps.
+3. **Open items the user DEFERRED (their order):** **Instructor structured-output reliability taxonomy**
+   (retry/schema-failure breakdown beyond `fell_back`) → **v0.4 — Advice** (budget vs actual, overspend nudges,
+   insights feed) → **v0.5 chatbot** / **v0.6 payslip** (designed) → **drift view** on Model & Evals →
+   **pre-public polish** (core-flow GIF + refresh the Oct-4 app screenshots + LangSmith→26-set) → **flip the
+   repo PUBLIC** + put it on the CV. Optional Sentry follow-ups: wire **Seer** (trial) or **Sentry→GitHub
+   issues** for the triage demo.
+4. **Ops:** run ONE backend uvicorn, **no `--reload`**; Supabase per-thread client; check the two 7-day
+   expiries before any demo (`demo-prep-7day-expiries`). Local Ollama runs are CPU-only + slow; long local
+   evals must run **detached** (harness bg jobs get reaped across turns).
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-22, day 10 — Privacy, a local on-device model, injection hardening, eval 20→26; shipped v0.3.3)
 
 **Day 10 shipped `v0.3.3` across six clean commits.** Everything committed to `main`, **137 pytest pass**, working
 tree clean (only the local-only `NEXT-AGENT-PROMPT.md` is untracked). The session focused on the biggest gap for
