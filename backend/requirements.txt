@@ -14,6 +14,7 @@ Pillow>=11.0             # server-side receipt auto-rotation (EXIF + orientation
 pdfplumber>=0.11         # bank-statement PDF import fallback (text extraction)
 instructor>=1.0          # validated structured outputs (Pydantic) + retry on the extraction
 langsmith>=0.1           # OPTIONAL, opt-in LLM tracing/experiments; no-op unless LANGSMITH_TRACING=true
+sentry-sdk[fastapi]>=2.0 # OPTIONAL, opt-in app-layer error tracking; no-op unless SENTRY_DSN is set
 PyJWT>=2.10
 pytest>=8.3
 httpx>=0.28

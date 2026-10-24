@@ -23,8 +23,13 @@ from .routers import (
     refunds,
     subscriptions,
 )
+from .services import monitoring
 
 settings = get_settings()
+
+# Initialise Sentry (opt-in) BEFORE the app is created so its ASGI/FastAPI
+# integration wraps the app and auto-captures unhandled errors. No-op without a DSN.
+monitoring.init_sentry_if_enabled(settings)
 
 app = FastAPI(
     title="Receipt Ghostbuster API",

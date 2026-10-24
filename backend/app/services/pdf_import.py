@@ -25,6 +25,7 @@ import re
 from typing import Any
 
 from ..config import Settings
+from . import monitoring
 from .csv_import import _parse_date, _parse_money
 from .redaction import redact_sensitive
 
@@ -233,8 +234,8 @@ def parse_statement_text(
             rows = normalize_rows(_structure_with_llm(text, settings, note))
             if rows:
                 return rows
-        except Exception:  # noqa: BLE001 - fall back to the deterministic parse
-            pass
+        except Exception as exc:  # noqa: BLE001 - fall back to the deterministic parse
+            monitoring.capture(exc, surface="pdf_import.llm_structuring")
 
     return parse_lines_heuristic(text)
 

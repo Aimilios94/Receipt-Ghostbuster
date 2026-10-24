@@ -106,6 +106,17 @@ class Settings(BaseSettings):
     langsmith_api_key: str = ""
     langsmith_project: str = "receipt-ghostbuster"
 
+    # --- Sentry error tracking (optional, opt-in) ---
+    # App-layer error tracking: unhandled 500s plus the exceptions the pipeline
+    # currently swallows (provider calls, Supabase/n8n, PDF/CSV import). Off unless a
+    # DSN is set, so the app runs with no external dependency. Performance tracing is
+    # off by default (sample rate 0.0) — errors only — to stay inside the free tier.
+    # Privacy: no receipt/bank/PII is sent (send_default_pii=False + a body/header
+    # scrubber in services/monitoring.py); see docs/MONITORING.md.
+    sentry_dsn: str = ""
+    sentry_environment: str = "local"
+    sentry_traces_sample_rate: float = 0.0
+
     # --- Reconciliation tuning ---
     reconcile_amount_tolerance: float = 0.01
     reconcile_date_window_days: int = 3
@@ -143,6 +154,10 @@ class Settings(BaseSettings):
     @property
     def langsmith_configured(self) -> bool:
         return bool(self.langsmith_tracing and self.langsmith_api_key)
+
+    @property
+    def sentry_configured(self) -> bool:
+        return bool(self.sentry_dsn)
 
     @property
     def cors_origin_list(self) -> list[str]:

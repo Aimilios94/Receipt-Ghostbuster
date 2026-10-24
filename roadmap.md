@@ -150,6 +150,19 @@ Status: **shipped.** Backend tests **130 → 137**. gpt-5-mini stays the product
 
 ---
 
+## v0.3.4 — Regression gate & app-layer error tracking ✅
+
+**Goal:** harden the observability/eval spine — stop a code change from silently dropping accuracy, and make application-layer failures visible — before the repo goes public.
+
+Scope:
+- **Accuracy-regression gate** — `scripts/check_regression.py` fails if any tracked extraction metric drops below a committed floor (`eval/baseline.json`) minus a tolerance band. Runs **locally on the real number** (cached reads, deterministic, $0) and **in CI on a deterministic mock mechanism** (`baseline.mock.json`) so the public runner catches a broken scoring/VAT/gate pipeline without exposing the git-ignored receipt data. **README badges**: CI status + extraction accuracy.
+- **Guardrail-matrix + schema-coercion tests** — the real `validate_receipt`→`decide_gate` integration grid, guardrail precedence/stacking and the retake truth table, plus the tolerant JSON parse and `ExtractionResult` coercion/confidence-clamp. (+54 tests.)
+- **Sentry error tracking (opt-in, privacy-first)** — the app-layer complement to LangSmith and the eval ([D34](DECISIONS.md)). FastAPI auto-capture + explicit capture at the swallowed surfaces; `@sentry/react` init + an `ErrorBoundary` on the frontend. `send_default_pii=False` + a `before_send` scrubber strips request body/headers so **no receipt/bank/PII leaves the machine**; errors only (free tier). An **AI-debug loop** on the free Sentry MCP into Claude Code; Seer (paid) optional. See [docs/MONITORING.md](docs/MONITORING.md).
+
+Status: **shipped.** Backend tests **137 → 201**. Cost: **$0** (Sentry free Developer tier).
+
+---
+
 ## v0.4 — Advice ⬜
 
 **Goal:** move from recording the past to guiding the next decision — lightweight, rule-based, not a heavy AI advisor.

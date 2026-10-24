@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..services import categorization, extraction, gating, receipt_fields, validation, vat
+from ..services import categorization, extraction, gating, monitoring, receipt_fields, validation, vat
 from .. import repository as repo
 
 router = APIRouter(tags=["extraction"])
@@ -18,8 +18,8 @@ def _record_trace(user_id: str, trace: dict, **meta) -> None:
     """Persist an LLM-call trace, best-effort — observability must never break a read."""
     try:
         repo.insert_llm_trace(user_id, trace, meta)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001
+        monitoring.capture(exc, surface="extract.record_trace")
 
 
 @router.post("/expenses/{expense_id}/rescan")
@@ -46,7 +46,8 @@ async def rescan_receipt(
     image_url = None
     try:
         image_url = repo.upload_receipt(user_id, f"{uuid.uuid4()}.jpg", oriented, "image/jpeg")
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        monitoring.capture(exc, surface="extract.upload_receipt")
         image_url = None
 
     check = validation.validate_receipt(result, confidence_threshold=settings.confidence_threshold)
@@ -171,7 +172,8 @@ async def extract(
         image_url = repo.upload_receipt(
             user_id, f"{uuid.uuid4()}.jpg", oriented, "image/jpeg"
         )
-    except Exception:  # noqa: BLE001 - storage optional for the demo
+    except Exception as exc:  # noqa: BLE001 - storage optional for the demo
+        monitoring.capture(exc, surface="extract.upload_receipt")
         image_url = None
 
     # VAT source of truth: the receipt's PRINTED IVA summary table, when the model

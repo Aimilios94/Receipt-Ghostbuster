@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from ..auth import get_current_user_id
 from ..config import get_settings
 from ..models import ColumnMapping
-from ..services import csv_import, pdf_import, statements
+from ..services import csv_import, monitoring, pdf_import, statements
 from ..services.csv_import import CsvImportError
 from ..services.pdf_import import PdfImportError
 from .. import repository as repo
@@ -66,6 +66,7 @@ async def import_statement(
             {"filename": file.filename, "source_type": source, **stats},
         )
     except Exception as exc:  # noqa: BLE001
+        monitoring.capture(exc, surface="bank.insert_statement")
         raise HTTPException(
             status_code=502, detail=f"Saving the statement failed: {str(exc)[:300]}"
         ) from exc
@@ -84,6 +85,7 @@ async def import_statement(
                 repo.delete_bank_statement(user_id, statement["id"])
             except Exception:  # noqa: BLE001
                 pass
+        monitoring.capture(exc, surface="bank.insert_transactions")
         raise HTTPException(
             status_code=502,
             detail=f"Saving the transactions failed: {str(exc)[:300]}",

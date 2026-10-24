@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
 from ..models import RefundActionUpdate
+from ..services import monitoring
 from .. import repository as repo
 
 router = APIRouter(prefix="/refund-actions", tags=["refunds"])
@@ -66,6 +67,7 @@ def deliver_to_gmail(
         resp = httpx.post(settings.n8n_webhook_url, json=payload, timeout=20)
         resp.raise_for_status()
     except httpx.HTTPError as exc:
+        monitoring.capture(exc, surface="refunds.n8n_webhook")
         raise HTTPException(status_code=502, detail=f"n8n webhook call failed: {exc}") from exc
 
     row = repo.update_refund_action(user_id, action_id, {"status": "sent"})

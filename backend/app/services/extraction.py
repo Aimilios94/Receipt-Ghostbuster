@@ -16,6 +16,7 @@ from typing import Any
 
 from ..config import Settings
 from ..models import ExtractionResult
+from . import monitoring
 from .llm_trace import (
     LlmCall,
     aggregate,
@@ -246,7 +247,8 @@ def reread_date(
             payload, _ = _extract_ollama(image_bytes, media_type, settings, prompt, kind="date_reread")
         else:
             return None
-    except Exception:  # noqa: BLE001 - re-read is best-effort
+    except Exception as exc:  # noqa: BLE001 - re-read is best-effort
+        monitoring.capture(exc, surface="extraction.date_reread")
         return None
     d = _parse_iso_date(payload.get("date"))
     if d is None or d > today or (today - d).days > 366:
@@ -381,8 +383,12 @@ def _extract_anthropic(
             provider="anthropic", model=settings.anthropic_model, kind=kind, started=started, resp=raw
         )
         return obj.model_dump(mode="json"), call
-    except Exception:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
-        pass
+    except Exception as exc:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
+        monitoring.capture_message(
+            "Instructor structured output fell back to raw parse (anthropic)",
+            level="warning", surface="extraction.instructor_fallback",
+        )
+        monitoring.capture(exc, surface="extraction.instructor_fallback")
 
     started = time.perf_counter()
     resp = client.messages.create(
@@ -454,8 +460,12 @@ def _extract_openai(
             provider="openai", model=settings.openai_model, kind=kind, started=started, resp=raw
         )
         return obj.model_dump(mode="json"), call
-    except Exception:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
-        pass
+    except Exception as exc:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
+        monitoring.capture_message(
+            "Instructor structured output fell back to raw parse (openai)",
+            level="warning", surface="extraction.instructor_fallback",
+        )
+        monitoring.capture(exc, surface="extraction.instructor_fallback")
 
     started = time.perf_counter()
     resp = client.chat.completions.create(model=settings.openai_model, **token_arg, messages=messages)
@@ -606,7 +616,8 @@ def extract_receipt(
         candidate = _rotate(oriented, angle) if angle else oriented
         try:
             payload, call = _extract_once(candidate, media_type, provider, settings, prompt)
-        except Exception:  # noqa: BLE001 - a bad rotation shouldn't kill the whole read
+        except Exception as exc:  # noqa: BLE001 - a bad rotation shouldn't kill the whole read
+            monitoring.capture(exc, surface="extraction.orientation_read")
             continue
         calls.append(call)
         result = _to_result(payload)
