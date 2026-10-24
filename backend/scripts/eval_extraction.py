@@ -208,7 +208,17 @@ def main() -> int:
     ap.add_argument("--model", default=None, help="override the model (e.g. gpt-5-mini); also keys the cache")
     ap.add_argument("--limit", type=int, default=None, help="only the first N receipts")
     ap.add_argument("--refresh", action="store_true", help="ignore cache, re-call the LLM")
+    ap.add_argument("--metrics-out", default=None, help="where to write metrics.json (default eval/metrics.json)")
+    ap.add_argument("--results-out", default=None, help="where to write RESULTS.md (default eval/RESULTS.md)")
+    ap.add_argument("--detail-out", default=None, help="where to write results.detail.json (default eval/results.detail.json)")
     args = ap.parse_args()
+
+    # Output paths default to the committed real artifacts, but can be redirected so a
+    # mock/CI run (--provider mock) writes throwaway files and never clobbers the real
+    # committed metrics.json / RESULTS.md baseline.
+    results_md = Path(args.results_out) if args.results_out else RESULTS_MD
+    metrics_json = Path(args.metrics_out) if args.metrics_out else METRICS_JSON
+    detail_json = Path(args.detail_out) if args.detail_out else DETAIL_JSON
 
     labels_path = Path(args.labels)
     if not labels_path.exists():
@@ -363,17 +373,17 @@ def main() -> int:
         return 1
 
     _write_results_md(settings, tally, total_correct, total_scored, receipts_fully_correct,
-                      n, today, routing, calibration, slices)
+                      n, today, routing, calibration, slices, out=results_md)
     _write_metrics_json(settings, tally, total_correct, total_scored, receipts_fully_correct,
-                        n, today, routing, calibration, confusion, slices)
-    DETAIL_JSON.write_text(json.dumps(details, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\nWrote {RESULTS_MD.relative_to(BACKEND.parent)} + {METRICS_JSON.name} (aggregates, "
-          f"committable) and {DETAIL_JSON.name} (per-receipt, git-ignored).")
+                        n, today, routing, calibration, confusion, slices, out=metrics_json)
+    detail_json.write_text(json.dumps(details, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"\nWrote {results_md} + {metrics_json.name} (aggregates, "
+          f"committable) and {detail_json.name} (per-receipt, git-ignored).")
     return 0
 
 
 def _write_results_md(settings, tally, total_correct, total_scored,
-                      fully_correct, n, today, routing, calibration, slices) -> None:
+                      fully_correct, n, today, routing, calibration, slices, *, out: Path) -> None:
     def pct(c, t):
         return f"{100.0 * c / t:.1f}%" if t else "n/a"
 
@@ -449,11 +459,11 @@ def _write_results_md(settings, tally, total_correct, total_scored,
             lines.append(f"| {tag} | {pct(s['correct'], s['scored'])} | "
                          f"{s['correct']}/{s['scored']} | {s['n_receipts']} |")
     lines.append("")
-    RESULTS_MD.write_text("\n".join(lines), encoding="utf-8")
+    out.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _write_metrics_json(settings, tally, total_correct, total_scored,
-                        fully_correct, n, today, routing, calibration, confusion, slices) -> None:
+                        fully_correct, n, today, routing, calibration, confusion, slices, *, out: Path) -> None:
     """Aggregate metrics for the API/dashboard. Aggregates only — no receipt data —
     so it is safe to commit."""
     model = settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
@@ -477,7 +487,7 @@ def _write_metrics_json(settings, tally, total_correct, total_scored,
         "confusion": confusion,
         "slices": slices,
     }
-    METRICS_JSON.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    out.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

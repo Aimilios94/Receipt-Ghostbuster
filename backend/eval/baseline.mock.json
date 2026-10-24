@@ -1,0 +1,15 @@
+{
+  "_note": "Regression floor for the CI MOCK mechanism check (scripts/check_regression.py against the metrics produced by `eval_extraction.py --provider mock`). The mock provider is deterministic, so the tolerance is 0: any drift here means the scoring / VAT / gate pipeline changed. This does NOT verify the real accuracy number — that is baseline.json, run locally on cached reads.",
+  "provider": "mock",
+  "model": "mock",
+  "n_receipts": 1,
+  "tolerance_pp": 0.0,
+  "overall_accuracy": 1.0,
+  "fields": {
+    "vendor": 1.0,
+    "total": 1.0,
+    "vat_amount": 1.0,
+    "vat_rate": 1.0
+  },
+  "receipts_fully_correct": 1.0
+}

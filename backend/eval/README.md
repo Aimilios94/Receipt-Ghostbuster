@@ -68,6 +68,33 @@ An optional `expected_gate` label per receipt (`auto_post` | `review` | `reject`
 adds an expected-vs-actual confusion matrix, but the metrics above need no extra
 labelling — they reuse the field ground truth you already have.
 
+## Accuracy-regression gate (CI + local)
+
+`scripts/check_regression.py` fails if any tracked metric drops below a committed
+floor (`baseline.json`) minus a tolerance band (`tolerance_pp`, ~1pp to absorb a
+re-label; on CACHED reads the pipeline is deterministic so a real regression drops
+well past it). It runs in two places:
+
+- **Locally, on the real number** — run before committing any change to the
+  extraction / VAT / gate code. Reads come from the per-image `.cache/` (deterministic,
+  no API cost):
+
+  ```bash
+  python scripts/eval_extraction.py        # cached reads -> writes metrics.json
+  python scripts/check_regression.py       # gate: metrics.json vs baseline.json
+  ```
+
+- **In CI, on the mock mechanism** — the labelled set is git-ignored personal data, so
+  the public runner can't check the real number. CI runs the harness in `--provider
+  mock` mode to throwaway `*.mock.json` files and gates them against `baseline.mock.json`
+  (deterministic, tolerance 0). That catches a code change that silently breaks the
+  scoring / VAT / gate pipeline. See `.github/workflows/ci.yml`.
+
+**When the set grows or a real improvement lands:** refresh `metrics.json` (a full run),
+then update `baseline.json` to the new floors **deliberately** (commit them together),
+and bump the static `extraction accuracy` badge in the top-level `README.md`. A changed
+sample size is surfaced as a non-fatal NOTE by the gate, not a failure.
+
 ## LangSmith (optional)
 
 With `LANGSMITH_TRACING=true` + a key, `python scripts/langsmith_eval.py` uploads

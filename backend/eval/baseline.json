@@ -1,0 +1,17 @@
+{
+  "_note": "Accuracy-regression floor for scripts/check_regression.py. A commit must not drop any metric below (value - tolerance_pp). These are aggregates only (no receipt data) and track the committed metrics.json; refresh DELIBERATELY, together with the metrics.json it came from, when the labelled set grows or a real improvement lands. Run locally on CACHED reads: `python scripts/eval_extraction.py` then `python scripts/check_regression.py`.",
+  "provider": "openai",
+  "model": "gpt-5-mini",
+  "n_receipts": 26,
+  "tolerance_pp": 1.0,
+  "overall_accuracy": 0.9929,
+  "fields": {
+    "vendor": 1.0,
+    "date": 0.96,
+    "total": 1.0,
+    "vat_amount": 1.0,
+    "vat_rate": 1.0,
+    "category": 1.0
+  },
+  "receipts_fully_correct": 0.9615
+}

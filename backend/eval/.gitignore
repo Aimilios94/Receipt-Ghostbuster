@@ -4,3 +4,10 @@ receipts/
 labels.json
 .cache/
 results.detail.json
+
+# Throwaway outputs from a mock/CI harness run (--provider mock → *.mock.json).
+# The committed metrics.json / RESULTS.md stay the real numbers. labels.mock.json
+# and baseline.mock.json ARE committed (synthetic fixtures), so don't ignore them.
+metrics.mock.json
+RESULTS.mock.md
+results.detail.mock.json

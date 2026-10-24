@@ -34,10 +34,25 @@ jobs:
 
       - name: Eval harness smoke test (mock provider)
         # No secrets: the mock provider returns a deterministic receipt, scored
-        # against a committed fixture. Non-zero exit fails the build. The RESULTS.md
-        # / metrics.json it writes are throwaway in the runner (never committed).
+        # against a committed fixture. Non-zero exit fails the build. Outputs are
+        # redirected to throwaway *.mock.json so the committed real metrics.json /
+        # RESULTS.md baseline is never clobbered in the runner.
         run: >
           python scripts/eval_extraction.py
           --provider mock
           --labels eval/labels.mock.json
           --receipts eval/fixtures
+          --metrics-out eval/metrics.mock.json
+          --results-out eval/RESULTS.mock.md
+          --detail-out eval/results.detail.mock.json
+
+      - name: Accuracy-regression gate (mock mechanism)
+        # Gates the deterministic mock score against a committed floor. This can't
+        # verify the real accuracy number (the labelled set is git-ignored personal
+        # data), but it catches a code change that silently breaks the scoring / VAT /
+        # gate pipeline. The real-number gate runs locally on cached reads against
+        # eval/baseline.json — see backend/eval/README.md.
+        run: >
+          python scripts/check_regression.py
+          --metrics eval/metrics.mock.json
+          --baseline eval/baseline.mock.json
