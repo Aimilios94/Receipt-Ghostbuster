@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { money } from "../lib/format.js";
-import { Card, Button, Badge, Loading, ErrorBanner, Empty } from "../components/ui.jsx";
+import { money, shortDate } from "../lib/format.js";
+import { Card, Button, Badge, Loading, ErrorBanner, Empty, Modal } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import { useToast } from "../components/toast.jsx";
 import DraftEmailModal from "../components/DraftEmailModal.jsx";
@@ -15,12 +16,27 @@ export default function RefundHunter() {
   const [running, setRunning] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [draftSub, setDraftSub] = useState(null);
+  const [chargesSub, setChargesSub] = useState(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["subscriptions"],
     queryFn: api.listSubscriptions,
   });
   const subs = data || [];
+
+  // Deep-link from an Advice "unused subscription" nudge (?focus=<vendor>) opens
+  // the cancellation draft for that subscription straight away — one click to act.
+  const [searchParams] = useSearchParams();
+  const focusVendor = searchParams.get("focus");
+  const [autoOpened, setAutoOpened] = useState(false);
+  useEffect(() => {
+    if (autoOpened || !focusVendor || !subs.length) return;
+    const match = subs.find((s) => (s.vendor || "").toLowerCase() === focusVendor.toLowerCase());
+    if (match) {
+      setDraftSub(match);
+      setAutoOpened(true);
+    }
+  }, [focusVendor, subs, autoOpened]);
 
   const stats = useMemo(() => {
     const live = subs.filter((s) => s.status !== "cancelled");
@@ -131,17 +147,68 @@ export default function RefundHunter() {
           </Empty>
         ) : (
           subs.map((s) => (
-            <SubRow key={s.id} sub={s} busy={busyId === s.id} onPatch={patch} onDraft={setDraftSub} />
+            <SubRow
+              key={s.id}
+              sub={s}
+              busy={busyId === s.id}
+              onPatch={patch}
+              onDraft={setDraftSub}
+              onViewCharges={setChargesSub}
+            />
           ))
         )}
       </Card>
 
       {draftSub && <DraftEmailModal sub={draftSub} onClose={() => setDraftSub(null)} />}
+      {chargesSub && <SubscriptionChargesModal sub={chargesSub} onClose={() => setChargesSub(null)} />}
     </div>
   );
 }
 
-function SubRow({ sub, busy, onPatch, onDraft }) {
+// Shows the individual bank lines + card expenses behind a subscription (with the raw
+// CSV row), so the user can visually confirm what detection grouped into it.
+function SubscriptionChargesModal({ sub, onClose }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["subscription-charges", sub.id],
+    queryFn: () => api.subscriptionCharges(sub.id),
+  });
+  const charges = data?.charges || [];
+  return (
+    <Modal title={`Charges — ${sub.vendor}`} onClose={onClose} width={680}>
+      <div className="modal-body">
+        <ErrorBanner error={error} />
+        {isLoading ? (
+          <Loading />
+        ) : charges.length === 0 ? (
+          <Empty>No matching charges found in the current ledger / bank data.</Empty>
+        ) : (
+          <>
+            <div className="card-desc" style={{ marginBottom: 4 }}>
+              {charges.length} charge{charges.length === 1 ? "" : "s"} of {money(sub.amount)} grouped into this
+              subscription.
+            </div>
+            <div className="stmt-txns" style={{ gridTemplateColumns: "1fr" }}>
+              {charges.map((c, i) => (
+                <div className="stmt-txn" key={i} title={c.raw ? JSON.stringify(c.raw, null, 2) : ""}>
+                  <span className="stmt-txn-date">{shortDate(c.date)}</span>
+                  <span className="stmt-txn-desc">
+                    {c.label}
+                    <span className="badge badge-muted" style={{ marginLeft: 8 }}>
+                      {c.source === "bank" ? "CSV" : "Receipt"}
+                    </span>
+                  </span>
+                  <span className="stmt-txn-amt num">{money(c.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function SubRow({ sub, busy, onPatch, onDraft, onViewCharges }) {
   const cancelled = sub.status === "cancelled";
   const flagged = sub.status === "flagged" || (sub.status === "active" && sub.stale);
 
@@ -169,6 +236,7 @@ function SubRow({ sub, busy, onPatch, onDraft }) {
           </div>
           <div className="litem-meta">
             {money(sub.amount)} {CADENCE_LABEL[sub.cadence] || sub.cadence} · seen {sub.occurrences}×
+            {sub.first_seen ? ` · ${shortDate(sub.first_seen)} → ${shortDate(sub.last_seen)}` : ""}
             {seen ? <span className={sub.stale ? "conf-note" : ""}> · {seen}</span> : null}
           </div>
         </div>
@@ -180,6 +248,9 @@ function SubRow({ sub, busy, onPatch, onDraft }) {
 
       {!cancelled && (
         <div className="litem-actions">
+          <Button size="sm" icon={<Icon.search size={14} />} onClick={() => onViewCharges(sub)} disabled={busy}>
+            View charges
+          </Button>
           {flagged ? (
             <Button
               size="sm"

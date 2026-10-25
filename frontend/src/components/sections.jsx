@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "./icons.jsx";
-import { Button, Badge, StatusBadge } from "./ui.jsx";
+import { Button, Badge, StatusBadge, Card, Empty } from "./ui.jsx";
 import { api } from "../lib/api.js";
 import { money, shortDate, pct, sourceLabel, confPct, CATEGORY_COLORS, vatByRateLines } from "../lib/format.js";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
@@ -701,5 +701,46 @@ export function LedgerTable({ expenses, onDelete, busyId, duplicateIds, onRowCli
 
       {lightbox ? <ReceiptLightbox src={lightbox} onClose={() => setLightbox(null)} /> : null}
     </div>
+  );
+}
+
+/* ---------- Advice insights preview (v0.4 — Dashboard feed) ---------- */
+const INSIGHT_TONE = { alert: "red", warning: "amber", info: "muted" };
+
+export function InsightsFeed({ month }) {
+  const { data } = useQuery({
+    queryKey: ["insights", month],
+    queryFn: () => api.insights(month),
+    enabled: !!month,
+  });
+  const rows = (data || []).slice(0, 3);
+  return (
+    <Card className="card-pad">
+      <div className="card-head">
+        <div>
+          <div className="card-title">Advice</div>
+          <div className="card-desc">Budget and spending nudges for this month.</div>
+        </div>
+        <span className="badge badge-primary">Insights</span>
+      </div>
+      {rows.length ? (
+        rows.map((i) => (
+          <div className="rec" key={i.id}>
+            <div>
+              <div className="rec-name">{i.title}</div>
+              <div className="rec-warn" style={{ color: "var(--text-dim)" }}>{i.detail}</div>
+            </div>
+            <Badge tone={INSIGHT_TONE[i.severity] || "muted"}>{i.severity}</Badge>
+          </div>
+        ))
+      ) : (
+        <Empty icon={<Icon.check size={22} />}>On budget — nothing to flag.</Empty>
+      )}
+      <div style={{ marginTop: 14 }}>
+        <Link to="/advice" className="btn" style={{ width: "100%", justifyContent: "center" }}>
+          <Icon.advice size={14} /> Open Advice
+        </Link>
+      </div>
+    </Card>
   );
 }

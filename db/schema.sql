@@ -312,3 +312,42 @@ create policy llm_traces_owner on public.llm_traces
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+
+-- ============================================================================
+-- v0.4 — Advice
+-- Rule-based, deterministic nudges derived in code from the ledger + per-category
+-- budgets + detected subscriptions (NO LLM — extends D1 "the AI never does the
+-- math" to forward-looking advice). One row per (kind, month, subject); the
+-- derived columns are refreshed by POST /insights/generate, while the user-owned
+-- `dismissed` flag is preserved across regeneration (same pattern as subscriptions).
+-- Per-category budgets live on categories.budget_amount (already in this schema).
+-- ============================================================================
+create table if not exists public.insights (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind        text not null
+                check (kind in ('over_budget','spend_up','unused_subscription')),
+  month       text not null,                          -- 'YYYY-MM' the insight pertains to
+  subject     text not null,                          -- category name, or vendor (subscriptions) — upsert key
+  category    text,                                   -- category for budget/spend rules; null for subscriptions
+  severity    text not null default 'info'
+                check (severity in ('info','warning','alert')),
+  title       text not null,
+  detail      text,
+  amount      numeric(12,2),                          -- over-budget / month-over-month delta magnitude
+  metric      jsonb,                                  -- {budget, actual, prev, pct, ...} for the UI
+  dismissed   boolean not null default false,         -- user-owned; survives regeneration
+  created_at  timestamptz not null default now(),
+  unique (user_id, kind, month, subject)              -- idempotent upsert key (subject is NOT NULL)
+);
+
+create index if not exists idx_insights_user on public.insights (user_id, month);
+
+alter table public.insights enable row level security;
+
+drop policy if exists insights_owner on public.insights;
+create policy insights_owner on public.insights
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

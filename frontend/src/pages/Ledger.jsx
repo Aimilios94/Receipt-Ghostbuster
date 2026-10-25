@@ -33,7 +33,8 @@ export default function Ledger() {
   const [searchParams] = useSearchParams();
   const [source, setSource] = useState("all");
   const [status, setStatus] = useState(searchParams.get("view") === "duplicates" ? "duplicates" : "all");
-  const [category, setCategory] = useState("all");
+  // A deep-link from the Advice page (?category=Groceries) pre-filters the ledger.
+  const [category, setCategory] = useState(searchParams.get("category") || "all");
   const [showAdd, setShowAdd] = useState(false);
   const [vatDrill, setVatDrill] = useState(false);
   const [detail, setDetail] = useState(null);

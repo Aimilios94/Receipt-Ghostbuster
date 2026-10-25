@@ -381,6 +381,20 @@ def seed_default_categories(user_id: str) -> list[dict[str, Any]]:
     )
 
 
+def update_category(user_id: str, category_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    """Owner-scoped update of a category (used to set/clear budget_amount)."""
+    data = (
+        get_supabase()
+        .table("categories")
+        .update(patch)
+        .eq("user_id", user_id)
+        .eq("id", category_id)
+        .execute()
+        .data
+    )
+    return data[0] if data else {}
+
+
 def list_categories(user_id: str) -> list[dict[str, Any]]:
     data = (
         get_supabase()
@@ -445,6 +459,12 @@ def upsert_subscriptions(user_id: str, subs: list[dict[str, Any]]) -> list[dict[
     )
 
 
+def delete_subscription(user_id: str, sub_id: str) -> None:
+    get_supabase().table("subscriptions").delete().eq("user_id", user_id).eq(
+        "id", sub_id
+    ).execute()
+
+
 def get_subscription(user_id: str, sub_id: str) -> dict[str, Any]:
     data = (
         get_supabase()
@@ -498,6 +518,59 @@ def update_subscription(user_id: str, sub_id: str, patch: dict[str, Any]) -> dic
         .update(patch)
         .eq("user_id", user_id)
         .eq("id", sub_id)
+        .execute()
+        .data
+    )
+    return data[0] if data else {}
+
+
+# --- v0.4: insights (Advice) -----------------------------------------------
+# Only these columns are derived/refreshed on regeneration; the user-owned
+# `dismissed` flag is NOT in the set, so it survives an upsert (same convention
+# as upsert_subscriptions preserving status/usage_note).
+_INSIGHT_DERIVED_COLS = {
+    "kind", "month", "subject", "category",
+    "severity", "title", "detail", "amount", "metric",
+}
+
+
+def list_insights(
+    user_id: str, month: str | None = None, *, include_dismissed: bool = False
+) -> list[dict[str, Any]]:
+    q = get_supabase().table("insights").select("*").eq("user_id", user_id)
+    if month:
+        q = q.eq("month", month)
+    if not include_dismissed:
+        q = q.eq("dismissed", False)
+    return q.order("created_at", desc=True).execute().data or []
+
+
+def upsert_insights(user_id: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Upsert derived insight columns, keyed on (user_id, kind, month, subject),
+    so a regenerate refreshes the derived fields while preserving `dismissed`."""
+    if not rows:
+        return []
+    payload = [
+        {"user_id": user_id, **{k: v for k, v in r.items() if k in _INSIGHT_DERIVED_COLS}}
+        for r in rows
+    ]
+    return (
+        get_supabase()
+        .table("insights")
+        .upsert(payload, on_conflict="user_id,kind,month,subject")
+        .execute()
+        .data
+        or []
+    )
+
+
+def update_insight(user_id: str, insight_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    data = (
+        get_supabase()
+        .table("insights")
+        .update(patch)
+        .eq("user_id", user_id)
+        .eq("id", insight_id)
         .execute()
         .data
     )

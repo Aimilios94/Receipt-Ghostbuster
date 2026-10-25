@@ -11,6 +11,7 @@ const NAV = [
   { to: "/close", label: "Monthly close", icon: Icon.close },
   { to: "/ledger", label: "Ledger", icon: Icon.ledger },
   { to: "/refunds", label: "Refund Hunter", icon: Icon.refund, badge: "flagged" },
+  { to: "/advice", label: "Advice", icon: Icon.advice },
   { to: "/model-evals", label: "Model & Evals", icon: Icon.gauge },
 ];
 
@@ -78,17 +79,6 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
-
-      <div className="nav-group">
-        <div className="nav-label">Coming next</div>
-        <div className="nav-item disabled">
-          <span className="nav-ico">
-            <Icon.advice size={17} />
-          </span>
-          Advice
-          <span className="nav-phase">Phase 3</span>
-        </div>
-      </div>
 
       <div className="sidebar-foot">
         <span className="avatar">A</span>

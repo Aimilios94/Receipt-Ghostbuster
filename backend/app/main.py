@@ -18,6 +18,7 @@ from .routers import (
     expenses,
     extract,
     health,
+    insights,
     metrics,
     reconcile,
     refunds,
@@ -55,6 +56,7 @@ app.include_router(close.router)
 app.include_router(subscriptions.router)
 app.include_router(refunds.router)
 app.include_router(metrics.router)
+app.include_router(insights.router)
 
 
 @app.get("/", tags=["health"])

@@ -23,6 +23,16 @@ from datetime import date
 from statistics import median
 from typing import Any
 
+from . import reconciliation
+
+# Categories of one-off consumption — a store you visit or a meal you buy, never a
+# recurring *service* subscription. Two equal-amount grocery runs are a coincidence,
+# not a subscription, so expenses in these categories are not subscription candidates.
+_NON_SUBSCRIPTION_CATEGORIES = {
+    "Groceries", "Dining & Cafes", "Transport & Fuel", "Tobacco",
+    "Travel", "Health & Pharmacy", "Taxes & Fees", "Uncategorized", "Income",
+}
+
 # Tokens that are noise in bank descriptions, never a brand.
 _NOISE_WORDS = {
     "POS", "PURCHASE", "PAYMENT", "PScloudMENT", "CARD", "DEBIT", "CREDIT", "VISA",
@@ -88,9 +98,13 @@ def _collect_charges(
 ) -> list[dict[str, Any]]:
     charges: list[dict[str, Any]] = []
     for t in bank_txns:
-        amount = float(t.get("amount", 0))
-        if amount >= 0:  # income / credits are not subscriptions
+        # Only real purchases can be subscriptions. Credits, account top-ups,
+        # transfers, currency exchanges and ATM withdrawals are not (reuse the same
+        # classifier reconciliation uses — this is what kept "Revolut Bank"/top-ups
+        # out of the subscription list, see D23).
+        if not reconciliation.is_reconcilable(t) or t.get("no_receipt"):
             continue
+        amount = float(t.get("amount", 0))
         charges.append(
             {
                 "key": brand_key(t.get("description")),
@@ -103,6 +117,10 @@ def _collect_charges(
         )
     for e in expenses:
         if e.get("source") == "cash":
+            continue
+        # A grocery/dining/transport/etc. purchase is one-off consumption, not a
+        # recurring service — skip it as a subscription candidate even if it repeats.
+        if (e.get("category") or "") in _NON_SUBSCRIPTION_CATEGORIES:
             continue
         charges.append(
             {
@@ -177,9 +195,15 @@ def detect_subscriptions(
     bank_txns: list[dict[str, Any]],
     *,
     today: date | None = None,
-    min_occurrences: int = 2,
+    min_occurrences: int = 3,
 ) -> list[dict[str, Any]]:
-    """Return detected subscriptions, highest annual cost first."""
+    """Return detected subscriptions, highest annual cost first.
+
+    A subscription needs at least ``min_occurrences`` (default 3) charges of the
+    SAME amount on distinct dates: two equal charges is a coincidence, not a
+    recurring pattern, and you can't infer a cadence (or annualise it) from a
+    single gap — that was the source of bogus "€10/wk × 2 → €520/yr" detections.
+    """
     today = today or date.today()
     charges = _dedupe_cross_source(_collect_charges(expenses, bank_txns))
 
@@ -214,3 +238,64 @@ def detect_subscriptions(
 
     subs.sort(key=lambda s: s["annual_cost"], reverse=True)
     return subs
+
+
+def subscription_charges(
+    sub: dict[str, Any],
+    expenses: list[dict[str, Any]],
+    bank_txns: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """The individual charges behind a stored subscription — for visual confirmation.
+
+    Re-derives (doesn't store) the bank lines and card expenses that share this
+    subscription's brand + amount, using the SAME filters as detection, so the user
+    can see exactly which transactions (and their raw CSV rows) drove it.
+    """
+    target_key = brand_key(sub.get("vendor"))
+    try:
+        target_amt = round(abs(float(sub.get("amount") or 0)), 2)
+    except (TypeError, ValueError):
+        return []
+    if not target_key:
+        return []
+
+    out: list[dict[str, Any]] = []
+    for t in bank_txns:
+        if not reconciliation.is_reconcilable(t) or t.get("no_receipt"):
+            continue
+        if brand_key(t.get("description")) != target_key:
+            continue
+        amt = round(abs(float(t.get("amount") or 0)), 2)
+        if abs(amt - target_amt) > 0.01:
+            continue
+        out.append(
+            {
+                "date": str(t.get("txn_date"))[:10],
+                "label": t.get("description") or "—",
+                "amount": amt,
+                "source": "bank",
+                "raw": t.get("raw"),            # the exact CSV row, for the snapshot
+            }
+        )
+    for e in expenses:
+        if e.get("source") == "cash":
+            continue
+        if (e.get("category") or "") in _NON_SUBSCRIPTION_CATEGORIES:
+            continue
+        if brand_key(e.get("vendor")) != target_key:
+            continue
+        amt = round(abs(float(e.get("amount") or 0)), 2)
+        if abs(amt - target_amt) > 0.01:
+            continue
+        out.append(
+            {
+                "date": str(e.get("expense_date"))[:10],
+                "label": e.get("vendor") or "—",
+                "amount": amt,
+                "source": "card",
+                "expense_id": e.get("id"),
+                "category": e.get("category"),
+            }
+        )
+    out.sort(key=lambda c: c["date"])
+    return out

@@ -1975,3 +1975,46 @@ table.ledger tbody tr:hover {
   color: var(--text-dim);
   margin-top: 3px;
 }
+
+/* ---------- Advice — budget vs actual rows (v0.4) ---------- */
+.bud-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.bud-row:last-child { border-bottom: 0; }
+.bud-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bud-name { font-weight: 500; }
+.bud-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  overflow: hidden;
+}
+.bud-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  min-width: 2px;
+  transition: width 0.25s ease;
+}
+.bud-figs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.bud-of { color: var(--text-dim); }
+.bud-input {
+  width: 92px;
+  padding: 4px 8px;
+  text-align: right;
+}

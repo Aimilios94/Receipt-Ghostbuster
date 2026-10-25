@@ -1,5 +1,6 @@
 // Small presentational primitives used across pages.
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./icons.jsx";
 
 export function Card({ className = "", children, style, onClick, title }) {
@@ -71,7 +72,10 @@ export function Modal({ title, onClose, children, footer, width }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  // Rendered through a portal to <body> so the fixed overlay always anchors to the
+  // viewport — page containers (e.g. `.rise`) carry a transform, which would otherwise
+  // make `position: fixed` relative to them and push the modal off-screen.
+  return createPortal(
     <div className="overlay" onMouseDown={onClose}>
       <div
         className="modal"
@@ -90,7 +94,8 @@ export function Modal({ title, onClose, children, footer, width }) {
         {children}
         {footer ? <div className="modal-foot">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -8,6 +8,7 @@ import BankStatements from "./pages/BankStatements.jsx";
 import MonthlyClose from "./pages/MonthlyClose.jsx";
 import Ledger from "./pages/Ledger.jsx";
 import RefundHunter from "./pages/RefundHunter.jsx";
+import Advice from "./pages/Advice.jsx";
 import ModelEvals from "./pages/ModelEvals.jsx";
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/close" element={<MonthlyClose />} />
           <Route path="/ledger" element={<Ledger />} />
           <Route path="/refunds" element={<RefundHunter />} />
+          <Route path="/advice" element={<Advice />} />
           <Route path="/model-evals" element={<ModelEvals />} />
         </Route>
       </Routes>

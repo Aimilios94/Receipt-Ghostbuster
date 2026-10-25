@@ -13,6 +13,7 @@ import {
   exceptionExpense,
   flattenExceptions,
   LedgerTable,
+  InsightsFeed,
 } from "../components/sections.jsx";
 import { useSeen } from "../lib/useSeen.js";
 import { postedMessage } from "./ReviewQueue.jsx";
@@ -436,6 +437,7 @@ export default function Dashboard() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <CloseChecklist close={close} reviewCount={review.length} excCount={excList.length} />
+          <InsightsFeed month={month} />
           <RecurringPreview />
         </div>
       </div>

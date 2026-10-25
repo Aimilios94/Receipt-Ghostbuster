@@ -161,6 +161,19 @@ class RefundActionUpdate(BaseModel):
     saved_amount: float | None = None
 
 
+# --- v0.4: Advice -----------------------------------------------------------
+class CategoryBudgetUpdate(BaseModel):
+    """Set (or clear, with null) a category's monthly budget. Drives the
+    budget-vs-actual view and the over_budget nudge."""
+    budget_amount: float | None = Field(default=None, ge=0)
+
+
+class InsightDismiss(BaseModel):
+    """Dismiss (or restore) a rule-based insight. User-owned; preserved across
+    regeneration of the derived insight fields."""
+    dismissed: bool = True
+
+
 # --- Generic responses ------------------------------------------------------
 class Message(BaseModel):
     message: str

@@ -126,10 +126,25 @@ export const api = {
 
   // ----- categories -----
   categories: () => request("/categories").then((r) => r.categories),
+  setCategoryBudget: (id, budget_amount) =>
+    request(`/categories/${id}/budget`, { method: "POST", body: { budget_amount } }).then(
+      (r) => r.category
+    ),
+
+  // ----- advice / insights (v0.4) -----
+  // generate-on-read: deterministic + cheap, so fetching refreshes the feed.
+  insights: (month) =>
+    request(`/insights/generate${month ? `?month=${month}` : ""}`, { method: "POST" }).then(
+      (r) => r.insights
+    ),
+  dismissInsight: (id, dismissed = true) =>
+    request(`/insights/${id}`, { method: "POST", body: { dismissed } }).then((r) => r.insight),
 
   // ----- subscriptions (Phase 2 — Refund Hunter) -----
   detectSubscriptions: () => request("/subscriptions/detect", { method: "POST" }),
   listSubscriptions: () => request("/subscriptions").then((r) => r.subscriptions),
+  // The individual charges (bank lines + card expenses, with the raw CSV row) behind a subscription.
+  subscriptionCharges: (id) => request(`/subscriptions/${id}/charges`),
   updateSubscription: (id, patch) =>
     request(`/subscriptions/${id}`, { method: "POST", body: patch }).then((r) => r.subscription),
   draftRefundEmail: (id, action = "cancel") =>

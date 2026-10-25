@@ -52,8 +52,9 @@ def test_income_lines_are_ignored():
 
 def test_yearly_cadence_inferred():
     bank = [
-        _bank("b1", "DOMAIN RENEW", -15.00, "2025-09-01"),
-        _bank("b2", "DOMAIN RENEW", -15.00, "2026-09-01"),
+        _bank("b1", "DOMAIN RENEW", -15.00, "2024-09-01"),
+        _bank("b2", "DOMAIN RENEW", -15.00, "2025-09-01"),
+        _bank("b3", "DOMAIN RENEW", -15.00, "2026-09-01"),
     ]
     out = sub.detect_subscriptions([], bank, today=date(2026, 9, 10))
     assert len(out) == 1
@@ -63,29 +64,90 @@ def test_yearly_cadence_inferred():
 
 def test_stale_subscription_is_flagged():
     bank = [
-        _bank("b1", "GYM PLUS", -29.00, "2026-05-02"),
-        _bank("b2", "GYM PLUS", -29.00, "2026-06-02"),
+        _bank("b1", "GYM PLUS", -29.00, "2026-03-02"),
+        _bank("b2", "GYM PLUS", -29.00, "2026-04-02"),
+        _bank("b3", "GYM PLUS", -29.00, "2026-05-02"),
     ]
-    out = sub.detect_subscriptions([], bank, today=date(2026, 9, 30))  # ~4 months later
+    out = sub.detect_subscriptions([], bank, today=date(2026, 9, 30))  # ~4 months after last
     assert out[0]["suggested_flag"] is True
 
 
 def test_card_expense_and_bank_line_counted_once():
     # Same charge appears as a card expense AND its matching bank line each month.
     expenses = [
-        {"id": "e1", "source": "card", "vendor": "Adobe", "amount": 24.99, "expense_date": "2026-08-21"},
-        {"id": "e2", "source": "card", "vendor": "Adobe", "amount": 24.99, "expense_date": "2026-09-21"},
+        {"id": "e1", "source": "card", "vendor": "Adobe", "amount": 24.99, "expense_date": "2026-07-21"},
+        {"id": "e2", "source": "card", "vendor": "Adobe", "amount": 24.99, "expense_date": "2026-08-21"},
+        {"id": "e3", "source": "card", "vendor": "Adobe", "amount": 24.99, "expense_date": "2026-09-21"},
     ]
     bank = [
-        _bank("b1", "ADOBE CREATIVE 11", -24.99, "2026-08-21"),
-        _bank("b2", "ADOBE CREATIVE 22", -24.99, "2026-09-21"),
+        _bank("b1", "ADOBE CREATIVE 11", -24.99, "2026-07-21"),
+        _bank("b2", "ADOBE CREATIVE 22", -24.99, "2026-08-21"),
+        _bank("b3", "ADOBE CREATIVE 33", -24.99, "2026-09-21"),
     ]
     out = sub.detect_subscriptions(expenses, bank, today=date(2026, 9, 30))
     assert len(out) == 1
     s = out[0]
-    assert s["occurrences"] == 2          # not 4 — cross-source de-duped
+    assert s["occurrences"] == 3          # not 6 — cross-source de-duped per date
     assert s["source"] == "mixed"
     assert s["cadence"] == "monthly"
+
+
+def test_two_occurrences_is_not_a_subscription():
+    # Two equal charges is a coincidence, not a recurring pattern (new ≥3 rule).
+    bank = [
+        _bank("b1", "NETFLIX", -13.99, "2026-08-12"),
+        _bank("b2", "NETFLIX", -13.99, "2026-09-12"),
+    ]
+    assert sub.detect_subscriptions([], bank, today=date(2026, 9, 30)) == []
+
+
+def test_topups_and_transfers_are_not_subscriptions():
+    # Three equal Revolut transfers/top-ups must NOT be flagged — they're not purchases.
+    bank = [
+        {"id": "b1", "description": "Revolut Bank", "amount": -10.0, "txn_date": "2026-07-09", "raw": {"Type": "TRANSFER"}},
+        {"id": "b2", "description": "Revolut Bank", "amount": -10.0, "txn_date": "2026-08-09", "raw": {"Type": "TRANSFER"}},
+        {"id": "b3", "description": "Revolut Bank", "amount": -10.0, "txn_date": "2026-09-09", "raw": {"Type": "TRANSFER"}},
+    ]
+    assert sub.detect_subscriptions([], bank, today=date(2026, 9, 30)) == []
+
+
+def test_subscription_charges_lists_members_with_csv_row():
+    sub_row = {"vendor": "Spotify", "amount": 9.99}
+    bank = [
+        {"id": "b1", "description": "SPOTIFY P1", "amount": -9.99, "txn_date": "2026-07-10", "raw": {"Type": "CARD_PAYMENT", "Description": "Spotify"}},
+        {"id": "b2", "description": "SPOTIFY P2", "amount": -9.99, "txn_date": "2026-08-10", "raw": {"Type": "CARD_PAYMENT"}},
+        {"id": "bx", "description": "NETFLIX", "amount": -9.99, "txn_date": "2026-08-11"},  # same amount, diff brand — excluded
+    ]
+    expenses = [
+        {"id": "e1", "source": "card", "vendor": "Spotify", "amount": 9.99, "expense_date": "2026-09-10", "category": "Entertainment"},
+    ]
+    out = sub.subscription_charges(sub_row, expenses, bank)
+    assert len(out) == 3                                   # 2 bank + 1 card; Netflix excluded
+    assert [c["source"] for c in out] == ["bank", "bank", "card"]
+    assert out[0]["date"] == "2026-07-10"                  # sorted by date
+    assert out[0]["raw"]["Description"] == "Spotify"       # the raw CSV row is carried through
+
+
+def test_subscription_charges_excludes_topups_and_groceries():
+    sub_row = {"vendor": "Continente", "amount": 4.14}
+    bank = [
+        {"id": "b1", "description": "Revolut Bank", "amount": -4.14, "txn_date": "2026-07-01", "raw": {"Type": "TRANSFER"}},
+    ]
+    expenses = [
+        {"id": "e1", "source": "card", "vendor": "Continente", "amount": 4.14, "expense_date": "2026-07-06", "category": "Groceries"},
+    ]
+    # Transfer isn't a purchase; the grocery expense isn't a subscription candidate.
+    assert sub.subscription_charges(sub_row, expenses, bank) == []
+
+
+def test_grocery_category_expense_is_not_a_subscription():
+    # Even three equal-amount grocery runs are one-off consumption, not a subscription.
+    expenses = [
+        {"id": "e1", "source": "card", "vendor": "Continente", "amount": 4.14, "expense_date": "2026-07-06", "category": "Groceries"},
+        {"id": "e2", "source": "card", "vendor": "Continente", "amount": 4.14, "expense_date": "2026-08-06", "category": "Groceries"},
+        {"id": "e3", "source": "card", "vendor": "Continente", "amount": 4.14, "expense_date": "2026-09-06", "category": "Groceries"},
+    ]
+    assert sub.detect_subscriptions(expenses, [], today=date(2026, 9, 30)) == []
 
 
 def test_cash_is_never_a_subscription():
@@ -110,10 +172,12 @@ def test_staleness_and_annotate():
 
 def test_sorted_by_annual_cost_desc():
     bank = [
-        _bank("b1", "NETFLIX", -13.99, "2026-08-12"),
-        _bank("b2", "NETFLIX", -13.99, "2026-09-12"),
-        _bank("b3", "ADOBE", -24.99, "2026-08-21"),
-        _bank("b4", "ADOBE", -24.99, "2026-09-21"),
+        _bank("b1", "NETFLIX", -13.99, "2026-07-12"),
+        _bank("b2", "NETFLIX", -13.99, "2026-08-12"),
+        _bank("b3", "NETFLIX", -13.99, "2026-09-12"),
+        _bank("b4", "ADOBE", -24.99, "2026-07-21"),
+        _bank("b5", "ADOBE", -24.99, "2026-08-21"),
+        _bank("b6", "ADOBE", -24.99, "2026-09-21"),
     ]
     out = sub.detect_subscriptions([], bank, today=date(2026, 9, 30))
     assert [s["vendor"].upper()[:5] for s in out] == ["ADOBE", "NETFL"]
