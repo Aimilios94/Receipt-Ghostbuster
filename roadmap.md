@@ -177,21 +177,26 @@ Status: **shipped.** Backend tests **207 → 222**. No new model dependency; $0 
 
 ---
 
-## v0.5 — Refund Hunter chatbot (NL Q&A) ⬜
+## v0.5 — Ask chatbot (NL Q&A) 🚧
 
 **Goal:** let the user *ask* their money questions in plain language — "which day did I spend the most this
-month?", "which week do I usually spend least?", "how much went to Groceries vs last month?" — on top of the
-same one ledger, not just read dashboards.
+month?", "what do I buy most at Pingo Doce?", "send me the CSV for 1–18 Oct", "how much went to Groceries vs
+last month?" — on top of the same one ledger, not just read dashboards.
 
-Planned scope (design: [docs/design/chatbot.md](docs/design/chatbot.md)):
-- **Tool-calling architecture** — the LLM selects and sequences **analytics functions that compute every
-  number in code** (extending [D1](DECISIONS.md) "the AI never does math" to Q&A); it never free-form sums or
-  invents figures.
-- **Grounded answers only** — responses cite the computed result; a question outside the data is declined.
-- **Evaluation built-in** — deterministic questions have a **computable exact ground truth** (so they're
-  scored without a judge); open-ended answers get a **calibrated LLM-as-judge** for faithfulness.
+Scope — **Slice 1 shipped (v0.5.0)**, see [D40](DECISIONS.md), [Round 10](feedback-notes.md):
+- ✅ **Tool-calling architecture** — the LLM selects and parameterises **analytics functions that compute every
+  number in code** (`app/services/analytics.py`, pure + unit-tested; extends [D1](DECISIONS.md) "the AI never does
+  the math" to Q&A). Never free-form arithmetic, never text-to-SQL.
+- ✅ **Grounded + direct answers** — natural language (no tool jargon), declines out-of-scope questions without
+  inventing a figure, no app-navigation nagging.
+- ✅ **Rich inline results** — receipt images inline (→ lightbox), a transactions table + **Download CSV** for a
+  date range, an expandable grouped-by-vendor expense list, named products + a "most bought" tool.
+- ✅ **Honest subscription reasoning** — `subscription_candidates` reuses Refund Hunter's eligibility (cash + one-off
+  consumption never count) and cross-references the user's ledger categories; flags candidates only within one month.
+- ⬜ **Evaluation built-in (Slice 2)** — deterministic *(question, fixed ledger) → exact answer* graded in code, plus
+  **tool-selection accuracy**; then (Slice 3) a **calibrated LLM-as-judge** for faithfulness and prompt/response caching.
 
-Status: **planned** — not started.
+Status: **in progress** — Slice 1 shipped (v0.5.0); the eval harness + calibrated judge are the next slices.
 
 ---
 

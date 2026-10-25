@@ -6,7 +6,78 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-25, day 13 — Round-9 testing: idempotent bank re-upload + a spending breakdown; shipped v0.4.2)
+## 🟢 RESUME HERE — current status (as of 2026-10-25, day 14 — v0.5 Ask chatbot, Slice 1 + a long Round-10 session; shipped v0.5.0)
+
+**Day 14 built and shipped `v0.5.0` — the Ask chatbot (Slice 1):** natural-language Q&A over the ledger, built as
+**tool-calling over a fixed, pure, unit-tested analytics surface** — the model picks the calculation, but **every
+number is computed in code** ([D40](DECISIONS.md), extends [D1](DECISIONS.md) from extraction → Advice → Q&A). A long,
+real **Round 10** testing session then shaped it. Backend tests **241 → 262**. Committed and pushed to `main`
+(verify `git log`). Verified end-to-end against live Supabase + in the browser.
+
+**What day 14 did ([D40](DECISIONS.md), [feedback-notes Round 10](feedback-notes.md), v0.5.0):**
+- **New `/ask` page + chatbot** — `app/services/analytics.py` (pure analytics, unit-tested over a fixed ledger),
+  `app/services/chat.py` (the gpt-5-mini tool-calling loop + typed attachments), `app/routers/chat.py` (read-only,
+  per-user), `frontend/src/pages/Ask.jsx` (chat UI + sidebar `Icon.chat`), `api.chat`. Tools: total/by-day/by-category/
+  by-vendor spend, compare months, top expenses, `expense_details` (named products), `top_products`, VAT, active
+  subscriptions, **`subscription_candidates`**, transfers, **`expenses_in_range`**, **`bank_transactions`**, **`get_receipt`**.
+- **Round-10 shaping (all real feedback):** natural answers (no tool/JSON jargon) + direct (no app-navigation nagging);
+  **named products** surfaced from each expense's `raw_extraction.line_items` (the queryable line items are VAT-rate
+  *buckets*) → `expense_details` + a "Products on this receipt" section in the detail modal + `top_products`; **typed
+  attachments** the UI renders — **receipt images inline** (→ lightbox), a **transactions table + Download CSV** for a
+  date range, and an **expandable grouped-by-vendor list** (compact rows → click a vendor for a detail popup, the
+  Breakdown pattern); **strict subscription rules** — cash and one-off consumption are NEVER subscriptions
+  (`subscription_candidates` reuses `subscriptions._collect_charges` + `is_reconcilable`, and cross-references the
+  user's own ledger categories to drop category-less grocery/transport bank lines); flags candidates only within one month.
+- **Tests:** `backend/tests/test_analytics.py` — the numbers are provably right over a fixed ledger regardless of the
+  model (spend/day/category/compare/top/VAT/products/top-products/range/transfers/subscription-candidates + tool dispatch
+  + attachment builders). **255 → 262.**
+
+**Honest limits (stated in [D40](DECISIONS.md)):** "most often" needs multi-month data to be meaningful; bank-only merchants
+with no ledger expense can't be auto-categorised (a future "categorize bank lines" feature). **Deferred to the next
+slices** (`docs/design/chatbot.md`): **Slice 2** = a built-in eval harness (deterministic *(question, fixed ledger) →
+exact answer* graded in code + **tool-selection accuracy**); **Slice 3** = a **calibrated LLM-as-judge** for faithfulness
++ prompt/response caching (OpenAI already auto-caches the stable system+tools prefix; an explicit response cache must be
+keyed on a ledger-state fingerprint so it invalidates when data changes — do it once the surface is locked).
+
+### 👋 Message to the next agent (READ THIS — understand the project in full before touching it)
+**Why this project exists** (shapes every priority): it's engineered to SHOW that the author works like a **product
+engineer** — ship small → test for real → capture feedback → decide → iterate, with the LLM layer **measured and
+observed**, not asserted. The repo is the artifact of that process. Keep job-seeking framing OUT of committed docs
+([[no-job-seeking-framing-in-docs]]); present the engineering on its own merits.
+
+**Read, in this order, before acting:**
+1. `NEXT-AGENT-PROMPT.md` (local, not committed) — the concepts, the sacred rules, how to run it.
+2. This **day-14 RESUME** → day-13 → day-12 → day-11 (each is a shipped milestone).
+3. Auto-memory: `C:\Users\aimilios\.claude\projects\C--Users-aimilios-Desktop-CV-creation\memory\` — `MEMORY.md`
+   index, then `receipt-ghostbuster-status.md` (the running state).
+4. **`DECISIONS.md` D1–D40** (Problem→Evidence→Decision→Result) — this is *why* the product is the way it is. Do NOT
+   re-litigate settled decisions.
+5. **`feedback-notes.md` Rounds 1–10** — the real testing record every decision traces back to.
+6. `roadmap.md` (v0.1→v0.5.0 shipped; v0.5 Slices 2–3, v0.6 payslip next), `problem-statement.md`, and
+   `docs/design/chatbot.md` (the v0.5 design contract).
+
+**The sacred rules (do not break):**
+- **AUTHENTICITY** — real testing → real `feedback-notes` → real decisions. NEVER invent a feedback round or a metric.
+  Round 10 WAS a real user session, so it is logged; engineering-only work is logged as `[eng]` decisions, not fake rounds.
+- **THE AI IS NEVER TRUSTED BLINDLY ([D1](DECISIONS.md))** — the model only reads/selects; a confidence gate + deterministic
+  guardrails decide posting; ALL math (VAT, reconciliation, close, Advice, chatbot answers) is computed in code. The
+  chatbot ([D40](DECISIONS.md)) extends this to Q&A — never let it do arithmetic.
+- **Settled facts:** reading/chatbot model = gpt-5-mini; cash is excluded from reconciliation ([D3](DECISIONS.md)) and is never
+  a subscription; subscriptions need ≥3 same-amount charges across months ([D37](DECISIONS.md)); the 1-day reconcile-date match
+  is by design ([D25](DECISIONS.md)); bank re-upload is idempotent ([D38](DECISIONS.md)).
+- **PII:** the real bank CSV (`docs/screenshots/*.csv`, `account-statement*`) and the untracked `docs/screenshots/*`
+  images are **git-ignored / local-only** — never commit them; `NEXT-AGENT-PROMPT.md` stays local too.
+
+**Next step (agreed flow):** v0.5 **Slice 2 — the chatbot eval harness** (then Slice 3 judge/caching), then pre-public
+polish → flip the repo PUBLIC → put it on the CV. Confirm with the user before building — this is a feedback-driven project.
+
+**Ops:** ONE backend uvicorn, **no `--reload`**; restart via the Windows `Get-NetTCPConnection -LocalPort 8000 …
+Stop-Process` one-liner; run the stack (n8n `docker start receipt-ghostbuster-n8n`, backend `:8000`, frontend `:5173`);
+check the two 7-day expiries before any demo ([[demo-prep-7day-expiries]]).
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-25, day 13 — Round-9 testing: idempotent bank re-upload + a spending breakdown; shipped v0.4.2)
 
 **Day 13 was a real `Round 9` testing session driven by the user re-uploading a fuller Revolut statement.** It
 shipped **v0.4.2**: bank-statement re-upload is now **idempotent** (an overlapping re-upload adds only the new

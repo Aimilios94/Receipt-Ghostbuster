@@ -3,6 +3,19 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.0] — 2026-10-25
+
+**v0.5 — Ask chatbot (Slice 1).** Natural-language Q&A over the ledger, built as **tool-calling over a fixed, unit-tested analytics surface** — the model interprets the question and picks the calculation, but **every number is computed in code** ([D40](DECISIONS.md), extends [D1](DECISIONS.md) from extraction → Advice → Q&A). Shaped by a real [Round 10](feedback-notes.md) testing session. Backend tests **241 → 262**. No new provider (reuses gpt-5-mini).
+
+### Added
+- **Ask page (`/ask`)** — a chat UI (sidebar entry) that answers questions over your own ledger: spend by day/category/vendor, compare months, top expenses, VAT, transfers (third parties vs own-Revolut), subscriptions, and more. Read-only, per-user, grounded; declines out-of-scope questions without inventing a figure.
+- **Analytics surface** (`app/services/analytics.py`, pure + unit-tested) + a tool-calling loop (`app/services/chat.py`) + `POST /chat` (`app/routers/chat.py`). Tools include `total_spend`, `spend_by_day/category/vendor`, `compare_category`, `top_expenses`, `expense_details`, `top_products`, `vat_paid`, `active_subscriptions`, `subscription_candidates`, `transfers_summary`, `expenses_in_range`, `bank_transactions`, `get_receipt`.
+- **Named products in answers + the detail popup** — product names were already stored in each expense's `raw_extraction` (the queryable line items are VAT-rate buckets); surfaced now, with a `top_products` tool for "what do I buy most often" and a **"Products on this receipt"** section in the expense-detail modal.
+- **Rich inline attachments** — the chat renders **receipt images inline** (click → lightbox), a **transactions table with a Download CSV button** for a date range (reads the de-duplicated stored transactions, so values are current regardless of file), and an **expandable grouped-by-vendor expense list** (click a vendor → a detail popup).
+- **Subscription reasoning that can't be fooled** — `subscription_candidates` reuses Refund Hunter's exact eligibility (cash and one-off consumption never count, [D3](DECISIONS.md)/[D23](DECISIONS.md)/[D37](DECISIONS.md)) and cross-references the user's own ledger categories to exclude category-less grocery/transport bank lines; within one month it flags candidates only.
+
+Deferred to later slices (`docs/design/chatbot.md`): a built-in eval harness (deterministic question→answer + tool-selection accuracy) and a calibrated LLM-as-judge for faithfulness, plus prompt/response caching.
+
 ## [0.4.2] — 2026-10-25
 
 From a **Round 9** testing session: re-uploading a fuller bank statement is now safe, and a new **spending breakdown** (by vendor, third parties, own-account movements) is reachable from both Reconciliation and the Ledger, drillable to each transaction. Backend tests **227 → 241**.

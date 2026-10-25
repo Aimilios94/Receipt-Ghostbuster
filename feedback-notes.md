@@ -259,3 +259,53 @@ breakdown (by vendor; third parties sent/received; own-account movements) + stat
 the user can see a statement's raw CSV and a vendor / third-party / own-account spending breakdown drillable to
 each transaction. Backend tests **227 → 241**, all verified in-browser against live Supabase; the real bank CSV
 stays out of the repo (PII). The 1-day reconcile-date difference was confirmed as by-design, not a bug.
+
+---
+
+## Round 10 — 2026-10-25 (self-testing, developer) — the v0.5 Ask chatbot, shaped by real questions
+
+**Setup:** local build (backend `:8000` gpt-5-mini, frontend `:5173`, n8n `:5678`), live Supabase, the real October
+data. After building the chatbot's first slice (`/ask`, tool-calling over the analytics surface), a driving session
+asking real questions exposed a string of UX and correctness gaps — each fixed and re-verified live.
+
+**What was exercised:** NL questions over the ledger → answer format → expense/day detail → product names →
+"most often" → receipts → CSV/transactions for a date range → range expense lists → subscription reasoning.
+
+**Observations & fixes (all shipped same day, see [D40](DECISIONS.md)):**
+
+- **Answers leaked tool jargon.** Replies named internal tools/keys ("spend_by_day", "max_day", "top_expenses").
+  → **FIXED:** prompt rewritten so answers read like a person wrote them (€, natural dates, vendor + category
+  named); the tool tags still show under each reply for auditability. *"3 October 2026 — €48.24 at Pingo Doce (Groceries)."*
+- **"What did that expense contain?" couldn't see products.** The stored `expense_line_items` are VAT-rate *buckets*
+  labelled "Items"; the real product names were being discarded on the printed-VAT path. → **FIXED:** the names were
+  actually already persisted in each expense's `raw_extraction.line_items` — surfaced them. `expense_details` returns
+  named products, the detail popup gained a **"Products on this receipt"** section, and a new **`top_products`** tool
+  answers "what do I buy most often" (honest: needs repeat buys to be meaningful). No new table / re-scan.
+- **"I want the receipt photo" → app-navigation instructions.** The bot told the user to open the app and tap a
+  thumbnail instead of showing it, and kept asking clarifying questions. → **FIXED:** a `get_receipt` tool + **typed
+  attachments** so the Ask page renders the **receipt image inline** (click → lightbox); prompt made direct (no
+  navigation steps, no "would you like me to…" nagging).
+- **"Send me the CSV for 1–18 Oct" → (no answer).** No tool existed. → **FIXED:** `bank_transactions` tool → a
+  **transactions table + Download CSV button** inline; reads the de-duplicated stored transactions (D38), so the
+  figures are current regardless of which uploaded file a row came from.
+- **A long expense list was unreadable** (one flat row per expense). → **FIXED:** `expenses_in_range` → a
+  **grouped-by-vendor** list; first built as an inline expand which the user disliked ("letters too big, bloated,
+  looks bad"), so reworked to **compact rows → click a vendor for a detail popup** (the Breakdown pattern), even when
+  a vendor has a single expense.
+- **Cash and dining wrongly treated as possible subscriptions.** Asked which no-receipt/online payments might be a
+  subscription, the bot listed **cash** restaurant expenses. → **FIXED ([D40](DECISIONS.md)):** a `subscription_candidates`
+  tool reusing Refund Hunter's exact eligibility ([D3](DECISIONS.md)/[D23](DECISIONS.md)/[D37](DECISIONS.md)) — cash and one-off
+  consumption never count — plus a **cross-reference of the user's own ledger categories** so category-less grocery/
+  transport bank lines (Continente, Pingo Doce, Uber) are excluded too; strict prompt rules reinforce it. Flags
+  candidates only within one month and says confirmation needs ≥3 charges across months. **Honest limit:** bank-only
+  merchants with no ledger expense can't be categorised (a future "categorize bank lines" feature).
+
+**Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D40 — the chatbot answers via tool-calling over a fixed,
+unit-tested analytics surface; the AI never does the math; grounded + direct; typed attachments (inline receipts,
+CSV table, grouped-expandable lists); strict cash/consumption subscription rules.
+
+**Round 10 outcome:** the Ask chatbot became genuinely useful and honest — grounded numbers computed in code,
+natural answers, inline receipts and CSV export, readable grouped lists, and subscription reasoning that can't be
+fooled by cash or consumption. Backend tests **255 → 262** (pure analytics unit-tested over a fixed ledger). All
+verified live against the real October data; the first slice of v0.5 is shipped, with the eval harness + calibrated
+judge as the next slices.
