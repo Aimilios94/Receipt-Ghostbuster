@@ -3,6 +3,17 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.1] — 2026-10-25
+
+**v0.5 — Ask chatbot (Slice 2): the eval harness.** The chatbot now ships with its own measured quality story ([D41](DECISIONS.md), extends [D30](DECISIONS.md) from extraction to Q&A). Engineering only — no user-facing change; `feedback-notes.md` untouched. Backend tests **262 → 272**.
+
+### Added
+- **Chatbot eval harness** (`backend/scripts/eval_chatbot.py` + `backend/eval/chatbot/`) over a **committed, synthetic** fixed ledger (`ledger.json`) and a labelled question set (`questions.json`) — public-safe and reproducible, unlike the git-ignored extraction receipts. Scores three things: **tool_selection** (did gpt-5-mini call the right analytics tool with the right args — the key metric), **answer_correctness** (dispatch the tool over the ledger and compare the computed figure to the expected answer — graded in **code**, no LLM judge), and **refusal** (out-of-scope questions must call no tool). On the fixed set: **tool-selection 18/18, answer-correctness 18/18, refusal 5/5**.
+- **Two run modes, mirroring the extraction eval** — an offline `--check` (dispatch-only, deterministic, no API key) gated in CI against `baseline.mock.json`, and a `--live` run (real gpt-5-mini, per-question cached) gated locally against `baseline.json`. The shared `scripts/check_regression.py` is reused verbatim. Two CI steps added to `.github/workflows/ci.yml`.
+- **Unit tests** (`backend/tests/test_eval_chatbot.py`) for the scoring helpers + an offline pass over the committed fixture; the tool-calling loop in `services/chat.py` is now driven offline via a small non-breaking `client=None` injection param.
+
+Deferred (Slice 3, `docs/design/chatbot.md`): a calibrated LLM-as-judge for prose faithfulness + prompt/response caching.
+
 ## [0.5.0] — 2026-10-25
 
 **v0.5 — Ask chatbot (Slice 1).** Natural-language Q&A over the ledger, built as **tool-calling over a fixed, unit-tested analytics surface** — the model interprets the question and picks the calculation, but **every number is computed in code** ([D40](DECISIONS.md), extends [D1](DECISIONS.md) from extraction → Advice → Q&A). Shaped by a real [Round 10](feedback-notes.md) testing session. Backend tests **241 → 262**. No new provider (reuses gpt-5-mini).

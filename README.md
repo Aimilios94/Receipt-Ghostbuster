@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Aimilios94/Receipt-Ghostbuster/actions/workflows/ci.yml/badge.svg)](https://github.com/Aimilios94/Receipt-Ghostbuster/actions/workflows/ci.yml)
 [![extraction accuracy](https://img.shields.io/badge/extraction_accuracy-99.3%25-brightgreen)](backend/eval/RESULTS.md)
+[![chatbot tool-selection](https://img.shields.io/badge/chatbot_tool--selection-100%25-brightgreen)](backend/eval/chatbot/RESULTS.md)
 
 **A personal money assistant that turns messy expenses into a clean, reconciled, VAT-split ledger — snap a receipt or type a cash expense, and it extracts, categorizes, reconciles against your bank, hunts dead subscriptions, and runs your month-end.**
 

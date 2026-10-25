@@ -1,0 +1,10 @@
+# Cached live model responses + per-question detail (regenerated; no need to commit).
+.cache/
+results.detail.json
+
+# Throwaway outputs from the offline/CI check run (--check -> *.mock.*).
+# The committed metrics.json / RESULTS.md stay the real (live) numbers;
+# baseline.mock.json + baseline.json ARE committed (do not ignore them).
+metrics.mock.json
+RESULTS.mock.md
+results.detail.mock.json

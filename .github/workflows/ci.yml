@@ -56,3 +56,22 @@ jobs:
           python scripts/check_regression.py
           --metrics eval/metrics.mock.json
           --baseline eval/baseline.mock.json
+
+      - name: Chatbot eval — offline check (deterministic)
+        # The chatbot answers via tool-calling over a fixed synthetic ledger (D40); the
+        # ledger + labelled questions are committed (synthetic, no PII), so this runs
+        # fully offline. --check dispatches each question's expected tool over the ledger
+        # and verifies the computed figure — no API key, no model. It measures
+        # answer_correctness (the analytics surface); the model-dependent tool-selection /
+        # refusal numbers run locally against eval/chatbot/baseline.json.
+        run: >
+          python scripts/eval_chatbot.py --check
+          --metrics-out eval/chatbot/metrics.mock.json
+          --results-out eval/chatbot/RESULTS.mock.md
+          --detail-out eval/chatbot/results.detail.mock.json
+
+      - name: Chatbot eval — regression gate (deterministic)
+        run: >
+          python scripts/check_regression.py
+          --metrics eval/chatbot/metrics.mock.json
+          --baseline eval/chatbot/baseline.mock.json

@@ -217,15 +217,19 @@ def answer_question(
     settings: Settings,
     *,
     today: datetime.date | None = None,
+    client: Any | None = None,
 ) -> dict[str, Any]:
     """Run the tool-calling loop and return {answer, used_tools, grounded}.
 
     `used_tools` records each analytics call (name + args) so the answer is
     auditable; `grounded` is true when at least one tool produced the numbers.
+    `client` is an optional injected OpenAI-compatible client (used by the eval
+    harness / tests to drive the loop offline); when None the live client is built.
     """
-    from openai import OpenAI
+    if client is None:
+        from openai import OpenAI
 
-    client = wrap_openai_if_enabled(OpenAI(api_key=settings.openai_api_key))
+        client = wrap_openai_if_enabled(OpenAI(api_key=settings.openai_api_key))
     token_arg = (
         {"max_completion_tokens": 4000}
         if settings.openai_model.lower().startswith(("gpt-5", "o1", "o3", "o4"))

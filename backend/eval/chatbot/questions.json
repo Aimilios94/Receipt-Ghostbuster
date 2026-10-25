@@ -1,0 +1,137 @@
+{
+  "_note": "Labelled chatbot eval set (v0.5 Slice 2). Each 'answerable' entry has an expected_tool (name + args; may be a LIST of acceptable alternatives) and an expected_answer that must be a DEEP SUBSET of the tool result (floats matched within 0.01; lists matched by membership). 'refusal' entries have no tool — a correct refusal calls NO analytics tool. Ground truth is computed over ledger.json with a fixed eval today of 2026-10-31. See README.md.",
+  "today": "2026-10-31",
+  "questions": [
+    {
+      "id": "q01", "kind": "answerable",
+      "question": "How much did I spend in total in October?",
+      "expected_tool": {"name": "total_spend", "args": {"month": "2026-10"}},
+      "expected_answer": {"total": 138.99, "count": 6}
+    },
+    {
+      "id": "q02", "kind": "answerable",
+      "question": "Which day did I spend the most this month?",
+      "expected_tool": {"name": "spend_by_day", "args": {"month": "2026-10"}},
+      "expected_answer": {"max_day": {"date": "2026-10-20", "total": 50.00}}
+    },
+    {
+      "id": "q03", "kind": "answerable",
+      "question": "Which day in October did I spend the least?",
+      "expected_tool": {"name": "spend_by_day", "args": {"month": "2026-10"}},
+      "expected_answer": {"min_day": {"date": "2026-10-13", "total": 10.99}}
+    },
+    {
+      "id": "q04", "kind": "answerable",
+      "question": "Break down my October spending by category.",
+      "expected_tool": {"name": "spend_by_category", "args": {"month": "2026-10"}},
+      "expected_answer": {"by_category": {"Groceries": 80.00, "Dining & Cafes": 48.00, "Software & Subscriptions": 10.99}, "total": 138.99}
+    },
+    {
+      "id": "q05", "kind": "answerable",
+      "question": "How much more did I spend on Groceries in October than in September?",
+      "expected_tool": {"name": "compare_category", "args": {"category": "Groceries", "month_a": "2026-10", "month_b": "2026-09"}},
+      "expected_answer": {"total_a": 80.00, "total_b": 30.00, "delta": 50.00, "pct_change": 166.7}
+    },
+    {
+      "id": "q06", "kind": "answerable",
+      "question": "What were my 3 biggest expenses in October?",
+      "expected_tool": {"name": "top_expenses", "args": {"month": "2026-10", "n": 3}},
+      "expected_answer": {"items": [{"vendor": "Pingo Doce", "amount": 50.00}, {"vendor": "Egyptian Restaurant", "amount": 30.00}]}
+    },
+    {
+      "id": "q07", "kind": "answerable",
+      "question": "What did I buy at Pingo Doce on 20 October?",
+      "expected_tool": {"name": "expense_details", "args": {"date": "2026-10-20", "vendor": "Pingo Doce"}},
+      "expected_answer": {"count": 1, "expenses": [{"vendor": "Pingo Doce", "amount": 50.00, "products": [{"description": "BANANAS"}, {"description": "BREAD"}]}]}
+    },
+    {
+      "id": "q08", "kind": "answerable",
+      "question": "What do I buy most often?",
+      "expected_tool": {"name": "top_products", "args": {}},
+      "expected_answer": {"products": [{"product": "BANANAS", "count": 2}]}
+    },
+    {
+      "id": "q09", "kind": "answerable",
+      "question": "How much VAT did I pay in October?",
+      "expected_tool": {"name": "vat_paid", "args": {"period": "2026-10"}},
+      "expected_answer": {"period": "2026-10", "vat": 6.80}
+    },
+    {
+      "id": "q10", "kind": "answerable",
+      "question": "How much VAT have I paid in 2026 overall?",
+      "expected_tool": {"name": "vat_paid", "args": {"period": "2026"}},
+      "expected_answer": {"period": "2026", "vat": 8.60}
+    },
+    {
+      "id": "q11", "kind": "answerable",
+      "question": "What are my active subscriptions and their yearly cost?",
+      "expected_tool": {"name": "active_subscriptions", "args": {}},
+      "expected_answer": {"count": 2, "total_annual": 131.88, "subscriptions": [{"vendor": "Netflix", "annual_cost": 131.88}]}
+    },
+    {
+      "id": "q12", "kind": "answerable",
+      "question": "Which of my payments might be a subscription?",
+      "expected_tool": {"name": "subscription_candidates", "args": {}},
+      "expected_answer": {"candidates": [{"merchant": "YouTube Premium"}]}
+    },
+    {
+      "id": "q13", "kind": "answerable",
+      "question": "Where did my money go by merchant in October?",
+      "expected_tool": {"name": "spend_by_vendor", "args": {"month": "2026-10"}},
+      "expected_answer": {"vendors": [{"vendor": "Pingo Doce", "total": 50.00}]}
+    },
+    {
+      "id": "q14", "kind": "answerable",
+      "question": "Who did I send money to or receive money from?",
+      "expected_tool": {"name": "transfers_summary", "args": {}},
+      "expected_answer": {"third_parties": {"total_sent": 500.00, "total_received": 100.00}, "own_movements": {"total_sent": 10.00}}
+    },
+    {
+      "id": "q15", "kind": "answerable",
+      "question": "List my expenses between 5 and 12 October.",
+      "expected_tool": {"name": "expenses_in_range", "args": {"date_from": "2026-10-05", "date_to": "2026-10-12"}},
+      "expected_answer": {"count": 4, "total": 78.00}
+    },
+    {
+      "id": "q16", "kind": "answerable",
+      "question": "Send me the bank transactions from 1 to 8 October as a CSV.",
+      "expected_tool": {"name": "bank_transactions", "args": {"date_from": "2026-10-01", "date_to": "2026-10-08"}},
+      "expected_answer": {"count": 4, "total_out": 530.83, "total_in": 1000.00}
+    },
+    {
+      "id": "q17", "kind": "answerable",
+      "question": "Show me the receipt for Pingo Doce on 20 October.",
+      "expected_tool": [
+        {"name": "get_receipt", "args": {"date": "2026-10-20", "vendor": "Pingo Doce"}},
+        {"name": "get_receipt", "args": {"vendor": "Pingo Doce"}}
+      ],
+      "expected_answer": {"count": 1, "expenses": [{"vendor": "Pingo Doce", "has_receipt": true}]}
+    },
+    {
+      "id": "q18", "kind": "answerable",
+      "question": "How much did I spend at Continente in October?",
+      "expected_tool": {"name": "spend_by_vendor", "args": {"month": "2026-10"}},
+      "expected_answer": {"vendors": [{"vendor": "Continente", "total": 30.00}]}
+    },
+    {
+      "id": "r01", "kind": "refusal",
+      "question": "What's the weather in Lisbon today?"
+    },
+    {
+      "id": "r02", "kind": "refusal",
+      "question": "Should I buy Tesla stock?"
+    },
+    {
+      "id": "r03", "kind": "refusal",
+      "question": "What's the capital of France?"
+    },
+    {
+      "id": "r04", "kind": "refusal",
+      "question": "Can you show me my neighbour's expenses?"
+    },
+    {
+      "id": "r05", "kind": "refusal",
+      "question": "What should I invest my savings in to get rich?"
+    }
+  ]
+}

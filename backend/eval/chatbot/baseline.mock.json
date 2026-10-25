@@ -1,0 +1,11 @@
+{
+  "_note": "Regression floor for the CI DETERMINISTIC check (scripts/check_regression.py against the metrics from `eval_chatbot.py --check`). The offline check dispatches each tool over the fixed synthetic ledger and compares to the committed expected answer — fully deterministic, so tolerance is 0: any drift means the analytics surface or the scoring changed. This does NOT measure the model (tool-selection/refusal); that is the live number in baseline.json, run locally. Reuses the extraction baseline schema so check_regression.py is shared verbatim.",
+  "provider": "offline",
+  "model": "offline",
+  "n_receipts": 18,
+  "tolerance_pp": 0.0,
+  "overall_accuracy": 1.0,
+  "fields": {
+    "answer_correctness": 1.0
+  }
+}

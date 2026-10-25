@@ -1,0 +1,13 @@
+{
+  "_note": "Regression floor for the LIVE chatbot eval (scripts/check_regression.py against the metrics from `eval_chatbot.py --live`, run locally with the OpenAI key; the per-question cache makes re-runs deterministic & free). Observed on gpt-5-mini: tool_selection 18/18, answer_correctness 18/18, refusal 5/5 = 100% overall. Floors are set BELOW the observed number with a tolerance band because the model layer is non-deterministic (unlike the cached, deterministic answer check in baseline.mock.json). Refresh deliberately together with metrics.json when the set grows or the tool surface changes. Reuses the extraction baseline schema so check_regression.py is shared verbatim.",
+  "provider": "openai",
+  "model": "gpt-5-mini",
+  "n_receipts": 18,
+  "tolerance_pp": 2.0,
+  "overall_accuracy": 0.95,
+  "fields": {
+    "tool_selection": 0.9,
+    "answer_correctness": 0.9,
+    "refusal": 0.8
+  }
+}

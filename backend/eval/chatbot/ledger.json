@@ -1,0 +1,64 @@
+{
+  "_note": "SYNTHETIC fixed test ledger for the chatbot eval harness (v0.5 Slice 2). NOT real data — safe to commit, unlike the git-ignored extraction receipts. Spans 2026-09 and 2026-10 so month-over-month and 'most often' questions are answerable. Covers: income + a pending-review row (both excluded from spend), cash vs card, named products (top_products), a receipt image (get_receipt), a card SaaS charge + an online card charge (subscription candidates), a grocery bank line that must be excluded via the ledger-category cross-reference, and person vs own-account transfers. Use a FIXED eval `today` of 2026-10-31 so 'this month' is deterministic.",
+  "expenses": [
+    {
+      "id": "e1", "expense_date": "2026-10-05", "amount": 20.00, "category": "Groceries",
+      "vendor": "Continente", "vat_amount": 1.20, "vat_rate": 6, "source": "card", "status": "posted",
+      "receipt_image_url": "https://example.test/receipts/continente-1005.jpg",
+      "raw_extraction": {"line_items": [
+        {"description": "BANANAS", "amount": 2.00, "vat_rate": 6},
+        {"description": "MILK 1L", "amount": 3.00, "vat_rate": 6}
+      ]}
+    },
+    {
+      "id": "e2", "expense_date": "2026-10-05", "amount": 10.00, "category": "Groceries",
+      "vendor": "Continente", "vat_amount": 0.60, "vat_rate": 6, "source": "card", "status": "posted"
+    },
+    {
+      "id": "e3", "expense_date": "2026-10-20", "amount": 50.00, "category": "Groceries",
+      "vendor": "Pingo Doce", "vat_amount": 3.00, "vat_rate": 6, "source": "card", "status": "posted",
+      "receipt_image_url": "https://example.test/receipts/pingo-1020.jpg",
+      "raw_extraction": {"line_items": [
+        {"description": "BANANAS", "amount": 2.00, "vat_rate": 6},
+        {"description": "BREAD", "amount": 1.50, "vat_rate": 6}
+      ]}
+    },
+    {
+      "id": "e4", "expense_date": "2026-10-09", "amount": 18.00, "category": "Dining & Cafes",
+      "vendor": "Uber Eats", "vat_amount": 2.00, "vat_rate": 23, "source": "card", "status": "posted"
+    },
+    {
+      "id": "e5", "expense_date": "2026-10-12", "amount": 30.00, "category": "Dining & Cafes",
+      "vendor": "Egyptian Restaurant", "source": "cash", "status": "posted"
+    },
+    {
+      "id": "e6", "expense_date": "2026-10-13", "amount": 10.99, "category": "Software & Subscriptions",
+      "vendor": "YouTube Premium", "source": "card", "status": "posted"
+    },
+    {
+      "id": "e7", "expense_date": "2026-10-01", "amount": 1000.00, "category": "Income",
+      "vendor": "Salary", "source": "card", "status": "posted"
+    },
+    {
+      "id": "e8", "expense_date": "2026-10-30", "amount": 999.00, "category": "Groceries",
+      "vendor": "Mystery Shop", "source": "card", "status": "pending_review"
+    },
+    {
+      "id": "e9", "expense_date": "2026-09-15", "amount": 30.00, "category": "Groceries",
+      "vendor": "Continente", "vat_amount": 1.80, "vat_rate": 6, "source": "card", "status": "posted"
+    }
+  ],
+  "bank": [
+    {"id": "b1", "txn_date": "2026-10-07", "amount": -0.83, "description": "fal.ai", "balance": 85.00, "raw": {"Type": "Card Payment"}},
+    {"id": "b2", "txn_date": "2026-10-06", "amount": -30.00, "description": "Continente", "balance": 85.83, "raw": {"Type": "Card Payment"}},
+    {"id": "b3", "txn_date": "2026-10-08", "amount": -500.00, "description": "Transfer to Piero", "raw": {"Type": "Transfer"}},
+    {"id": "b4", "txn_date": "2026-10-20", "amount": 100.00, "description": "Transfer from Christina", "raw": {"Type": "Transfer"}},
+    {"id": "b5", "txn_date": "2026-10-17", "amount": -10.00, "description": "Revolut Bank UAB", "raw": {"Type": "Transfer"}},
+    {"id": "b6", "txn_date": "2026-10-02", "amount": 1000.00, "description": "Salary", "raw": {"Type": "Topup"}}
+  ],
+  "subscriptions": [
+    {"vendor": "Netflix", "amount": 10.99, "cadence": "monthly", "annual_cost": 131.88, "status": "active", "last_seen": "2026-10-01"},
+    {"vendor": "Gym Plus", "amount": 29.00, "cadence": "monthly", "annual_cost": 348.00, "status": "cancelled", "last_seen": "2026-05-01"}
+  ],
+  "line_items": {}
+}

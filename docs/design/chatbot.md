@@ -1,8 +1,10 @@
 # Design — Refund Hunter chatbot (natural-language Q&A)
 
-*Status: design only (planned as v0.5). Nothing here is built yet. This doc fixes the architecture and
-the evaluation approach up front so the build stays honest and testable — the same way DECISIONS.md fixes
-"why" before code.*
+*Status: **built**. Slice 1 (the chatbot) shipped as v0.5.0 ([D40](../../DECISIONS.md)); Slice 2 (the eval
+harness — items 1, 2 and 4 below) shipped as [D41](../../DECISIONS.md) (`backend/scripts/eval_chatbot.py`
++ `backend/eval/chatbot/`). Slice 3 (item 3, the calibrated LLM-as-judge, + prompt/response caching) is
+still planned. This doc fixed the architecture and the evaluation approach up front so the build stayed
+honest and testable — the same way DECISIONS.md fixes "why" before code.*
 
 ## Problem
 
@@ -62,20 +64,24 @@ Grounded answer  ◄──computed numbers──
 
 The chatbot is highly evaluable, and in a way that mostly avoids an LLM judge:
 
-1. **Deterministic questions have a computable exact ground truth.** "Which day had the most expenses in
-   October?" has one correct answer the analytics function itself produces over a fixed test ledger. So the
-   eval set is pairs of *(question, fixed ledger) → exact expected answer*, graded by **code**, no judge
-   needed. This covers most real questions.
-2. **Tool-selection accuracy.** Given a question, did the model call the **right** analytics function with the
-   **right** arguments? Scored deterministically against a labelled expected tool-call — this is the LLM's
-   actual job here, so it's the key metric.
-3. **Faithfulness / grounding (LLM-as-judge, calibrated).** For open-ended phrasing, a judge checks the prose
-   answer **follows from the computed numbers** (no added/changed figures). The judge is **calibrated against
-   human labels** on a sample before it's trusted — an uncalibrated judge is just vibes with extra cost.
-4. **Refusal correctness.** Out-of-scope / unanswerable questions should be declined, not answered — scored
-   on a small adversarial set.
-5. **Multi-model + cost/latency.** Reuse the `eval_models.py` pattern to compare models on tool-selection
-   accuracy, latency and cost, and trace live calls to LangSmith like extraction does.
+1. ✅ **(Slice 2)** **Deterministic questions have a computable exact ground truth.** "Which day had the most
+   expenses in October?" has one correct answer the analytics function itself produces over a fixed test
+   ledger. So the eval set is pairs of *(question, fixed ledger) → exact expected answer*, graded by **code**,
+   no judge needed. This covers most real questions. *(Shipped: `eval_chatbot.py` `answer_correctness`, graded
+   by dispatching the tool over `eval/chatbot/ledger.json` — deterministic, runs in CI.)*
+2. ✅ **(Slice 2 — key metric)** **Tool-selection accuracy.** Given a question, did the model call the
+   **right** analytics function with the **right** arguments? Scored deterministically against a labelled
+   expected tool-call — this is the LLM's actual job here, so it's the key metric. *(Shipped: `--live`
+   `tool_selection`, 18/18 on gpt-5-mini.)*
+3. ⬜ **(Slice 3)** **Faithfulness / grounding (LLM-as-judge, calibrated).** For open-ended phrasing, a judge
+   checks the prose answer **follows from the computed numbers** (no added/changed figures). The judge is
+   **calibrated against human labels** on a sample before it's trusted — an uncalibrated judge is just vibes
+   with extra cost. *(Not built — Slice 2 verifies the figure is tool-derived, not the prose.)*
+4. ✅ **(Slice 2)** **Refusal correctness.** Out-of-scope / unanswerable questions should be declined, not
+   answered — scored on a small adversarial set. *(Shipped: `--live` `refusal`, a correct refusal calls no
+   analytics tool — 5/5.)*
+5. ⬜ **(later)** **Multi-model + cost/latency.** Reuse the `eval_models.py` pattern to compare models on
+   tool-selection accuracy, latency and cost, and trace live calls to LangSmith like extraction does.
 
 This means the chatbot ships with its own measured quality story from day one, consistent with D26/D30.
 

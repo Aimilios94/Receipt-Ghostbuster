@@ -6,7 +6,93 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-25, day 14 — v0.5 Ask chatbot, Slice 1 + a long Round-10 session; shipped v0.5.0)
+## 🟢 RESUME HERE — current status (as of 2026-10-25, day 15 — v0.5 Ask chatbot, Slice 2: the eval harness; shipped v0.5.1)
+
+**Day 15 built and shipped `v0.5.1` — the chatbot EVAL HARNESS (Slice 2).** The chatbot ([D40](DECISIONS.md)) now
+ships with its own measured quality story ([D41](DECISIONS.md), extends [D30](DECISIONS.md) from extraction → Q&A).
+This is **engineering-only work** → logged as an `[eng]` decision, **NOT** a fake testing round; `feedback-notes.md`
+is deliberately untouched. Backend tests **262 → 272**.
+
+**What day 15 did ([D41](DECISIONS.md), v0.5.1):**
+- **New harness** `backend/scripts/eval_chatbot.py` + `backend/eval/chatbot/` over a **committed, SYNTHETIC** fixed
+  ledger (`ledger.json`) and a labelled question set (`questions.json` — 18 answerable + 5 refusal, with a fixed eval
+  `today` of 2026-10-31). The synthetic ledger is **public-safe and committed** — the deliberate contrast to the
+  git-ignored *real* extraction receipts.
+- **Three metrics, graded in CODE (no LLM judge):** **tool_selection** (did gpt-5-mini call the right analytics tool
+  with the right args — the key metric, the LLM's real job), **answer_correctness** (dispatch the tool over the ledger
+  and deep-subset-compare the computed figure to the expected answer), **refusal** (out-of-scope questions — weather,
+  stock tips, another user's data — must call NO tool). Prose faithfulness is deliberately **left to Slice 3**.
+- **Two run modes, mirroring the extraction eval's "real-number-local / deterministic-mock-in-CI" split:** offline
+  `--check` (dispatch-only, no API key, deterministic) gated in CI against `baseline.mock.json`; `--live` (real
+  gpt-5-mini, per-question cached under `.cache/`) gated locally against `baseline.json`. The shared
+  `scripts/check_regression.py` is reused **verbatim** (chatbot baselines use its schema; chatbot `fields` =
+  `tool_selection` / `answer_correctness` / `refusal`).
+- **Results (live, gpt-5-mini, over the fixed set):** tool-selection **18/18**, answer-correctness **18/18**, refusal
+  **5/5** = **100% overall**; offline check is deterministic 100% and gated in CI. Floors in `baseline.json` sit BELOW
+  the observed number with a tolerance band because the model layer is non-deterministic (unlike the deterministic
+  mock gate, tolerance 0). Honest caveat kept in the docs: 100% is over a **small 18-question fixed set** by design —
+  reproducible + public-safe, not a large sample; growing it is an easy documented follow-up.
+- **Tests + plumbing:** `backend/tests/test_eval_chatbot.py` (+10 → **272**) unit-tests the scoring helpers
+  (`deep_subset`, `args_match`, `tool_call_matches`, `refusal_ok`), the offline pass over the committed fixture, and
+  drives `answer_question`'s tool-calling loop **offline** via an injected stub client — enabled by a small,
+  non-breaking `client=None` param added to `services/chat.py`. Two steps added to `.github/workflows/ci.yml`.
+- **Docs updated:** `DECISIONS.md` **D41**, `docs/design/chatbot.md` (stale "nothing built yet" status flipped; eval
+  items 1/2/4 marked ✅ Slice 2, item 3 ⬜ Slice 3), `roadmap.md` (Slice 2 ✅), `CHANGELOG.md` `[0.5.1]`, `README.md`
+  (a `chatbot tool-selection 100%` badge beside the extraction one). `feedback-notes.md` NOT touched (authenticity).
+
+**Deferred next — Slice 3** (`docs/design/chatbot.md`): a **calibrated LLM-as-judge** for prose faithfulness (calibrated
+against human labels on a sample before it's trusted — an uncalibrated judge is "vibes with extra cost") + **prompt/
+response caching** (OpenAI already auto-caches the stable system+tools prefix; an explicit response cache must key on a
+ledger-state fingerprint so it invalidates on data change — do it once the tool surface is locked). Optional: a
+multi-model tool-selection matrix (the `eval_models.py` parallel); grow the eval set beyond 18.
+
+### 👋 Message to the next agent (READ THIS — understand the project in full before touching it)
+**Why this project exists** (shapes every priority): it's engineered to SHOW the author works like a **product
+engineer** — ship small → test for real → capture feedback → decide → iterate, with the LLM layer **measured and
+observed**, not asserted. The repo is the artifact of that process. Keep job-seeking framing OUT of committed docs
+([[no-job-seeking-framing-in-docs]]); present the engineering on its own merits.
+
+**Read, in this order, before acting:**
+1. `NEXT-AGENT-PROMPT.md` (local, not committed) — the concepts, the sacred rules, how to run it, and the current
+   SLICE-3 kickoff at the bottom.
+2. This **day-15 RESUME** → day-14 → day-13 → day-12 → day-11 (each is a shipped milestone, newest first).
+3. Auto-memory: `C:\Users\aimilios\.claude\projects\C--Users-aimilios-Desktop-CV-creation\memory\` — `MEMORY.md`
+   index, then `receipt-ghostbuster-status.md` (the running state).
+4. **`DECISIONS.md` D1–D41** (Problem→Evidence→Decision→Result) — this is *why* the product is the way it is. Do NOT
+   re-litigate settled decisions. **D40** = the chatbot (tool-calling, AI never does the math); **D41** = its eval harness.
+5. **`feedback-notes.md` Rounds 1–10** — the real testing record every decision traces back to. (Day 15 added NO round
+   — it was `[eng]`; respect that the file ends at Round 10.)
+6. `roadmap.md` (v0.1→v0.5.1 shipped; v0.5 Slice 3, v0.6 payslip next), `problem-statement.md`, and
+   `docs/design/chatbot.md` (the v0.5 design contract — its "Evaluation" section is now annotated with what shipped).
+7. The actual eval code you'll extend: `backend/scripts/eval_chatbot.py`, `backend/eval/chatbot/README.md` +
+   `ledger.json` + `questions.json` + `baseline*.json`, and the chatbot it tests (`app/services/analytics.py`,
+   `app/services/chat.py`, `app/routers/chat.py`).
+
+**The sacred rules (do not break):**
+- **AUTHENTICITY** — real testing → real `feedback-notes` → real decisions. NEVER invent a feedback round or a metric.
+  Engineering-only work (like day 15's harness) is logged as an `[eng]` decision, not a fake round.
+- **THE AI IS NEVER TRUSTED BLINDLY ([D1](DECISIONS.md))** — the model only reads/selects; all math (VAT, reconcile, close,
+  Advice, chatbot answers) is computed in code. The chatbot ([D40](DECISIONS.md)) extends this to Q&A; the eval ([D41](DECISIONS.md))
+  grades the *figure* and the *tool choice* in code, and leaves prose-faithfulness grading to a calibrated judge (Slice 3).
+- **Settled facts:** reading/chatbot model = gpt-5-mini; cash is excluded from reconciliation ([D3](DECISIONS.md)) and is never
+  a subscription; subscriptions need ≥3 same-amount charges across months ([D37](DECISIONS.md)); the 1-day reconcile-date match
+  is by design ([D25](DECISIONS.md)); bank re-upload is idempotent ([D38](DECISIONS.md)).
+- **PII:** the real bank CSV (`docs/screenshots/*.csv`, `account-statement*`) and the untracked `docs/screenshots/*`
+  images are **git-ignored / local-only** — never commit them; `NEXT-AGENT-PROMPT.md` stays local too. (The chatbot
+  eval ledger is the opposite — SYNTHETIC and committed on purpose.)
+
+**Next step (agreed flow):** the user wants to **discuss what's next in plan mode** — likely v0.5 **Slice 3** (calibrated
+LLM-as-judge + caching) OR pre-public polish (core-flow GIF + refreshed screenshots incl. Advice/Breakdown/Ask) →
+flip the repo PUBLIC → CV. Confirm the pick with the user before building — this is a feedback-driven project.
+
+**Ops:** ONE backend uvicorn, **no `--reload`**; restart via the Windows `Get-NetTCPConnection -LocalPort 8000 …
+Stop-Process` one-liner; run the stack (n8n `docker start receipt-ghostbuster-n8n`, backend `:8000`, frontend `:5173`);
+eval: `cd backend; .\.venv\Scripts\python.exe scripts\eval_chatbot.py --check` (offline) or `--live` (needs the key);
+check the two 7-day expiries before any demo ([[demo-prep-7day-expiries]]).
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-25, day 14 — v0.5 Ask chatbot, Slice 1 + a long Round-10 session; shipped v0.5.0)
 
 **Day 14 built and shipped `v0.5.0` — the Ask chatbot (Slice 1):** natural-language Q&A over the ledger, built as
 **tool-calling over a fixed, pure, unit-tested analytics surface** — the model picks the calculation, but **every

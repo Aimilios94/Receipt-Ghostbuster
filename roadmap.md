@@ -193,10 +193,15 @@ Scope — **Slice 1 shipped (v0.5.0)**, see [D40](DECISIONS.md), [Round 10](feed
   date range, an expandable grouped-by-vendor expense list, named products + a "most bought" tool.
 - ✅ **Honest subscription reasoning** — `subscription_candidates` reuses Refund Hunter's eligibility (cash + one-off
   consumption never count) and cross-references the user's ledger categories; flags candidates only within one month.
-- ⬜ **Evaluation built-in (Slice 2)** — deterministic *(question, fixed ledger) → exact answer* graded in code, plus
-  **tool-selection accuracy**; then (Slice 3) a **calibrated LLM-as-judge** for faithfulness and prompt/response caching.
+- ✅ **Evaluation built-in (Slice 2)** — see [D41](DECISIONS.md). A chatbot eval harness over a **committed
+  synthetic** fixed ledger (`backend/eval/chatbot/`, `scripts/eval_chatbot.py`): deterministic *(question,
+  ledger) → exact answer* graded in **code**, **tool-selection accuracy** (the key metric), and a **refusal**
+  set. Offline `--check` is gated in CI; the live gpt-5-mini run is gated locally. On the fixed set:
+  tool-selection 18/18, answer-correctness 18/18, refusal 5/5. Backend tests 262 → 272.
+- ⬜ **Slice 3** — a **calibrated LLM-as-judge** for prose faithfulness + prompt/response caching (keyed on a
+  ledger-state fingerprint); optionally a multi-model tool-selection matrix.
 
-Status: **in progress** — Slice 1 shipped (v0.5.0); the eval harness + calibrated judge are the next slices.
+Status: **in progress** — Slices 1–2 shipped (v0.5.0 + the eval harness); the calibrated judge is next.
 
 ---
 
