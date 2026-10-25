@@ -6,7 +6,94 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-25, day 15 — v0.5 Ask chatbot, Slice 2: the eval harness; shipped v0.5.1)
+## 🟢 RESUME HERE — current status (as of 2026-10-25, day 16 — v0.5 Ask chatbot, Slice 3: calibrated faithfulness judge + response cache; shipped v0.5.2 — v0.5 COMPLETE)
+
+**Day 16 built and shipped `v0.5.2` — Slice 3, which completes v0.5** ([D42](DECISIONS.md), `[eng]` — engineering-only,
+**NOT** a testing round; `feedback-notes.md` untouched). Two things: a **calibrated LLM-as-judge** for the chatbot's
+**prose faithfulness**, and a **response cache**. Backend tests **272 → 287**. Committed + pushed to `main` (head
+`59a6457`); CI green.
+
+**What day 16 did ([D42](DECISIONS.md), v0.5.2):**
+- **Faithfulness judge** `app/services/chat_judge.py` — a strict LLM grader that flags a chatbot prose answer as
+  *unfaithful* if any figure/claim is changed, contradicted, or absent from the tool results (parse failure fails
+  **safe** → unfaithful). It is **eval-time, NOT a per-request runtime gate** (a runtime judge would double cost/
+  latency; [D1](DECISIONS.md) already keeps every *number* tool-derived, so the prose has little room to drift).
+- **Calibrated before trusted** — `eval/chatbot/calibration.json` (14 committed, SYNTHETIC examples: 7 real chatbot
+  answers = *faithful* by construction + 7 copies with an injected/invented figure = *unfaithful*; labels
+  **human-confirmed** by the user). `scripts/eval_chatbot.py --judge` measures the judge's agreement
+  (`eval_metrics.judge_agreement`) → writes `eval/chatbot/CALIBRATION.md` + prints **TRUST/DO-NOT-TRUST** against a
+  bar (accuracy ≥ 90% AND 100% recall on unfaithful). **Result: 100% agreement · 100% caught-unfaithful · 100%
+  precision → TRUSTED.** Authentic loop: the FIRST run scored 79% (DO-NOT-TRUST) because the judge over-flagged the
+  `€` symbol as an "unsupported claim" + one calibration example had under-specified tool_results → fixed the judge
+  prompt (amounts are euros; a fact is supported if it appears in ANY tool result) + corrected the data → 100%.
+- **Live prose faithfulness** — `--live --judge` grades each real answer: **18/18 faithful** (as expected under D1).
+- **Response cache** `app/services/chat_cache.py` — an in-process LRU keyed on `sha1(question + ledger fingerprint +
+  model + user)`, so a repeated single-shot question over an UNCHANGED ledger skips the whole model round-trip and
+  any data change invalidates it automatically. Opt-in `CHAT_CACHE_ENABLED` (default on), on `/health`; only caches
+  when there's no conversation history. Non-breaking `use_cache`/`cache_scope` params on `chat.answer_question`;
+  the router passes `user_id`. Single-instance by design (prod → Redis; the key scheme carries over).
+- **Tests** `test_chat_judge.py` + `test_chat_cache.py` + extended `test_eval_metrics.py` (judge_agreement). The judge
+  call AND the cache integration are both driven **offline by a stub client**, so CI stays deterministic and the
+  judge stays local-only like `--live`. **272 → 287.** `baseline.json` gained a `faithfulness` floor (0.9).
+- **Docs:** `DECISIONS.md` **D42**, `docs/design/chatbot.md` (item 3 ✅ + status "v0.5 complete"), `roadmap.md`
+  (Slice 3 ✅, v0.5 header ✅), `CHANGELOG.md` `[0.5.2]`, `README.md` (`faithfulness judge — calibrated` badge),
+  `.env.example` (`CHAT_CACHE_ENABLED`), `eval/chatbot/README.md`. **`feedback-notes.md` NOT touched.**
+
+**v0.5 is now COMPLETE** — three honest slices: Slice 1 chatbot ([D40](DECISIONS.md), v0.5.0) · Slice 2 eval harness
+([D41](DECISIONS.md), v0.5.1) · Slice 3 calibrated judge + cache ([D42](DECISIONS.md), v0.5.2).
+
+**On unfaithful answers (how it actually works):** the 7 "unfaithful" calibration items are SYNTHETIC (injected to
+test the judge); the real answers are 18/18 faithful because D1 keeps numbers tool-derived. The judge **measures**
+faithfulness in the eval — it does not block a live reply. If the eval ever shows faithfulness dropping, the fix is
+the **system prompt in `chat.py`** (exactly like the `€`-symbol fix during calibration); a runtime gate stays a
+deferred option.
+
+### 👋 Message to the next agent (READ THIS — understand the project in full before touching it)
+**Why this project exists** (shapes every priority): it's engineered to SHOW the author works like a **product
+engineer** — ship small → test for real → capture feedback → decide → iterate, with the LLM layer **measured and
+observed**, not asserted. The repo is the artifact of that process. Keep job-seeking framing OUT of committed docs
+([[no-job-seeking-framing-in-docs]]); present the engineering on its own merits.
+
+**Read, in this order, before acting:**
+1. `NEXT-AGENT-PROMPT.md` (local, not committed) — the concepts, the sacred rules, how to run it, the current kickoff.
+2. This **day-16 RESUME** → day-15 → day-14 → day-13 → … (each is a shipped milestone, newest first).
+3. Auto-memory: `C:\Users\aimilios\.claude\projects\C--Users-aimilios-Desktop-CV-creation\memory\` — `MEMORY.md`
+   index, then `receipt-ghostbuster-status.md` (the running state).
+4. **`DECISIONS.md` D1–D42** (Problem→Evidence→Decision→Result). Do NOT re-litigate settled decisions. D40 = the
+   chatbot; D41 = its eval harness; D42 = the calibrated faithfulness judge + the response cache.
+5. **`feedback-notes.md` Rounds 1–10** — the real testing record. Days 15–16 added NO round (both `[eng]`); respect it.
+6. `roadmap.md` (v0.1→v0.5.2 shipped, v0.5 COMPLETE; next = pre-public polish then v0.6 payslip), `problem-statement.md`,
+   `docs/design/chatbot.md` (now "built — v0.5 complete", Evaluation section annotated with what shipped).
+7. The code you'll touch next is docs/screenshots/polish, not the chatbot — but if you extend the eval, read
+   `backend/scripts/eval_chatbot.py`, `backend/eval/chatbot/` (README + ledger + questions + calibration + baselines),
+   and `backend/app/services/{chat,chat_judge,chat_cache,analytics}.py`.
+
+**The sacred rules (do not break):**
+- **AUTHENTICITY** — real testing → real `feedback-notes` → real decisions. NEVER invent a feedback round or a metric.
+  Engineering-only work (days 15–16) is logged as `[eng]` decisions, not fake rounds.
+- **THE AI IS NEVER TRUSTED BLINDLY ([D1](DECISIONS.md))** — the model only reads/selects; all math is computed in code.
+  The chatbot (D40) extends this to Q&A; the eval (D41) grades figure + tool choice in code; the judge (D42) grades
+  prose faithfulness but is CALIBRATED against human labels before it's trusted (an uncalibrated judge is "vibes").
+- **Settled facts:** reading/chatbot model = gpt-5-mini; cash excluded from reconciliation ([D3](DECISIONS.md)) and never
+  a subscription; subscriptions need ≥3 same-amount charges across months ([D37](DECISIONS.md)); 1-day reconcile match is
+  by design ([D25](DECISIONS.md)); bank re-upload idempotent ([D38](DECISIONS.md)).
+- **PII:** the real bank CSV (`docs/screenshots/*.csv`, `account-statement*`) + untracked `docs/screenshots/*` images
+  are **git-ignored / local-only** — never commit them; `NEXT-AGENT-PROMPT.md` stays local. (The chatbot eval ledger +
+  calibration set are the OPPOSITE — SYNTHETIC and committed on purpose, so the eval is reproducible + public-safe.)
+
+**Next step (agreed flow):** v0.5 is done → **pre-public polish** (core-flow GIF + refresh the Oct-4 app screenshots to
+include Advice/Breakdown/Ask + LangSmith compare→26-set, crop the Sentry "after" shot) → **flip the repo PUBLIC** →
+put it on the CV. (Then v0.6 payslip is the next big milestone.) The user is about to plan the polish — confirm scope
+before doing screenshot/GIF work, since much of it needs the live app + the user driving.
+
+**Ops:** ONE backend uvicorn, **no `--reload`**; restart via the Windows `Get-NetTCPConnection -LocalPort 8000 …
+Stop-Process` one-liner; run the stack (n8n `docker start receipt-ghostbuster-n8n`, backend `:8000`, frontend `:5173`);
+chatbot eval: `cd backend; .\.venv\Scripts\python.exe scripts\eval_chatbot.py --check` (offline) / `--live` / `--judge`
+(need the key); check the two 7-day expiries before any demo ([[demo-prep-7day-expiries]]).
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-25, day 15 — v0.5 Ask chatbot, Slice 2: the eval harness; shipped v0.5.1)
 
 **Day 15 built and shipped `v0.5.1` — the chatbot EVAL HARNESS (Slice 2).** The chatbot ([D40](DECISIONS.md)) now
 ships with its own measured quality story ([D41](DECISIONS.md), extends [D30](DECISIONS.md) from extraction → Q&A).
