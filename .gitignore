@@ -29,3 +29,7 @@ Thumbs.db
 
 # ---- local sample uploads (keep the curated sample-data set) ----
 backend/uploads/
+
+# ---- real bank statements / data dropped into docs for local testing (PII) ----
+docs/screenshots/*.csv
+docs/screenshots/account-statement*

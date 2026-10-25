@@ -6,7 +6,69 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-25, day 12 — v0.4 Advice + a Round-8 testing round; shipped v0.4.0 + v0.4.1)
+## 🟢 RESUME HERE — current status (as of 2026-10-25, day 13 — Round-9 testing: idempotent bank re-upload + a spending breakdown; shipped v0.4.2)
+
+**Day 13 was a real `Round 9` testing session driven by the user re-uploading a fuller Revolut statement.** It
+shipped **v0.4.2**: bank-statement re-upload is now **idempotent** (an overlapping re-upload adds only the new
+rows and preserves reconciliation — it used to duplicate the overlap), and a new **Spending breakdown** (by
+vendor, and bank transfers split into third parties sent/received vs own-Revolut movements) is reachable from
+both Reconciliation and the Ledger, drillable to each transaction — plus a **"View CSV"** of a statement's raw
+source rows. Backend tests **227 → 241**. Everything verified end-to-end against live Supabase + in the browser.
+
+**Committed this session** (verify `git log`); **NOT pushed yet** unless you were asked — check `git status`.
+
+**What day 13 did ([D38](DECISIONS.md)/[D39](DECISIONS.md), [feedback-notes Round 9](feedback-notes.md), v0.4.2):**
+- **Idempotent re-upload (D38, fix).** `POST /bank/import` used to append a new statement + re-insert **every**
+  row (no dedup), so re-importing an overlapping period duplicated the overlap (unmatchable "needs receipt" lines
+  + double-counted totals). Now a pure, count-aware helper `services/statements.filter_new_transactions` fingerprints
+  each row (**date + amount + description + running balance**) and inserts only the genuinely-new rows; existing
+  reconciliation is untouched (`reconcile()` already skips matched rows). An all-overlap re-upload creates **no**
+  statement and returns *"nothing new"*; the toast reads *imported X · skipped Y already present*. The running
+  balance disambiguates legitimate same-day repeats (e.g. three equal €100 top-ups); a balance-free export falls
+  back to count alone. **Honest limit:** an overlap re-exported from a *different* statement whose balances differ
+  could re-import — raw timestamps are the fallback key if it bites.
+- **Spending breakdown (D39, feature).** `services/breakdown.py` (pure, LLM-free) + `GET /breakdown`: expenses
+  grouped **by vendor** (total each); bank **transfers** grouped by counterparty, split **sent/received**; the
+  user's **own-Revolut movements** (savings/fees) in their **own** section (not counted as third parties — reuses
+  the non-purchase classifier, D23). Each group carries its **items**; **clicking a row opens a small popup** with
+  the individual transactions (date · detail/note · amount) + a count/total footer. Surfaced from a **Breakdown**
+  button on Reconciliation (between *Match manually* / *Run reconciliation*) and a **Breakdown** chip on the Ledger
+  (after the status filters). `components/BreakdownModal.jsx`; `api.breakdown`.
+- **Statement "View CSV" (D39).** `StatementDetailModal` toggles to the exact imported source rows (stored `raw`
+  CSV, one column per header) — the statement-level analogue of opening a receipt. Settled rows only.
+- **UX iteration (real):** the breakdown drill-down started as an inline expand; the user disliked it ("looks
+  worse, bigger letters, I have to scroll") → reworked into the clean secondary popup. Own-Revolut transfers were
+  first excluded entirely, then (on the user's ask) given their own visible section.
+- **Confirmed by-design (not a bug):** reconciliation matching a receipt to a bank line **1 day apart** — Revolut's
+  *Completed Date* is typically a day after the purchase, and the reconcile window is ±3 days on purpose.
+- **Tests:** `test_statements.py` (re-upload dedup cases) + new `test_breakdown.py` (vendor/transfer grouping,
+  items, own-movement split). **227 → 241.** Regression gate untouched (extraction pipeline not changed).
+
+**Data note:** the real Revolut CSV the user tested with lives at `docs/screenshots/account-statement_*.csv` — it's
+**PII and git-ignored** (added `docs/screenshots/*.csv` + `account-statement*` to `.gitignore`). Never commit it.
+
+### 👋 Message to the next agent (read this)
+Working tree should be clean except the deliberately-local `NEXT-AGENT-PROMPT.md` + untracked
+`docs/screenshots/*` (PII images + the git-ignored bank CSV). **241 tests pass.** **Read, in order:** this day-13
+RESUME → day-12 → day-11 → the auto-memory (`MEMORY.md`, then `receipt-ghostbuster-status.md`) → **`DECISIONS.md`
+D1–D39** → **`feedback-notes.md` Rounds 1–9** → **`roadmap.md`**. Then:
+1. **Sacred rule: AUTHENTICITY.** Round 9 was a **real** user-driven testing session (a real re-upload gap, real
+   feature asks, a real UX rejection-and-rework), so it IS logged in `feedback-notes.md` Round 9 + D38/D39 — correct,
+   not a violation. Never invent a round.
+2. **Do NOT re-litigate settled decisions (D1–D39).** The 1-day reconcile-date match is **by design** (D25/reconcile
+   window); subscription detection needs **≥3** charges (D37); the breakdown and re-upload dedup are deterministic +
+   LLM-free. Reading model = gpt-5-mini.
+3. **Next step in the agreed flow:** Round-9 testing is done → **v0.5 chatbot** (`docs/design/chatbot.md`) is the next
+   milestone — NL Q&A over the ledger via tool-calling analytics (the AI never does the math, extends D1), grounded
+   answers, and a built-in eval (deterministic ground-truth + a calibrated LLM-as-judge). This is where the user wants
+   to do the answer-reliability / schema-validation / Instructor-taxonomy / unit+regression eval work. **Confirm with
+   the user before building** — then pre-public polish → flip the repo PUBLIC → CV.
+4. **Ops:** ONE backend uvicorn, **no `--reload`**; restart via the Windows `Get-NetTCPConnection -LocalPort 8000 …
+   Stop-Process` one-liner; check the two 7-day expiries before any demo (`demo-prep-7day-expiries`).
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-25, day 12 — v0.4 Advice + a Round-8 testing round; shipped v0.4.0 + v0.4.1)
 
 **Day 12 built and shipped `v0.4 — Advice` (the first milestone that *guides the next decision*), then ran a
 real `Round 8` testing session that made Advice actionable, hardened Refund Hunter's subscription detection,

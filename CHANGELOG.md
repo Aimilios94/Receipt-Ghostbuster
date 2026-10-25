@@ -3,6 +3,17 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.4.2] — 2026-10-25
+
+From a **Round 9** testing session: re-uploading a fuller bank statement is now safe, and a new **spending breakdown** (by vendor, third parties, own-account movements) is reachable from both Reconciliation and the Ledger, drillable to each transaction. Backend tests **227 → 241**.
+
+### Added
+- **Spending breakdown** ([D39](DECISIONS.md)) — a deterministic, LLM-free view (`app/services/breakdown.py`, `GET /breakdown`): **expenses grouped by vendor** (total paid to each) and **bank transfers grouped by counterparty**, split **sent vs received**, with the user's **own Revolut movements** (savings/fees) shown in their own section rather than counted as third parties (reuses the non-purchase classifier, [D23](DECISIONS.md)). Each group carries its individual items; **clicking a row opens a small popup** listing its transactions (date · detail/note · amount) with a count + total. Surfaced identically from a **Breakdown** button on Reconciliation (between *Match manually* and *Run reconciliation*) and a **Breakdown** chip on the Ledger (after the status filters). Extends [D10](DECISIONS.md) ("every number traces back to its source"). `backend/tests/test_breakdown.py`.
+- **"View CSV" on a statement** ([D39](DECISIONS.md)) — the statement detail now toggles to the **exact imported source rows** (the stored raw CSV, one column per original header), the statement-level analogue of opening a receipt image. Shows the settled rows that were imported (PENDING/REVERTED are skipped at import by design).
+
+### Fixed
+- **Bank-statement re-upload is now idempotent** ([D38](DECISIONS.md), [Round 9](feedback-notes.md)) — re-importing a statement that **overlaps** a previous one used to append a whole new statement and re-insert every row, duplicating the overlap (permanent unmatchable "needs receipt" lines + double-counted totals). Import is now **append-only and idempotent**: a pure, count-aware helper (`statements.filter_new_transactions`) fingerprints each row (**date + amount + description + running balance**) and inserts only the genuinely-new ones, preserving existing reconciliation; an all-overlap re-upload creates **no** statement and reports *"nothing new."* The import toast now reads *imported X · skipped Y already present*. `backend/tests/test_statements.py`.
+
 ## [0.4.1] — 2026-10-25
 
 From a **Round 8** testing session: made the Advice nudges actionable, hardened Refund Hunter's subscription detection against false positives, and fixed a latent modal-positioning bug. Backend tests **222 → 227**.

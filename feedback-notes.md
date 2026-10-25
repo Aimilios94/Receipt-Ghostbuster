@@ -206,3 +206,56 @@ The new opt-in **Sentry** error-tracking layer (v0.3.4) went in, then a real tes
 **Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D37 — a subscription is a real recurring pattern (≥3 same-amount charges, purchases only, services not retail), not a coincidence of two. Advice-nudge actionability and the modal-portal fix are recorded in the [CHANGELOG](CHANGELOG.md) (v0.4.1).
 
 **Round 8 outcome:** Advice became genuinely actionable; Refund Hunter stopped inventing subscriptions (false positives → 0 on the real data) and now shows the evidence behind each one; and a latent modal-positioning bug that affected every popup was fixed at the source. Backend tests **207 → 227**. All changes verified in-browser against live Supabase; any test rows seeded for a screenshot were deleted afterwards (no artifacts left in the real ledger).
+
+---
+
+## Round 9 — 2026-10-25 (self-testing, developer) — re-uploading a fuller bank statement + a spending breakdown
+
+**Setup:** local build (backend `:8000` gpt-5-mini, frontend `:5173`, n8n `:5678`), live Supabase. The user
+re-uploaded a **richer Revolut CSV** (`account-statement_2026-10-01_2026-10-25…`, covering 2–25 Oct) over the
+earlier 2–18 Oct import, then drove reconciliation and asked for two new views. The real bank CSV is PII and is
+kept **out of the repo** (git-ignored under `docs/screenshots/`).
+
+**What was exercised:** bank-statement **re-upload** over an overlapping period → reconciliation → a statement's
+raw-CSV view → a spending breakdown (by vendor, third parties, own-account movements) with drill-down.
+
+**Observations & fixes (all shipped same day):**
+
+- **"I'm about to re-upload a fuller statement — what happens to the overlap?"** Investigated the import path:
+  it **always appended** a new statement and re-inserted **every** row (no dedup), so the overlapping 2–18 Oct
+  transactions would be duplicated — showing as permanent unmatchable "needs receipt" lines and double-counting
+  totals, while the real reconciliation sat on the first copy. → **FIXED ([D38](DECISIONS.md)):** import is now
+  **idempotent/append-only** — a pure, count-aware helper fingerprints each row (date + amount + description +
+  running balance) and inserts only the genuinely-new rows, preserving existing reconciliation; if nothing is new
+  it creates no statement and says so. **Verified live:** re-uploading 1–25 Oct over 2–18 Oct added only the
+  19–25 Oct rows, no duplicates. (`test_statements.py`, 227 → 232.)
+- **Reconciliation matched real pairs that differ by one day on the date.** Noted, **not a bug** — Revolut's
+  *Completed Date* (what we reconcile on) is typically a day after the purchase/*Started Date*, so a receipt dated
+  Oct 9 matching a bank line completed Oct 10 is correct; the ±3-day reconcile window is there by design ([D25](DECISIONS.md)/
+  the reconcile settings). No change.
+- **"On a statement, let me see the real CSV the same way I can open a receipt."** → **BUILT ([D39](DECISIONS.md)):**
+  a **"View CSV"** toggle on the statement detail shows the exact imported source rows (the stored raw CSV, one
+  column per original header). Only settled rows are shown (PENDING/REVERTED are skipped at import by design).
+- **"Give me the expenses by vendor with the total paid to each, and the money I send to / receive from people
+  (third parties) — reachable from Reconciliation and the Ledger."** → **BUILT ([D39](DECISIONS.md)):** a
+  deterministic **Spending breakdown** — expenses grouped by vendor (total each), and bank transfers grouped by
+  counterparty split **sent / received** with totals. Surfaced from a **Breakdown** button on Reconciliation
+  (between *Match manually* and *Run reconciliation*) and a **Breakdown** chip on the Ledger (after the status
+  filters). (`test_breakdown.py`, 232 → 237.)
+- **"Those Revolut-to-Revolut transfers aren't third parties."** The first cut lumped *Revolut Ltd* / *Revolut
+  Bank UAB* transfers in with real people. → first excluded them entirely, but the user clarified **"I still need
+  to see them"** → **FIXED:** own-Revolut movements (savings/fees) now have their **own section**, shown but not
+  counted as third parties. (237 → 241.)
+- **"Let me click a vendor/person and see the individual transactions — amount, date, and any note."** → **BUILT:**
+  each breakdown row carries its individual items; clicking opens the detail. First done as an **inline expand**,
+  which the user disliked ("looks worse, letters bigger, I have to scroll") → **reworked into a small, clean
+  secondary popup** listing each transaction (date · detail/note · amount) with a count+total footer, so the main
+  list stays compact however many transactions a member has.
+
+**Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D38 idempotent bank-statement re-upload · D39 spending
+breakdown (by vendor; third parties sent/received; own-account movements) + statement View CSV.
+
+**Round 9 outcome:** re-uploading a fuller statement is now safe (only new rows added, reconciliation preserved);
+the user can see a statement's raw CSV and a vendor / third-party / own-account spending breakdown drillable to
+each transaction. Backend tests **227 → 241**, all verified in-browser against live Supabase; the real bank CSV
+stays out of the repo (PII). The 1-day reconcile-date difference was confirmed as by-design, not a bug.
