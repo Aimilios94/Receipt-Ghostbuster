@@ -1,10 +1,11 @@
 # Design — Refund Hunter chatbot (natural-language Q&A)
 
-*Status: **built**. Slice 1 (the chatbot) shipped as v0.5.0 ([D40](../../DECISIONS.md)); Slice 2 (the eval
-harness — items 1, 2 and 4 below) shipped as [D41](../../DECISIONS.md) (`backend/scripts/eval_chatbot.py`
-+ `backend/eval/chatbot/`). Slice 3 (item 3, the calibrated LLM-as-judge, + prompt/response caching) is
-still planned. This doc fixed the architecture and the evaluation approach up front so the build stayed
-honest and testable — the same way DECISIONS.md fixes "why" before code.*
+*Status: **built — v0.5 complete.** Slice 1 (the chatbot) shipped as v0.5.0 ([D40](../../DECISIONS.md)); Slice 2
+(the eval harness — items 1, 2, 4) shipped as [D41](../../DECISIONS.md); Slice 3 (item 3, the calibrated
+LLM-as-judge for prose faithfulness, + a response cache) shipped as [D42](../../DECISIONS.md)
+(`services/chat_judge.py`, `services/chat_cache.py`, `eval_chatbot.py --judge`). This doc fixed the
+architecture and the evaluation approach up front so the build stayed honest and testable — the same way
+DECISIONS.md fixes "why" before code.*
 
 ## Problem
 
@@ -73,10 +74,15 @@ The chatbot is highly evaluable, and in a way that mostly avoids an LLM judge:
    **right** analytics function with the **right** arguments? Scored deterministically against a labelled
    expected tool-call — this is the LLM's actual job here, so it's the key metric. *(Shipped: `--live`
    `tool_selection`, 18/18 on gpt-5-mini.)*
-3. ⬜ **(Slice 3)** **Faithfulness / grounding (LLM-as-judge, calibrated).** For open-ended phrasing, a judge
+3. ✅ **(Slice 3)** **Faithfulness / grounding (LLM-as-judge, calibrated).** For open-ended phrasing, a judge
    checks the prose answer **follows from the computed numbers** (no added/changed figures). The judge is
    **calibrated against human labels** on a sample before it's trusted — an uncalibrated judge is just vibes
-   with extra cost. *(Not built — Slice 2 verifies the figure is tool-derived, not the prose.)*
+   with extra cost. *(Shipped: `services/chat_judge.py`; `eval_chatbot.py --judge` calibrates it against
+   `calibration.json` → `CALIBRATION.md` (100% agreement, 100% recall on catching unfaithful → TRUSTED) and
+   `--live --judge` grades the prose of each real answer: 18/18 faithful. The first run over-flagged on the
+   `€` symbol and was fixed — the calibration earning its keep.)* **Plus** a response cache
+   (`services/chat_cache.py`) keyed on the ledger fingerprint, so a repeated question on unchanged data skips
+   the model and self-invalidates on any change.
 4. ✅ **(Slice 2)** **Refusal correctness.** Out-of-scope / unanswerable questions should be declined, not
    answered — scored on a small adversarial set. *(Shipped: `--live` `refusal`, a correct refusal calls no
    analytics tool — 5/5.)*

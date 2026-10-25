@@ -12,6 +12,7 @@ Quality of the NL Q&A chatbot (`/ask`, [D40]) over a **committed synthetic** fix
 | Tool-selection (right tool + args) | 100.0% | 18/18 |
 | Answer correctness (figure from the tool) | 100.0% | 18/18 |
 | Refusal (out-of-scope declined) | 100.0% | 5/5 |
+| Prose faithfulness (judge; calibrated — see CALIBRATION.md) | 100.0% | 18/18 |
 | **Overall** | **100.0%** | 41/41 |
 
 > `answer_correctness` is graded in **code** — the tool is dispatched over the fixed ledger and its structured result is compared to the expected figure (no LLM judge). `tool_selection` is the model's real job: did it call the right analytics tool with the right arguments. Prose faithfulness (does the sentence follow from the numbers) is a separate calibrated judge — see docs/design/chatbot.md, Slice 3.

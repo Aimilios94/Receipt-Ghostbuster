@@ -29,9 +29,11 @@ whole chatbot eval is reproducible by anyone and safe to run in CI.
 | **answer_correctness** | dispatch the tool over the fixed ledger, deep-subset-compare the structured result to the expected figure — graded in **code**, no judge | no — deterministic |
 | **tool_selection** | did the model call the right analytics tool with the right args (`used_tools`)? the key metric | yes |
 | **refusal** | out-of-scope questions (weather, stock tips, another user's data) must call **no** tool | yes |
+| **faithfulness** (Slice 3) | a **calibrated** LLM judge checks the prose answer follows from the tool results — no added/changed/invented figure. Calibrated against human-checked labels in `calibration.json` → `CALIBRATION.md` before it's trusted | yes |
 
-Prose faithfulness (does the sentence follow from the numbers?) is **not** graded here — that
-is the calibrated LLM-as-judge planned for Slice 3. We only verify the figure is tool-derived.
+The faithfulness judge (`app/services/chat_judge.py`) is **eval-time, not a per-request gate**
+(D1 already guarantees the numbers are tool-derived). It is only trusted if it clears a bar on
+the calibration set (accuracy ≥ 90% **and** 100% recall on catching the unfaithful answers).
 
 ## Run it
 
@@ -51,7 +53,15 @@ python scripts/eval_chatbot.py --live           # writes metrics.json + RESULTS.
 python scripts/eval_chatbot.py --live --refresh  # ignore the cache, re-call gpt-5-mini
 python scripts/check_regression.py \
   --metrics eval/chatbot/metrics.json --baseline eval/chatbot/baseline.json
+
+# calibrate the faithfulness judge against the human-checked labels (Slice 3)
+python scripts/eval_chatbot.py --judge          # -> CALIBRATION.md + TRUST/DO-NOT-TRUST verdict
+python scripts/eval_chatbot.py --live --judge   # also grades the prose of each real answer
 ```
+
+`calibration.json` holds the faithfulness examples (real answers = faithful; injected-error
+copies = unfaithful), human-spot-checked. Grow it the same way as `questions.json`, then re-run
+`--judge` and refresh the verdict in `CALIBRATION.md`.
 
 The live run caches each model response under `.cache/` keyed on the question + a ledger
 fingerprint + the model, so re-runs are free and the gate is deterministic in practice.

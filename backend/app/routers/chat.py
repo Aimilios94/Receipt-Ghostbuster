@@ -50,7 +50,8 @@ def ask(
     }
     try:
         return chat_service.answer_question(
-            body.message, [m.model_dump() for m in body.history], data, settings
+            body.message, [m.model_dump() for m in body.history], data, settings,
+            use_cache=settings.chat_cache_enabled, cache_scope=user_id,
         )
     except Exception as exc:  # noqa: BLE001 - surface a clean message (with CORS headers)
         monitoring.capture(exc, surface="chat.answer")

@@ -12,7 +12,7 @@ import json
 from typing import Any, Callable
 
 from ..config import Settings
-from . import analytics, monitoring
+from . import analytics, chat_cache, monitoring
 from .llm_trace import wrap_openai_if_enabled
 
 MAX_TOOL_HOPS = 5
@@ -218,6 +218,8 @@ def answer_question(
     *,
     today: datetime.date | None = None,
     client: Any | None = None,
+    use_cache: bool = False,
+    cache_scope: str = "",
 ) -> dict[str, Any]:
     """Run the tool-calling loop and return {answer, used_tools, grounded}.
 
@@ -225,7 +227,19 @@ def answer_question(
     auditable; `grounded` is true when at least one tool produced the numbers.
     `client` is an optional injected OpenAI-compatible client (used by the eval
     harness / tests to drive the loop offline); when None the live client is built.
+    `use_cache` returns a cached answer for a repeated single-shot question over an
+    unchanged ledger (the key includes a ledger fingerprint, so it self-invalidates);
+    only the app path enables it, so the eval/tests always get a fresh run. `cache_scope`
+    is the user id — part of the key.
     """
+    # Only a fresh, single-shot question is safely cacheable — multi-turn context
+    # (history) makes the answer non-idempotent.
+    cacheable = use_cache and not history
+    if cacheable:
+        hit = chat_cache.get_cached(message, data, settings.openai_model, cache_scope)
+        if hit is not None:
+            return {**hit, "cached": True}
+
     if client is None:
         from openai import OpenAI
 
@@ -253,13 +267,20 @@ def answer_question(
                 attachments.append(a)
                 seen.add(key)
 
+    def _finish(answer: str) -> dict[str, Any]:
+        result = {"answer": answer, "used_tools": used_tools,
+                  "grounded": bool(used_tools), "attachments": attachments}
+        if cacheable:
+            chat_cache.put_cached(message, data, settings.openai_model, result, cache_scope)
+        return result
+
     for _ in range(MAX_TOOL_HOPS):
         resp = client.chat.completions.create(
             model=settings.openai_model, messages=messages, tools=TOOLS, tool_choice="auto", **token_arg
         )
         msg = resp.choices[0].message
         if not msg.tool_calls:
-            return {"answer": msg.content or "", "used_tools": used_tools, "grounded": bool(used_tools), "attachments": attachments}
+            return _finish(msg.content or "")
         # Record the assistant's tool-call turn, then answer each tool call.
         messages.append({
             "role": "assistant", "content": msg.content or "",
@@ -281,9 +302,4 @@ def answer_question(
 
     # Ran out of hops — ask once more for a final answer without tools.
     resp = client.chat.completions.create(model=settings.openai_model, messages=messages, **token_arg)
-    return {
-        "answer": resp.choices[0].message.content or "",
-        "used_tools": used_tools,
-        "grounded": bool(used_tools),
-        "attachments": attachments,
-    }
+    return _finish(resp.choices[0].message.content or "")

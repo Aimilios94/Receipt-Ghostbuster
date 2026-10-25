@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import hashlib
 import json
 import re
 import sys
@@ -63,8 +62,17 @@ DETAIL_JSON = EVAL_DIR / "results.detail.json"
 sys.path.insert(0, str(BACKEND))
 from app.config import Settings  # noqa: E402
 from app.services import chat as chat_service  # noqa: E402
+from app.services import chat_cache  # noqa: E402
+from app.services import chat_judge  # noqa: E402
+from app.services import eval_metrics  # noqa: E402
 
 MONEY_TOL = 0.01
+CALIBRATION = EVAL_DIR / "calibration.json"
+CALIBRATION_MD = EVAL_DIR / "CALIBRATION.md"
+# The judge is only "trusted" if it clears this bar on the calibration set: it must
+# catch EVERY unfaithful answer (recall 1.0 — the safety-critical direction) and agree
+# with the human labels at least this often overall.
+JUDGE_TRUST_MIN_ACCURACY = 0.9
 
 
 # --------------------------------------------------------------------------- #
@@ -155,7 +163,7 @@ def refusal_ok(used_tools: list[dict[str, Any]]) -> bool:
 # Live model call (cached per question)
 # --------------------------------------------------------------------------- #
 def _ledger_fingerprint(ledger: dict[str, Any]) -> str:
-    return hashlib.sha1(json.dumps(ledger, sort_keys=True).encode("utf-8")).hexdigest()[:10]
+    return chat_cache.ledger_fingerprint(ledger)  # shared with the runtime cache (DRY)
 
 
 def _ask_live(question: str, ledger: dict[str, Any], settings: Settings,
@@ -176,6 +184,103 @@ def _ask_live(question: str, ledger: dict[str, Any], settings: Settings,
 
 
 # --------------------------------------------------------------------------- #
+# Faithfulness judge (v0.5 Slice 3) — needs the model, cached like --live
+# --------------------------------------------------------------------------- #
+def _tool_results_for(used_tools: list[dict[str, Any]], ledger: dict[str, Any]) -> list[dict[str, Any]]:
+    """Reconstruct the exact tool results the chatbot saw, by re-dispatching its
+    recorded calls over the ledger — the ground-truth facts the prose must match."""
+    return [chat_service.dispatch_tool(c.get("name"), dict(c.get("args") or {}), ledger) for c in used_tools]
+
+
+def _judge_cached(key: str, question: str, answer: str, tool_results: list[dict[str, Any]],
+                  settings: Settings, *, use_cache: bool) -> dict[str, Any]:
+    """Judge one answer, cached under `.cache/judge.<key>.<model>.json`."""
+    model_tag = re.sub(r"[^a-z0-9]+", "-", settings.openai_model.lower())
+    cache = CACHE_DIR / f"judge.{key}.{model_tag}.json"
+    if use_cache and cache.exists():
+        return json.loads(cache.read_text(encoding="utf-8"))
+    verdict = chat_judge.judge_faithfulness(question, answer, tool_results, settings)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps(verdict, indent=2, ensure_ascii=False), encoding="utf-8")
+    return verdict
+
+
+def _run_calibration(settings: Settings, *, use_cache: bool) -> dict[str, Any] | None:
+    """Judge every example in calibration.json and measure agreement with the human
+    labels. Writes CALIBRATION.md and returns the agreement dict (or None if missing)."""
+    if not CALIBRATION.exists():
+        print(f"\nNo calibration set at {CALIBRATION} — skipping judge calibration.")
+        return None
+    cal = json.loads(CALIBRATION.read_text(encoding="utf-8"))
+    items = cal["examples"] if isinstance(cal, dict) else cal
+    print(f"\nJudge calibration over {len(items)} labelled examples:")
+    rows: list[dict[str, Any]] = []
+    for it in items:
+        v = _judge_cached(it["id"], it["question"], it["answer"], it.get("tool_results", []),
+                          settings, use_cache=use_cache)
+        agree = v["verdict"] == it["label"]
+        rows.append({"human_label": it["label"], "judge_verdict": v["verdict"]})
+        print(f"  {'ok  ' if agree else 'DISAGREE'} {it['id']:<10} human={it['label']:<10} "
+              f"judge={v['verdict']:<10} ({it.get('origin', '')})")
+    agreement = eval_metrics.judge_agreement(rows)
+    trusted = (agreement["accuracy"] is not None
+               and agreement["accuracy"] >= JUDGE_TRUST_MIN_ACCURACY
+               and agreement["unfaithful_recall"] == 1.0)
+    agreement["trusted"] = trusted
+    agreement["trust_threshold"] = {"min_accuracy": JUDGE_TRUST_MIN_ACCURACY, "min_unfaithful_recall": 1.0}
+
+    def rp(v: Any) -> str:
+        return "n/a" if v is None else f"{100.0 * v:.0f}%"
+
+    print(f"  --> accuracy {rp(agreement['accuracy'])} · "
+          f"caught unfaithful {rp(agreement['unfaithful_recall'])} · "
+          f"precision {rp(agreement['unfaithful_precision'])}")
+    print(f"  --> {'TRUSTED' if trusted else 'DO NOT TRUST'} "
+          f"(needs accuracy >= {JUDGE_TRUST_MIN_ACCURACY:.0%} AND caught-unfaithful = 100%)")
+    _write_calibration_md(settings, agreement, len(items), out=CALIBRATION_MD)
+    return agreement
+
+
+def _write_calibration_md(settings: Settings, agreement: dict[str, Any], n: int, *, out: Path) -> None:
+    def rp(v: Any) -> str:
+        return "n/a" if v is None else f"{100.0 * v:.0f}%"
+
+    c = agreement["confusion"]
+    lines = [
+        "# Chatbot faithfulness judge — calibration",
+        "",
+        f"Does the LLM faithfulness judge agree with **human-verified** labels? Measured over "
+        f"`eval/chatbot/calibration.json` ({n} examples: real chatbot answers labelled *faithful*, "
+        f"plus copies with an injected/invented figure labelled *unfaithful*; labels confirmed by a human). "
+        f"An uncalibrated judge is just vibes — this is the number that lets us trust it. "
+        f"Generated by `backend/scripts/eval_chatbot.py --judge`.",
+        "",
+        f"- **Judge model:** `{settings.openai_model}`",
+        f"- **Run date:** {datetime.date.today().isoformat()}",
+        "",
+        "| Metric | Value |",
+        "|---|---:|",
+        f"| Agreement with humans (accuracy) | **{rp(agreement['accuracy'])}** |",
+        f"| Caught unfaithful answers (recall — safety-critical) | **{rp(agreement['unfaithful_recall'])}** |",
+        f"| Flag precision (of flags, share humans agreed) | {rp(agreement['unfaithful_precision'])} |",
+        f"| Faithful recall (good answers left alone) | {rp(agreement['faithful_recall'])} |",
+        "",
+        f"**Verdict: {'TRUSTED' if agreement.get('trusted') else 'NOT TRUSTED'}** — the judge is trusted only "
+        f"if it agrees with humans at least {JUDGE_TRUST_MIN_ACCURACY:.0%} of the time **and** catches 100% of "
+        f"the unfaithful answers (missing a bad answer is the failure that matters).",
+        "",
+        "Confusion (human → judge):",
+        "",
+        "| human \\\\ judge | faithful | unfaithful |",
+        "|---|---:|---:|",
+        f"| faithful | {c['faithful']['faithful']} | {c['faithful']['unfaithful']} |",
+        f"| unfaithful | {c['unfaithful']['faithful']} | {c['unfaithful']['unfaithful']} |",
+        "",
+    ]
+    out.write_text("\n".join(lines), encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
 # Runner
 # --------------------------------------------------------------------------- #
 def _field(correct: int, scored: int) -> dict[str, Any]:
@@ -188,7 +293,10 @@ def main() -> int:
                     help="offline deterministic mode: grade answers via dispatch only (no API, CI-safe)")
     ap.add_argument("--live", action="store_true",
                     help="run the real model for tool-selection + refusal (needs OPENAI_API_KEY)")
-    ap.add_argument("--refresh", action="store_true", help="ignore the per-question cache (--live)")
+    ap.add_argument("--judge", action="store_true",
+                    help="run the faithfulness judge: calibrate it vs human labels (calibration.json), and "
+                         "with --live also grade the prose of each real answer (needs OPENAI_API_KEY)")
+    ap.add_argument("--refresh", action="store_true", help="ignore the per-question cache (--live/--judge)")
     ap.add_argument("--ledger", default=str(LEDGER))
     ap.add_argument("--questions", default=str(QUESTIONS))
     ap.add_argument("--metrics-out", default=None)
@@ -196,7 +304,7 @@ def main() -> int:
     ap.add_argument("--detail-out", default=None)
     args = ap.parse_args()
 
-    if not args.check and not args.live:
+    if not args.check and not args.live and not args.judge:
         args.check = True  # default to the offline, deterministic path
 
     metrics_out = Path(args.metrics_out) if args.metrics_out else METRICS_JSON
@@ -212,16 +320,26 @@ def main() -> int:
 
     settings = None
     model = "offline"
-    if args.live:
+    if args.live or args.judge:
         settings = Settings(_env_file=str(BACKEND / ".env"))
         if settings.llm_provider != "openai" or not settings.llm_configured:
-            print("Live mode needs the OpenAI provider configured (OPENAI_API_KEY, LLM_PROVIDER=openai).")
+            print("Live/judge mode needs the OpenAI provider configured (OPENAI_API_KEY, LLM_PROVIDER=openai).")
             return 2
         model = settings.openai_model
+
+    # --judge alone = calibrate the judge only (no Q&A loop, no metrics/RESULTS overwrite).
+    if args.judge and not args.live and not args.check:
+        print(f"Chatbot judge calibration | model: {model}")
+        agreement = _run_calibration(settings, use_cache=not args.refresh)
+        if agreement is None:
+            return 1
+        return 0 if agreement.get("trusted") else 1
 
     mode = "live" if args.live else "check"
     print(f"Chatbot eval | mode: {mode} | model: {model} | today: {today.isoformat()}")
     print(f"Questions: {len(answerable)} answerable, {len(refusals)} refusal\n")
+
+    faith_correct = faith_scored = 0  # prose faithfulness of real answers (--live --judge)
 
     ts_correct = ts_scored = 0        # tool_selection (live only)
     ans_correct = ans_scored = 0      # answer_correctness
@@ -237,10 +355,20 @@ def main() -> int:
             ans_ok = answer_from_used_tools(q, used, ledger)
             ts_correct += int(tool_ok); ts_scored += 1
             ans_correct += int(ans_ok); ans_scored += 1
+            detail = {"id": qid, "question": text, "tool_ok": tool_ok, "answer_ok": ans_ok,
+                      "used_tools": used}
+            faith_mark = ""
+            if args.judge:
+                tr = _tool_results_for(used, ledger)
+                v = _judge_cached(f"live.{qid}.{_ledger_fingerprint(ledger)}", text, got["answer"], tr,
+                                  settings, use_cache=not args.refresh)
+                faithful = v["verdict"] == "faithful"
+                faith_correct += int(faithful); faith_scored += 1
+                detail["faithful"] = faithful
+                faith_mark = f" faith={'y' if faithful else 'N'}"
             mark = "ok  " if (tool_ok and ans_ok) else "MISS"
-            print(f"  {mark} {qid}  tool={'y' if tool_ok else 'N'} ans={'y' if ans_ok else 'N'}  {text}")
-            details.append({"id": qid, "question": text, "tool_ok": tool_ok, "answer_ok": ans_ok,
-                            "used_tools": used})
+            print(f"  {mark} {qid}  tool={'y' if tool_ok else 'N'} ans={'y' if ans_ok else 'N'}{faith_mark}  {text}")
+            details.append(detail)
         else:
             ans_ok, result = answer_offline(q, ledger)
             ans_correct += int(ans_ok); ans_scored += 1
@@ -264,6 +392,8 @@ def main() -> int:
     if args.live:
         fields["tool_selection"] = _field(ts_correct, ts_scored)
         fields["refusal"] = _field(ref_correct, ref_scored)
+    if args.live and args.judge:
+        fields["faithfulness"] = _field(faith_correct, faith_scored)
     total_correct = ans_correct + (ts_correct + ref_correct if args.live else 0)
     total_scored = ans_scored + (ts_scored + ref_scored if args.live else 0)
 
@@ -273,13 +403,14 @@ def main() -> int:
     print("\n" + "=" * 52)
     print(f"{'metric':<20}{'accuracy':>10}{'correct/scored':>18}")
     print("-" * 52)
-    order = ["tool_selection", "answer_correctness", "refusal"]
+    order = ["tool_selection", "answer_correctness", "refusal", "faithfulness"]
     for f in order:
         if f in fields:
             c, s = fields[f]["correct"], fields[f]["scored"]
             print(f"{f:<20}{pct(c, s):>10}{f'{c}/{s}':>18}")
     print("-" * 52)
     print(f"{'OVERALL':<20}{pct(total_correct, total_scored):>10}{f'{total_correct}/{total_scored}':>18}")
+    print("  (overall = tool-selection + answer + refusal; faithfulness reported separately)")
     print("=" * 52)
 
     if total_scored == 0:
@@ -303,6 +434,10 @@ def main() -> int:
     detail_out.write_text(json.dumps(details, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nWrote {metrics_out.name} + {results_out.name} (committable aggregates) "
           f"and {detail_out.name} (per-question, git-ignored).")
+
+    # With --live --judge, also calibrate the judge against the human labels.
+    if args.judge:
+        _run_calibration(settings, use_cache=not args.refresh)
     return 0
 
 
@@ -335,8 +470,9 @@ def _write_results_md(metrics: dict[str, Any], *, out: Path) -> None:
         "tool_selection": "Tool-selection (right tool + args)",
         "answer_correctness": "Answer correctness (figure from the tool)",
         "refusal": "Refusal (out-of-scope declined)",
+        "faithfulness": "Prose faithfulness (judge; calibrated — see CALIBRATION.md)",
     }
-    for key in ["tool_selection", "answer_correctness", "refusal"]:
+    for key in ["tool_selection", "answer_correctness", "refusal", "faithfulness"]:
         if key in fields:
             f = fields[key]
             lines.append(f"| {labels[key]} | {pct(f)} | {f['correct']}/{f['scored']} |")

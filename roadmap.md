@@ -177,7 +177,7 @@ Status: **shipped.** Backend tests **207 → 222**. No new model dependency; $0 
 
 ---
 
-## v0.5 — Ask chatbot (NL Q&A) 🚧
+## v0.5 — Ask chatbot (NL Q&A) ✅
 
 **Goal:** let the user *ask* their money questions in plain language — "which day did I spend the most this
 month?", "what do I buy most at Pingo Doce?", "send me the CSV for 1–18 Oct", "how much went to Groceries vs
@@ -198,10 +198,13 @@ Scope — **Slice 1 shipped (v0.5.0)**, see [D40](DECISIONS.md), [Round 10](feed
   ledger) → exact answer* graded in **code**, **tool-selection accuracy** (the key metric), and a **refusal**
   set. Offline `--check` is gated in CI; the live gpt-5-mini run is gated locally. On the fixed set:
   tool-selection 18/18, answer-correctness 18/18, refusal 5/5. Backend tests 262 → 272.
-- ⬜ **Slice 3** — a **calibrated LLM-as-judge** for prose faithfulness + prompt/response caching (keyed on a
-  ledger-state fingerprint); optionally a multi-model tool-selection matrix.
+- ✅ **Slice 3** — see [D42](DECISIONS.md). A **calibrated LLM-as-judge** for prose faithfulness
+  (`services/chat_judge.py`; calibrated vs human-checked labels in `eval/chatbot/calibration.json` →
+  `CALIBRATION.md`: 100% agreement, 100% recall on catching unfaithful → TRUSTED; live prose 18/18 faithful)
+  **+ a response cache** (`services/chat_cache.py`) keyed on a ledger-state fingerprint, so a repeated
+  question on unchanged data skips the model and self-invalidates on any change. Backend tests 272 → 287.
 
-Status: **in progress** — Slices 1–2 shipped (v0.5.0 + the eval harness); the calibrated judge is next.
+Status: **✅ complete** — v0.5 shipped in three slices (chatbot, eval harness, calibrated judge + cache).
 
 ---
 

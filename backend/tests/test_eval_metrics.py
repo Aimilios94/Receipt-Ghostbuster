@@ -94,3 +94,39 @@ def test_confidence_calibration_buckets():
     assert by_range["0.6-0.7"]["n"] == 1 and by_range["0.6-0.7"]["accuracy"] == 1.0
     assert by_range["0.7-0.8"]["n"] == 1 and by_range["0.7-0.8"]["accuracy"] == 1.0
     assert by_range["0.8-0.9"]["n"] == 1 and by_range["0.8-0.9"]["accuracy"] == 0.0
+
+
+# --- judge_agreement (v0.5 Slice 3) ---------------------------------------- #
+def _jrow(human, judge):
+    return {"human_label": human, "judge_verdict": judge}
+
+
+def test_judge_agreement_perfect():
+    rows = [_jrow("faithful", "faithful"), _jrow("unfaithful", "unfaithful"),
+            _jrow("unfaithful", "unfaithful")]
+    a = eval_metrics.judge_agreement(rows)
+    assert a["n"] == 3 and a["accuracy"] == 1.0
+    assert a["unfaithful_recall"] == 1.0 and a["unfaithful_precision"] == 1.0
+
+
+def test_judge_agreement_missed_unfaithful_tanks_recall():
+    # judge calls a truly-unfaithful answer faithful -> the safety-critical miss
+    rows = [_jrow("faithful", "faithful"), _jrow("unfaithful", "faithful")]
+    a = eval_metrics.judge_agreement(rows)
+    assert a["accuracy"] == 0.5
+    assert a["unfaithful_recall"] == 0.0           # missed the one bad answer
+    assert a["confusion"]["unfaithful"]["faithful"] == 1
+
+
+def test_judge_agreement_false_alarm_hits_precision():
+    rows = [_jrow("faithful", "unfaithful"), _jrow("unfaithful", "unfaithful")]
+    a = eval_metrics.judge_agreement(rows)
+    assert a["unfaithful_recall"] == 1.0           # caught the real one
+    assert a["unfaithful_precision"] == 0.5        # but one false alarm
+    assert a["faithful_recall"] == 0.0
+
+
+def test_judge_agreement_all_faithful_has_none_recall():
+    a = eval_metrics.judge_agreement([_jrow("faithful", "faithful")])
+    assert a["unfaithful_recall"] is None          # no unfaithful examples to recall
+    assert a["accuracy"] == 1.0

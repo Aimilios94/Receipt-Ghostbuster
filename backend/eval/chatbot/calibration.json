@@ -1,0 +1,97 @@
+{
+  "_note": "Calibration set for the faithfulness judge (v0.5 Slice 3, D42). Each example pairs a QUESTION + the real TOOL RESULTS (ground truth computed in code) with an ANSWER, labelled faithful|unfaithful. 'original' answers are real gpt-5-mini chatbot replies over the synthetic ledger (faithful by construction — every figure comes from the tool). 'corrupted' answers are those same replies with a figure/claim changed or invented (unfaithful by construction). Labels are objective by construction; a human spot-checks and sets human_confirmed. The judge's agreement with these labels is the calibration number (eval_chatbot.py --judge -> CALIBRATION.md). SYNTHETIC — no real personal data.",
+  "examples": [
+    {
+      "id": "c01f", "source_qid": "q01", "origin": "original", "label": "faithful", "human_confirmed": true,
+      "question": "How much did I spend in total in October?",
+      "tool_results": [{"month": "2026-10", "total": 138.99, "count": 6}],
+      "answer": "In October 2026 you spent €138.99 across 6 expenses."
+    },
+    {
+      "id": "c01u", "source_qid": "q01", "origin": "corrupted", "label": "unfaithful", "human_confirmed": true,
+      "note": "total changed 138.99 -> 152.40 (not in the tool result)",
+      "question": "How much did I spend in total in October?",
+      "tool_results": [{"month": "2026-10", "total": 138.99, "count": 6}],
+      "answer": "In October 2026 you spent €152.40 across 6 expenses."
+    },
+    {
+      "id": "c02f", "source_qid": "q02", "origin": "original", "label": "faithful", "human_confirmed": true,
+      "note": "the real run called spend_by_day THEN expense_details for 20 Oct — both results are the ground truth the prose draws on",
+      "question": "Which day did I spend the most this month?",
+      "tool_results": [{"month": "2026-10", "max_day": {"date": "2026-10-20", "total": 50.0}, "min_day": {"date": "2026-10-13", "total": 10.99}, "total": 138.99}, {"count": 1, "expenses": [{"date": "2026-10-20", "vendor": "Pingo Doce", "category": "Groceries", "amount": 50.0, "vat_amount": 3.0, "vat_rate": 6, "has_receipt": true, "products": [{"description": "BANANAS", "amount": 2.0}, {"description": "BREAD", "amount": 1.5}]}]}],
+      "answer": "Your biggest spending day this month was 20 October 2026 — €50.00, a purchase at Pingo Doce (Groceries)."
+    },
+    {
+      "id": "c02u", "source_qid": "q02", "origin": "corrupted", "label": "unfaithful", "human_confirmed": true,
+      "note": "wrong day + wrong vendor; tool says 20 Oct at Pingo Doce",
+      "question": "Which day did I spend the most this month?",
+      "tool_results": [{"month": "2026-10", "max_day": {"date": "2026-10-20", "total": 50.0}, "min_day": {"date": "2026-10-13", "total": 10.99}, "total": 138.99}],
+      "answer": "Your biggest spending day this month was 9 October 2026 — €50.00 at Uber Eats."
+    },
+    {
+      "id": "c04f", "source_qid": "q04", "origin": "original", "label": "faithful", "human_confirmed": true,
+      "question": "Break down my October spending by category.",
+      "tool_results": [{"month": "2026-10", "by_category": {"Groceries": 80.0, "Dining & Cafes": 48.0, "Software & Subscriptions": 10.99}, "total": 138.99}],
+      "answer": "In October 2026 you spent €138.99: Groceries €80.00, Dining & Cafes €48.00, and Software & Subscriptions €10.99."
+    },
+    {
+      "id": "c04u", "source_qid": "q04", "origin": "corrupted", "label": "unfaithful", "human_confirmed": true,
+      "note": "invented a Travel €25.00 category not in the tool result",
+      "question": "Break down my October spending by category.",
+      "tool_results": [{"month": "2026-10", "by_category": {"Groceries": 80.0, "Dining & Cafes": 48.0, "Software & Subscriptions": 10.99}, "total": 138.99}],
+      "answer": "In October 2026 you spent €138.99: Groceries €80.00, Dining & Cafes €48.00, Software & Subscriptions €10.99, and Travel €25.00."
+    },
+    {
+      "id": "c09f", "source_qid": "q09", "origin": "original", "label": "faithful", "human_confirmed": true,
+      "question": "How much VAT did I pay in October?",
+      "tool_results": [{"period": "2026-10", "vat": 6.8, "count": 6}],
+      "answer": "In October 2026 you paid €6.80 in VAT across 6 expenses."
+    },
+    {
+      "id": "c09u", "source_qid": "q09", "origin": "corrupted", "label": "unfaithful", "human_confirmed": true,
+      "note": "VAT changed 6.80 -> 8.60 (the year figure, not this month; contradicts the tool)",
+      "question": "How much VAT did I pay in October?",
+      "tool_results": [{"period": "2026-10", "vat": 6.8, "count": 6}],
+      "answer": "In October 2026 you paid €8.60 in VAT across 6 expenses."
+    },
+    {
+      "id": "c11f", "source_qid": "q11", "origin": "original", "label": "faithful", "human_confirmed": true,
+      "question": "What are my active subscriptions and their yearly cost?",
+      "tool_results": [{"count": 2, "total_annual": 131.88, "subscriptions": [{"vendor": "Netflix", "amount": 10.99, "cadence": "monthly", "annual_cost": 131.88, "status": "active", "stale": false}, {"vendor": "Gym Plus", "amount": 29.0, "cadence": "monthly", "annual_cost": 348.0, "status": "cancelled", "stale": true}]}],
+      "answer": "You have 1 active subscription: Netflix at €10.99/month (€131.88/year). Gym Plus is cancelled, so it isn't counted."
+    },
+    {
+      "id": "c11u", "source_qid": "q11", "origin": "corrupted", "label": "unfaithful", "human_confirmed": true,
+      "note": "counts the cancelled Gym Plus as active and invents a €479.88 total",
+      "question": "What are my active subscriptions and their yearly cost?",
+      "tool_results": [{"count": 2, "total_annual": 131.88, "subscriptions": [{"vendor": "Netflix", "amount": 10.99, "cadence": "monthly", "annual_cost": 131.88, "status": "active", "stale": false}, {"vendor": "Gym Plus", "amount": 29.0, "cadence": "monthly", "annual_cost": 348.0, "status": "cancelled", "stale": true}]}],
+      "answer": "You have 2 active subscriptions: Netflix €10.99/month and Gym Plus €29.00/month, for a total of €479.88 per year."
+    },
+    {
+      "id": "c14f", "source_qid": "q14", "origin": "original", "label": "faithful", "human_confirmed": true,
+      "question": "Who did I send money to or receive money from?",
+      "tool_results": [{"third_parties": {"total_sent": 500.0, "total_received": 100.0, "sent": [{"name": "Piero", "total": 500.0}], "received": [{"name": "Christina", "total": 100.0}]}, "own_movements": {"total_sent": 10.0, "total_received": 0}}],
+      "answer": "You sent €500 to Piero and received €100 from Christina. Separately, your own-account transfers were €10 sent."
+    },
+    {
+      "id": "c14u", "source_qid": "q14", "origin": "corrupted", "label": "unfaithful", "human_confirmed": true,
+      "note": "received amount changed 100 -> 250 (contradicts the tool)",
+      "question": "Who did I send money to or receive money from?",
+      "tool_results": [{"third_parties": {"total_sent": 500.0, "total_received": 100.0, "sent": [{"name": "Piero", "total": 500.0}], "received": [{"name": "Christina", "total": 100.0}]}, "own_movements": {"total_sent": 10.0, "total_received": 0}}],
+      "answer": "You sent €500 to Piero and received €250 from Christina."
+    },
+    {
+      "id": "c07f", "source_qid": "q07", "origin": "original", "label": "faithful", "human_confirmed": true,
+      "question": "What did I buy at Pingo Doce on 20 October?",
+      "tool_results": [{"count": 1, "expenses": [{"date": "2026-10-20", "vendor": "Pingo Doce", "category": "Groceries", "amount": 50.0, "vat_amount": 3.0, "vat_rate": 6, "has_receipt": true, "products": [{"description": "BANANAS", "amount": 2.0}, {"description": "BREAD", "amount": 1.5}]}]}],
+      "answer": "At Pingo Doce on 20 October 2026 you spent €50.00 (Groceries, €3.00 VAT at 6%). The receipt lists BANANAS €2.00 and BREAD €1.50."
+    },
+    {
+      "id": "c07u", "source_qid": "q07", "origin": "corrupted", "label": "unfaithful", "human_confirmed": true,
+      "note": "invented a product (MILK) not on the receipt",
+      "question": "What did I buy at Pingo Doce on 20 October?",
+      "tool_results": [{"count": 1, "expenses": [{"date": "2026-10-20", "vendor": "Pingo Doce", "category": "Groceries", "amount": 50.0, "vat_amount": 3.0, "vat_rate": 6, "has_receipt": true, "products": [{"description": "BANANAS", "amount": 2.0}, {"description": "BREAD", "amount": 1.5}]}]}],
+      "answer": "At Pingo Doce on 20 October 2026 you spent €50.00 (Groceries). The receipt lists BANANAS €2.00, BREAD €1.50 and MILK €3.20."
+    }
+  ]
+}

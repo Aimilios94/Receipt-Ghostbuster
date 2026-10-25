@@ -22,6 +22,7 @@ def health(settings: Settings = Depends(get_settings)) -> dict:
             "n8n_configured": settings.n8n_configured,
             "langsmith_tracing": settings.langsmith_configured,
             "sentry_enabled": settings.sentry_configured,
+            "chat_cache_enabled": settings.chat_cache_enabled,
             "auth_mode": "jwt" if settings.supabase_jwt_secret else ("dev" if settings.dev_user_id else "none"),
         },
     }

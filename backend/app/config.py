@@ -93,6 +93,13 @@ class Settings(BaseSettings):
     # --- Confidence gate ---
     confidence_threshold: float = 0.8
 
+    # --- Chatbot response cache (v0.5 Slice 3) ---
+    # A repeated single-shot question over an UNCHANGED ledger returns a cached answer
+    # (skips the model round-trip). The cache key includes a ledger fingerprint, so it
+    # self-invalidates on any data change. In-process / single-instance (prod → Redis);
+    # on by default, flip off to always hit the model.
+    chat_cache_enabled: bool = True
+
     # --- Structured output (Instructor) ---
     # How many times Instructor re-prompts the model when its output fails schema
     # validation before we fall back to tolerant JSON parsing.

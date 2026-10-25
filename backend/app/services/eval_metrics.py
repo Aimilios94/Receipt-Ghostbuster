@@ -100,6 +100,43 @@ def slice_accuracy(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return dict(sorted(acc.items()))
 
 
+def judge_agreement(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """How well an LLM faithfulness judge agrees with human-verified labels — the
+    measurement that turns a judge from "vibes" into a trusted instrument ([D42]).
+
+    A row is one calibration example: ``{"human_label": "faithful"|"unfaithful",
+    "judge_verdict": "faithful"|"unfaithful"}``. Treat 'unfaithful' as the POSITIVE
+    class (the thing a judge exists to catch), so:
+
+    - unfaithful_recall:    of answers humans marked unfaithful, the share the judge
+      caught — the safety-critical number (a judge that misses bad answers is useless).
+    - unfaithful_precision: of answers the judge flagged, the share humans agreed were
+      unfaithful (how often a flag is a false alarm).
+    - accuracy:             overall agreement with the human labels.
+    All rates are None when their denominator is 0. `confusion` is {human: {judge: n}}.
+    """
+    labels = ("faithful", "unfaithful")
+    confusion = {h: {j: 0 for j in labels} for h in labels}
+    for r in rows:
+        h, j = r.get("human_label"), r.get("judge_verdict")
+        if h in labels and j in labels:
+            confusion[h][j] += 1
+
+    tp = confusion["unfaithful"]["unfaithful"]              # caught a real bad answer
+    fn = confusion["unfaithful"]["faithful"]                # missed a bad answer
+    fp = confusion["faithful"]["unfaithful"]                # false alarm on a good answer
+    tn = confusion["faithful"]["faithful"]
+    n = tp + fn + fp + tn
+    return {
+        "n": n,
+        "accuracy": _rate(tp + tn, n),
+        "unfaithful_recall": _rate(tp, tp + fn),
+        "unfaithful_precision": _rate(tp, tp + fp),
+        "faithful_recall": _rate(tn, tn + fp),
+        "confusion": confusion,
+    }
+
+
 def confidence_calibration(
     rows: list[dict[str, Any]], buckets: list[tuple[float, float]] | None = None
 ) -> list[dict[str, Any]]:

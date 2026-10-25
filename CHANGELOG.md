@@ -3,6 +3,17 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.2] — 2026-10-25
+
+**v0.5 — Ask chatbot (Slice 3): calibrated faithfulness judge + response cache.** Completes v0.5 ([D42](DECISIONS.md)). Engineering only — no feedback round; `feedback-notes.md` untouched. Backend tests **272 → 287**.
+
+### Added
+- **Faithfulness judge** (`app/services/chat_judge.py`) — an LLM grader that flags a chatbot prose answer as *unfaithful* if any figure/claim is changed, contradicted, or absent from the tool results (a parse failure fails safe → unfaithful). Eval-time, not a per-request gate.
+- **Judge calibration** (`eval/chatbot/calibration.json` + `eval_chatbot.py --judge` → `CALIBRATION.md`) — the judge is measured against human-spot-checked labels (real answers = faithful; injected-error copies = unfaithful) before it's trusted. Result: **100% agreement, 100% recall on catching unfaithful → TRUSTED**. The first run over-flagged the `€` symbol as "unsupported" (79%, DO-NOT-TRUST); fixing the prompt earned the trust — the calibration doing its job. `--live --judge` also grades the prose of each real answer (**18/18 faithful**). New `eval_metrics.judge_agreement` helper.
+- **Response cache** (`app/services/chat_cache.py`) — a repeated single-shot question over an **unchanged** ledger returns instantly and makes no model call; the key includes a **ledger fingerprint**, so any data change invalidates it automatically. Opt-in `CHAT_CACHE_ENABLED` (default on), surfaced on `/health`; in-process/single-instance (prod → Redis). Non-breaking `use_cache`/`cache_scope` params added to `chat.answer_question`.
+
+Completes the v0.5 chatbot (Slice 1 chatbot · Slice 2 eval harness · Slice 3 judge + cache).
+
 ## [0.5.1] — 2026-10-25
 
 **v0.5 — Ask chatbot (Slice 2): the eval harness.** The chatbot now ships with its own measured quality story ([D41](DECISIONS.md), extends [D30](DECISIONS.md) from extraction to Q&A). Engineering only — no user-facing change; `feedback-notes.md` untouched. Backend tests **262 → 272**.
