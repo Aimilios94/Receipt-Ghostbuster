@@ -12,6 +12,7 @@ const NAV = [
   { to: "/ledger", label: "Ledger", icon: Icon.ledger },
   { to: "/refunds", label: "Refund Hunter", icon: Icon.refund, badge: "flagged" },
   { to: "/advice", label: "Advice", icon: Icon.advice },
+  { to: "/ask", label: "Ask", icon: Icon.chat },
   { to: "/model-evals", label: "Model & Evals", icon: Icon.gauge },
 ];
 

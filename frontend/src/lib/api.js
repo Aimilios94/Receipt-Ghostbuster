@@ -159,6 +159,10 @@ export const api = {
     request(`/refund-actions/${id}`, { method: "POST", body: patch }).then((r) => r.refund_action),
   deliverRefundAction: (id) => request(`/refund-actions/${id}/deliver`, { method: "POST" }),
 
+  // ----- chatbot (v0.5 — NL Q&A over the ledger) -----
+  chat: (message, history = []) =>
+    request("/chat", { method: "POST", body: { message, history } }),
+
   // ----- model & evals (v0.3.0 — observability) -----
   evalMetrics: () => request("/metrics/eval"),
   llmMetrics: () => request("/metrics/llm"),

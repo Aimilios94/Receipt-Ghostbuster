@@ -92,8 +92,42 @@ export default function ExpenseDetailModal({ expense: expenseProp, onClose }) {
           <p className="vat-lines-hint" style={{ margin: 0 }}>No VAT recorded for this expense.</p>
         )}
 
-        {/* Line items with amount + per-line rate */}
-        <div className="detail-section-label">Line items</div>
+        {/* Named products the model actually read (from the raw extraction) — the
+            stored "Line items" below are VAT-rate buckets, so this shows what was bought. */}
+        {(() => {
+          const products = (expense.raw_extraction?.line_items || []).filter(
+            (p) => (p.description || "").trim()
+          );
+          if (!products.length) return null;
+          return (
+            <>
+              <div className="detail-section-label">Products on this receipt · {products.length}</div>
+              <div className="table-wrap">
+                <table className="ledger">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th className="right">Amount</th>
+                      <th className="right">VAT rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((p, i) => (
+                      <tr key={i}>
+                        <td className="cell-vendor">{p.description}</td>
+                        <td className="right num">{p.amount != null ? money(p.amount) : "—"}</td>
+                        <td className="right cell-muted">{p.vat_rate != null ? `${p.vat_rate}%` : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* Line items with amount + per-line rate (VAT-rate buckets) */}
+        <div className="detail-section-label">VAT breakdown</div>
         {isLoading ? (
           <Loading />
         ) : lines.length ? (

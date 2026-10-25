@@ -18,6 +18,12 @@ function Svg({ size = 18, children, ...rest }) {
 }
 
 export const Icon = {
+  chat: (p) => (
+    <Svg {...p}>
+      <path d="M21 11.5a7.5 7.5 0 0 1-10.9 6.7L3 20l1.8-6A7.5 7.5 0 1 1 21 11.5z" />
+      <path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" />
+    </Svg>
+  ),
   dashboard: (p) => (
     <Svg {...p}>
       <rect x="3" y="3" width="7" height="9" rx="1.5" />
