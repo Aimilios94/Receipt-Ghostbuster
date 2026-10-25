@@ -124,6 +124,9 @@ export const api = {
   exceptions: (month) => request(`/exceptions${month ? `?month=${month}` : ""}`),
   close: (month) => request(`/close${month ? `?month=${month}` : ""}`),
 
+  // Spending breakdown — expenses by vendor + third-party transfers (sent/received).
+  breakdown: () => request("/breakdown"),
+
   // ----- categories -----
   categories: () => request("/categories").then((r) => r.categories),
   setCategoryBudget: (id, budget_amount) =>

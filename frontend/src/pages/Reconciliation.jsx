@@ -10,6 +10,7 @@ import ImportBankModal from "../components/ImportBankModal.jsx";
 import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
 import StatementDetailModal from "../components/StatementDetailModal.jsx";
 import ReconcileResultModal from "../components/ReconcileResultModal.jsx";
+import BreakdownModal from "../components/BreakdownModal.jsx";
 import { useToast } from "../components/toast.jsx";
 import { useSeen } from "../lib/useSeen.js";
 
@@ -39,6 +40,7 @@ export default function Reconciliation() {
   const [running, setRunning] = useState(false);
   const [reconResult, setReconResult] = useState(null);
   const [showImport, setShowImport] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [month, setMonth] = useState(currentMonth());
   const [picked, setPicked] = useState(false);
   const [detail, setDetail] = useState(null);
@@ -161,6 +163,9 @@ export default function Reconciliation() {
           <Button icon={<Icon.search size={15} />} onClick={openManual}>
             Match manually
           </Button>
+          <Button icon={<Icon.ledger size={15} />} onClick={() => setShowBreakdown(true)}>
+            Breakdown
+          </Button>
           <Button variant="primary" icon={<Icon.reconcile size={15} />} onClick={run} disabled={running}>
             {running ? "Matching…" : "Run reconciliation"}
           </Button>
@@ -225,6 +230,7 @@ export default function Reconciliation() {
       )}
 
       {showImport && <ImportBankModal onClose={() => setShowImport(false)} />}
+      {showBreakdown && <BreakdownModal onClose={() => setShowBreakdown(false)} />}
       {detail && <ExpenseDetailModal expense={detail} onClose={() => setDetail(null)} />}
       {stmtDetailId && (
         <StatementDetailModal id={stmtDetailId} onClose={() => setStmtDetailId(null)} />

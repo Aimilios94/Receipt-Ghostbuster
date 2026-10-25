@@ -9,6 +9,7 @@ import { LedgerTable } from "../components/sections.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import DrillModal from "../components/DrillModal.jsx";
 import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
+import BreakdownModal from "../components/BreakdownModal.jsx";
 import { useToast } from "../components/toast.jsx";
 
 const SOURCE_FILTERS = [
@@ -36,6 +37,7 @@ export default function Ledger() {
   // A deep-link from the Advice page (?category=Groceries) pre-filters the ledger.
   const [category, setCategory] = useState(searchParams.get("category") || "all");
   const [showAdd, setShowAdd] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [vatDrill, setVatDrill] = useState(false);
   const [detail, setDetail] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -176,6 +178,10 @@ export default function Ledger() {
             {f.label}
           </button>
         ))}
+        <span style={{ width: 1, height: 20, background: "var(--border)" }} />
+        <button className="chip" onClick={() => setShowBreakdown(true)} title="Totals by vendor and third-party transfers">
+          Breakdown
+        </button>
         <select
           className="select"
           style={{ width: 180, marginLeft: "auto" }}
@@ -227,6 +233,7 @@ export default function Ledger() {
       </Card>
 
       {showAdd && <AddExpenseModal onClose={() => setShowAdd(false)} defaultTab="manual" defaultSource="cash" />}
+      {showBreakdown && <BreakdownModal onClose={() => setShowBreakdown(false)} />}
       {vatDrill && (
         <DrillModal
           title="VAT by rate"

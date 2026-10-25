@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .routers import (
     bank,
+    breakdown,
     close,
     exceptions,
     expenses,
@@ -50,6 +51,7 @@ app.include_router(health.router)
 app.include_router(expenses.router)
 app.include_router(extract.router)
 app.include_router(bank.router)
+app.include_router(breakdown.router)
 app.include_router(reconcile.router)
 app.include_router(exceptions.router)
 app.include_router(close.router)
