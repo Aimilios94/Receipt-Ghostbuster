@@ -3,6 +3,29 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.4.1] — 2026-10-25
+
+From a **Round 8** testing session: made the Advice nudges actionable, hardened Refund Hunter's subscription detection against false positives, and fixed a latent modal-positioning bug. Backend tests **222 → 227**.
+
+### Added
+- **Actionable Advice nudges** — each insight links to where you act: an *unused-subscription* nudge → **"Cancel this"** deep-links to Refund Hunter (`/refunds?focus=<vendor>`) and **auto-opens the cancellation draft**; an *over-budget / spend-up* nudge → **"View category"** opens the Ledger filtered to that category (`/ledger?category=<name>`) and **"Adjust budget"** scrolls to and focuses that category's budget input.
+- **Subscription charge transparency** — each subscription row now shows its **charge dates** (first → last seen), and a **"View charges"** snapshot lists the exact bank lines + card expenses behind it — with the **raw CSV row** — via a new `GET /subscriptions/{id}/charges`.
+
+### Fixed
+- **Subscription detection false positives** ([D37](DECISIONS.md), [Round 8](feedback-notes.md)) — detection was flagging a Revolut **transfer** (€10 → €520/yr) and a **grocery** store (€4.14 → €215/yr) as subscriptions, annualising a cadence from a single 8-day gap. Now: non-purchase bank lines (top-ups/transfers/exchanges/ATM) are excluded via the same `reconciliation.is_reconcilable` classifier; one-off **retail/consumption categories** are excluded on the expense side; a subscription requires **≥3** same-amount charges (two is a coincidence); and re-detection **prunes** stale auto-detections while keeping anything the user flagged/cancelled/annotated. On the real October data, detection correctly returns **0**.
+- **Modals rendered off-screen** — the shared `Modal` anchored to the transformed `.rise` page container (a `position: fixed` overlay inside a CSS `transform` escapes the viewport), so a bank-statement transactions popup opened above the screen and couldn't be scrolled. Fixed by rendering the shared `Modal` through a **React portal to `document.body`** — every popup in the app now stays centered and scrolls within the viewport.
+
+## [0.4.0] — 2026-10-25
+
+Moved from recording the past to guiding the next decision — **Advice**: budget-vs-actual, rule-based overspend nudges, and an insights feed. Deliberately **LLM-free and deterministic** ([D36](DECISIONS.md)), extending [D1](DECISIONS.md) ("the AI never does the math") from extraction to guidance. Backend tests **207 → 222**.
+
+### Added
+- **Advice (v0.4)** — three deterministic, rule-based nudges derived in code (`app/services/insights.py`, no LLM): **over_budget** (a category's month spend over its `budget_amount`), **spend_up** (a category up ≥25% *and* ≥€20 vs last month), and **unused_subscription** (a flagged/stale subscription still being paid). Spend reuses the shipped `close` aggregation (`by_category`); staleness reuses `subscriptions.annotate`. Thresholds are module-level constants ([D36](DECISIONS.md)).
+- **Per-category budgets** — `categories.budget_amount` (reserved in the schema since Phase 1) now has a write path, `POST /categories/{id}/budget`, and an inline budget editor on the Advice page; budget-vs-actual bars turn amber/red as actual approaches/exceeds the budget.
+- **`insights` table + endpoints** — `POST /insights/generate` (derive + upsert, cheap/side-effect-safe, recomputable on demand), `GET /insights`, and `POST /insights/{id}` to dismiss/restore. The table persists a **user-owned `dismissed` flag** that survives regeneration (the same derive-and-preserve-user-columns upsert as subscription detection); RLS owner policy, keyed `(user_id, kind, month, subject)`.
+- **Two surfaces** — a compact **Advice feed** card on the Dashboard (clone of the recurring-charges preview) and a dedicated **`/advice` page** (summary stats, insights feed with dismiss, budget editor). The previously-disabled sidebar "Advice" placeholder is now a live nav entry. `backend/tests/test_insights.py` covers every rule + the boundary/dismiss cases.
+- **Actionable nudges** — each insight links to where you act: an *unused-subscription* nudge → **"Cancel this"** deep-links to Refund Hunter (`/refunds?focus=<vendor>`) and **auto-opens the cancellation draft** for that subscription; an *over-budget / spend-up* nudge → **"View category"** opens the Ledger filtered to that category (`/ledger?category=<name>`, so you see what drove the spend) and **"Adjust budget"** scrolls to and focuses that category's budget input.
+
 ## [0.3.4] — 2026-10-24
 
 Hardened the observability/eval spine before going public, then proved it in a real testing round. Backend tests **137 → 207**.

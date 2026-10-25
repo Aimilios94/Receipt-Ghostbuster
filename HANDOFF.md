@@ -6,7 +6,100 @@
 
 ---
 
-## 🟢 RESUME HERE — current status (as of 2026-10-24, day 11 — CI regression gate + badges, guardrail/schema tests, opt-in Sentry error tracking; shipped v0.3.4)
+## 🟢 RESUME HERE — current status (as of 2026-10-25, day 12 — v0.4 Advice + a Round-8 testing round; shipped v0.4.0 + v0.4.1)
+
+**Day 12 built and shipped `v0.4 — Advice` (the first milestone that *guides the next decision*), then ran a
+real `Round 8` testing session that made Advice actionable, hardened Refund Hunter's subscription detection,
+and fixed a cross-cutting modal bug. Backend tests `207 → 227`. Committed and pushed to `main` this session
+(verify `git log`/`git status`).** Everything was verified end-to-end against live Supabase + in the browser.
+
+**Round-8 follow-up (v0.4.1, [D37](DECISIONS.md), [feedback-notes Round 8](feedback-notes.md)):**
+- **Advice nudges are now actionable** — *unused_subscription* → "Cancel this" → `/refunds?focus=<vendor>`
+  (RefundHunter auto-opens the DraftEmailModal for the matching sub); *over_budget/spend_up* → "View category"
+  → `/ledger?category=<name>` (new `?category=` init) + "Adjust budget" → focuses `id="budget-<slug>"`.
+- **Subscription detection false positives FIXED** — it was flagging a Revolut transfer (€520/yr) and a grocery
+  store (€215/yr), annualising from a single gap. Now `services/subscriptions.py`: excludes non-purchases via
+  `reconciliation.is_reconcilable`, excludes one-off retail categories (`_NON_SUBSCRIPTION_CATEGORIES`), requires
+  **`min_occurrences=3`**, and `POST /subscriptions/detect` **prunes** stale auto-detections (keeps
+  flagged/cancelled/noted). On the real October data detection now returns **0**.
+- **Charge transparency** — each sub shows first→last charge dates + a **"View charges"** modal listing the exact
+  bank/CSV rows (`GET /subscriptions/{id}/charges`, `sub_service.subscription_charges`).
+- **Modal-centering fix (cross-cutting)** — the shared `Modal` (`components/ui.jsx`) now renders through a
+  **`createPortal(..., document.body)`** so a `position: fixed` overlay no longer anchors to the transformed
+  `.rise` container and render off-screen. Fixes every popup (statements, ledger, charges, …) at once.
+- Tests: `test_subscriptions.py` updated to the ≥3 rule + new guards (top-up, grocery, "two isn't enough",
+  charges snapshot). `test_insights.py` unchanged. **222 → 227.**
+
+**Original v0.4.0 Advice work (earlier day 12):**
+
+**What day 12 did ([D36](DECISIONS.md), v0.4.0):**
+- **Advice = three deterministic, LLM-free nudges** in `backend/app/services/insights.py` (pure, dict-in/out,
+  mirrors `services/subscriptions.py`): **over_budget** (month spend > `categories.budget_amount`),
+  **spend_up** (a category up ≥25% *and* ≥€20 vs last month), **unused_subscription** (a flagged/stale sub).
+  Spend reuses `close_service.monthly_close().by_category`; staleness reuses `subscriptions.annotate`.
+  Thresholds are module-level constants (`SPEND_UP_THRESHOLD=0.25`, `SPEND_UP_MIN_DELTA=20.0`,
+  `OVER_BUDGET_ALERT_RATIO=1.2`). Extends [D1](DECISIONS.md) ("the AI never does the math") to guidance.
+- **Per-category budgets** — `categories.budget_amount` (reserved since Phase 1, previously unwritable) now has
+  `POST /categories/{id}/budget` (in `routers/close.py`) + `repo.update_category` + an inline editor on the
+  Advice page. Budget-vs-actual bars turn amber near / red over budget.
+- **`insights` table + endpoints** — `POST /insights/generate` (derive + upsert, cheap, recomputable),
+  `GET /insights`, `POST /insights/{id}` (dismiss/restore). Keyed `(user_id, kind, month, subject)`; the
+  **user-owned `dismissed` flag survives regeneration** (same preserve-user-columns upsert as
+  `upsert_subscriptions`). `repo.upsert_insights` whitelists only derived columns. RLS owner policy added to
+  `db/schema.sql` (applied live via `scripts/apply_schema.py`).
+- **Two surfaces** — a compact `InsightsFeed` card on the Dashboard (in `components/sections.jsx`, cloned from
+  `RecurringPreview`, dropped into the right column of `pages/Dashboard.jsx`) + a dedicated **`/advice` page**
+  (`pages/Advice.jsx`, cloned from `MonthlyClose.jsx`: summary stats, insights feed with dismiss, budget
+  editor). The disabled sidebar "Advice" placeholder is now a **live** NAV entry (`Sidebar.jsx`); route added
+  in `App.jsx`. New `bud-*` CSS in `styles/index.css`. `api.js` gained `insights`/`dismissInsight`/
+  `setCategoryBudget`.
+- **Tests** — `backend/tests/test_insights.py` (15 pure-rule unit tests: each rule fires/doesn't at its
+  boundary, severity escalation, `_prev_month` year-boundary, `pending_review` excluded). `207 → 222`.
+- **Actionable nudges (follow-up, same session, frontend-only).** Each insight now links to where you act:
+  *unused_subscription* → **"Cancel this"** → `/refunds?focus=<vendor>` which **auto-opens the DraftEmailModal**
+  for the matching subscription (new `?focus=` handling in `pages/RefundHunter.jsx`, matched by vendor);
+  *over_budget / spend_up* → **"View category"** → `/ledger?category=<name>` (new `?category=` init in
+  `pages/Ledger.jsx`) + **"Adjust budget"** → scrolls to & focuses that category's input (`id="budget-<slug>"`
+  + `focusBudget` in `pages/Advice.jsx`). Verified in-browser: Ledger filtered to Groceries summed €78.10
+  (the nudge's actual); Adjust-budget focused `budget-Groceries`; `/refunds?focus=` renders cleanly on no-match.
+
+**Verified end-to-end (day 12):** schema applied to live Supabase; set a €50 Groceries budget vs €78.10 actual
+→ one `over_budget:alert` nudge (€28.10 over, "156%"); **dismissed it and regenerated → stayed dismissed**
+(user-owned flag preserved). Browser screenshots of `/advice` and the Dashboard feed confirmed layout (0 console
+errors). `check_regression.py` still **PASS** (extraction/eval pipeline untouched). Live test state was then
+**reset** (Groceries budget cleared, test insight dismissed) so the real ledger carries no artifact.
+
+### 👋 Message to the next agent (read this)
+Clean tree, `main` pushed (verify `git log` for the head), **227 tests pass**. **Read, in order:** this day-12
+RESUME → the day-11 RESUME → the auto-memory (`MEMORY.md` index, then `receipt-ghostbuster-status.md`) →
+**`DECISIONS.md` D1–D37** → **`feedback-notes.md` Rounds 1–8** → **`roadmap.md`**. Also `NEXT-AGENT-PROMPT.md`
+(local, not committed). Then:
+1. **Sacred rule: AUTHENTICITY.** v0.4.0 Advice was `[eng]` (no feedback round). The **Round-8** work WAS real
+   user testing (false positives the user hit, a real off-screen-modal bug, a UX ask), so it IS recorded in
+   `feedback-notes.md` **Round 8** + **D37** — that is correct, not a violation. Never invent a round; only log
+   what actually happened.
+2. **Do NOT re-litigate settled decisions (D1–D37).** Reading model = gpt-5-mini. Subscription detection now
+   needs **≥3** same-amount charges and excludes non-purchases/retail (D37) — don't loosen it back to 2.
+3. **Screenshots / PII:** any browser screenshot taken while verifying lands in the **parent `CV-creation/`
+   folder (outside the repo)** and contains real ledger data — **never commit those**, and delete temp ones.
+   `NEXT-AGENT-PROMPT.md` and the untracked `docs/screenshots/*` (synthetic/PII) stay **uncommitted**.
+4. **Open items the user DEFERRED (their order):** Instructor structured-output reliability taxonomy → grow the
+   eval in a batch (26 → ~35, user supplies truth / agent scores) → drift view on Model & Evals → **pre-public
+   polish** (core-flow GIF + refresh the Oct-4 app screenshots incl. the new Advice page + LangSmith→26-set) →
+   **flip the repo PUBLIC + put it on the CV**. v0.5 chatbot / v0.6 payslip (designed) are the next big milestones.
+5. **Good moment to test Refund Hunter with real recurring data** — detection correctly shows **0** on the
+   current one-month October dataset; a real subscription needs ≥3 same-amount service charges across months.
+   The "View charges" snapshot + the Advice "Cancel this" auto-open draft are built and will exercise once a
+   real sub exists.
+6. **Ops:** ONE backend uvicorn, **no `--reload`**; restart via the Windows `Get-NetTCPConnection -LocalPort 8000
+   … Stop-Process` one-liner; check the two 7-day expiries before any demo (Supabase pause + n8n Gmail OAuth —
+   `demo-prep-7day-expiries`). n8n is running; the Gmail OAuth is only exercised by actually delivering a draft.
+
+**Note:** the two day-12 verification screenshots (real ledger data) were deleted after use — none committed.
+
+---
+
+## 🟢 RESUME HERE — prior status (as of 2026-10-24, day 11 — CI regression gate + badges, guardrail/schema tests, opt-in Sentry error tracking; shipped v0.3.4)
 
 **Day 11 shipped `v0.3.4` across three clean commits, plus a day-end Sentry-driven bug fix (`e05003a`), all
 pushed to `main` — followed by the v0.3.4 CHANGELOG, DECISIONS [D34](DECISIONS.md)/[D35](DECISIONS.md),

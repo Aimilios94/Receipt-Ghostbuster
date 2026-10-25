@@ -163,16 +163,17 @@ Status: **shipped.** Backend tests **137 → 201**. Cost: **$0** (Sentry free De
 
 ---
 
-## v0.4 — Advice ⬜
+## v0.4 — Advice ✅
 
 **Goal:** move from recording the past to guiding the next decision — lightweight, rule-based, not a heavy AI advisor.
 
-Planned scope:
-- **Budget vs actual**: per-category budgets → variance view (`categories.budget_amount` already exists in the schema).
-- **Overspend nudges** (`GET /insights`): rule-based signals (category over budget; spend up N% vs last month; paid-but-unused subscription) written to a new `insights` table.
-- **Insights feed** on the dashboard.
+Scope delivered ([D36](DECISIONS.md)):
+- **Budget vs actual**: per-category budgets (`categories.budget_amount`, reserved since Phase 1) got a write path (`POST /categories/{id}/budget`) + an inline budget editor; a variance view with bars that turn amber/red as actual approaches/exceeds the budget.
+- **Overspend nudges** — three **deterministic, LLM-free** rules in `app/services/insights.py`: **over_budget** (month spend over the category budget), **spend_up** (category up ≥25% *and* ≥€20 vs last month), **paid-but-unused subscription** (a flagged/stale sub). Spend reuses the shipped `close` aggregation; staleness reuses `subscriptions.annotate`.
+- **Insights, persisted + dismissable** — `POST /insights/generate` derives + upserts into a new `insights` table (keyed `(user, kind, month, subject)`), preserving a user-owned `dismissed` flag across regeneration; `GET /insights` + `POST /insights/{id}` to dismiss. Recomputable on demand.
+- **Insights feed** on the Dashboard **and** a dedicated **`/advice` page**; the disabled sidebar placeholder is now a live entry.
 
-Status: **planned** — not started.
+Status: **shipped.** Backend tests **207 → 222**. No new model dependency; $0 marginal cost — every figure is computed in code, extending [D1](DECISIONS.md) to guidance.
 
 ---
 
@@ -216,6 +217,7 @@ Status: **planned** — not started.
 - **Extraction robustness (Round 3).** ✅ Built — printed IVA table as VAT source of truth, discount handling, estimated VAT when none is printed, date year-repair + re-read, net-vs-gross correction, server-side auto-rotation, and a self-consistency guardrail + retake flow (see [D14–D21](DECISIONS.md)). Backend tests 53 → 80.
 - **Bank statements & reconciliation workbench (Round 4).** ✅ Built — PDF import, Revolut-aware CSV import, statements as first-class entities, collapsed exceptions, and a hand-drivable reconciliation popup (match / unmatch / not-a-match / no-receipt / re-scan) with believable suggestions only (see [D22–D25](DECISIONS.md)). Backend tests 80 → 97.
 - **Extraction-accuracy eval harness.** ✅ Built (v0.2.5) — a labelled receipt set + `scripts/eval_extraction.py` gives a real field-level accuracy number (93% on gpt-5-mini); see [D26](DECISIONS.md) and `backend/eval/RESULTS.md`. It drove the model upgrade in [D27](DECISIONS.md).
+- **Refund Hunter detection accuracy & transparency (Round 8).** ✅ Built — subscription detection now excludes non-purchase bank lines (top-ups/transfers/exchanges, reusing `is_reconcilable`) and one-off retail categories, requires **≥3** same-amount charges (two is a coincidence; no more annualising a single gap into a bogus €520/yr), and prunes stale auto-detections on re-run. Each subscription shows its charge dates + a "view charges" snapshot of the exact bank/CSV rows. Plus a cross-cutting fix so modals always render centered (portal to body). See [D37](DECISIONS.md), [feedback-notes.md](feedback-notes.md).
 - **Read-twice-and-compare** consensus mode. ⬜ Deferred option for maximum reliability on the hardest (crumpled + rotated) receipts.
 - **`claude-opus-4-8` eval comparison.** ⬜ Pending Anthropic credits — add a cross-model column to RESULTS.md.
 
