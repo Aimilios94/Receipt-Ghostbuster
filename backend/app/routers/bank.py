@@ -57,6 +57,20 @@ async def import_statement(
         )
         raise HTTPException(status_code=400, detail=detail)
 
+    # Idempotent re-upload: import only transactions not already stored, so
+    # re-uploading an overlapping statement adds just the new rows and preserves
+    # the existing reconciliation (nothing is duplicated or double-counted).
+    existing = repo.list_bank_transactions(user_id)
+    rows, skipped = statements.filter_new_transactions(rows, existing)
+    if not rows:
+        return {
+            "imported": 0,
+            "skipped": skipped,
+            "source": source,
+            "statement": None,
+            "message": f"All {skipped} transactions were already imported — nothing new.",
+        }
+
     # One statement row per imported file: period + money in/out/net. Transactions
     # are linked to it so the UI can show a single entry per upload.
     stats = statements.statement_stats(rows)
@@ -93,6 +107,7 @@ async def import_statement(
 
     return {
         "imported": len(inserted),
+        "skipped": skipped,
         "transactions": inserted,
         "source": source,
         "statement": statement,

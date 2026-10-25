@@ -23,11 +23,15 @@ export default function ImportBankModal({ onClose }) {
     setErr(null);
     try {
       const res = await api.importBank(file, undefined, note);
-      ["exceptions", "close", "expenses"].forEach((k) =>
+      ["exceptions", "close", "expenses", "statements"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
+      const skipped = res.skipped ? ` · skipped ${res.skipped} already imported` : "";
       toast(
-        `Imported ${res.imported} bank transactions${res.source === "pdf" ? " from PDF" : ""}`
+        res.imported === 0
+          ? (res.message || "All transactions were already imported — nothing new.")
+          : `Imported ${res.imported} bank transaction${res.imported === 1 ? "" : "s"}` +
+              `${res.source === "pdf" ? " from PDF" : ""}${skipped}`
       );
       onClose();
     } catch (e) {

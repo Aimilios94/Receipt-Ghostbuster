@@ -44,3 +44,66 @@ def test_annotate_transaction_status():
     assert a["reconcilable"] is True and a["needs_receipt"] is True and a["matched"] is False
     b = st.annotate_transaction({"amount": 100.0, "raw": {"Type": "Topup"}})
     assert b["reconcilable"] is False and b["needs_receipt"] is False
+
+
+# --- idempotent re-upload: filter_new_transactions -------------------------
+
+def _txn(date, amount, desc, balance=None):
+    return {"txn_date": date, "amount": amount, "description": desc, "balance": balance}
+
+
+def test_filter_exact_reupload_imports_nothing():
+    rows = [
+        _txn("2026-10-05", -11.58, "Continente", 74.27),
+        _txn("2026-10-06", -4.14, "Continente", 68.89),
+    ]
+    to_insert, skipped = st.filter_new_transactions(rows, list(rows))
+    assert to_insert == [] and skipped == 2
+
+
+def test_filter_partial_overlap_imports_only_the_surplus():
+    existing = [
+        _txn("2026-10-05", -11.58, "Continente", 74.27),
+        _txn("2026-10-06", -4.14, "Continente", 68.89),
+    ]
+    incoming = existing + [
+        _txn("2026-10-20", -3.47, "Bolt", 103.79),
+        _txn("2026-10-21", -11.11, "Anthropic", 82.83),
+    ]
+    to_insert, skipped = st.filter_new_transactions(incoming, existing)
+    assert skipped == 2
+    assert [r["description"] for r in to_insert] == ["Bolt", "Anthropic"]
+
+
+def test_filter_preserves_same_day_repeats_by_balance():
+    # Three identical €100 top-ups on one day — distinct running balances. All three
+    # import on a first load, and all three are recognised as present on re-upload.
+    topups = [
+        _txn("2026-10-04", 100.0, "Google Pay top-up by *6517", 185.85),
+        _txn("2026-10-04", 100.0, "Google Pay top-up by *6517", 285.85),
+        _txn("2026-10-04", 100.0, "Google Pay top-up by *6517", 385.85),
+    ]
+    first, skipped_first = st.filter_new_transactions(topups, [])
+    assert len(first) == 3 and skipped_first == 0
+    again, skipped_again = st.filter_new_transactions(topups, topups)
+    assert again == [] and skipped_again == 3
+
+
+def test_filter_count_aware_without_balance():
+    # No balance column: count reconciliation alone must neither collapse legit
+    # repeats nor duplicate them. Two stored, three incoming -> one new.
+    existing = [_txn("2026-10-04", 100.0, "Top up"), _txn("2026-10-04", 100.0, "Top up")]
+    incoming = [
+        _txn("2026-10-04", 100.0, "Top up"),
+        _txn("2026-10-04", 100.0, "Top up"),
+        _txn("2026-10-04", 100.0, "Top up"),
+    ]
+    to_insert, skipped = st.filter_new_transactions(incoming, existing)
+    assert len(to_insert) == 1 and skipped == 2
+
+
+def test_filter_description_whitespace_and_case_insensitive():
+    existing = [_txn("2026-10-05", -11.58, "Continente", 74.27)]
+    incoming = [_txn("2026-10-05", -11.58, "  continente ", 74.27)]
+    to_insert, skipped = st.filter_new_transactions(incoming, existing)
+    assert to_insert == [] and skipped == 1
