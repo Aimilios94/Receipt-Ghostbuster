@@ -34,18 +34,34 @@ auto-categorize → confidence gate → reconcile card/bank items against upload
 Detect recurring charges → flag unused/forgotten subscriptions → draft cancel/refund
 emails for approval (draft-only, never auto-send) → track money saved.
 
-## Phase 3 — Advice
-Overspend nudges → flag unnecessary expenses → budget vs actual (variance) → surface
-paid-but-unused subscriptions.
+## Phase 3 — Advice ✅ shipped (v0.4)
+Deterministic, rule-based (the AI stays out of the math): overspend nudges → flag
+unnecessary expenses → budget vs actual (variance) → surface paid-but-unused
+subscriptions, each nudge deep-linking to the fix.
+
+## Observability & evaluation ✅ (v0.3)
+The LLM layer is **measured, not asserted**: validated structured outputs (Instructor),
+per-call tracing (latency/tokens/cost), a reproducible extraction-accuracy eval harness
+with an accuracy-regression gate in CI, an in-app Model & Evals dashboard, and opt-in
+LangSmith tracing + Sentry error tracking.
+
+## Ask chatbot ✅ shipped (v0.5)
+Natural-language Q&A over the one ledger, built as **tool-calling over a fixed, pure,
+unit-tested analytics surface** — the model picks the calculation, **every number is
+computed in code** (never by the model). It ships with its own eval harness
+(tool-selection accuracy + code-graded answers + refusals) and a **calibrated**
+faithfulness judge for the prose. Routes now include Bank statements, Advice, Ask, and
+the Model & Evals dashboard alongside the Phase-1 screens.
 
 ## Accounting depth
 VAT breakdown · reconciliation exceptions report · cash-vs-bank source logic ·
 automated monthly close · budget-vs-actual variance.
 
 ## Tech stack
-React + Vite (frontend) · Python/FastAPI (extraction & reconciliation logic) ·
+React + Vite (frontend) · Python/FastAPI (extraction, reconciliation, analytics logic) ·
 n8n (orchestration, refund emails) · Supabase (Postgres + auth + storage) ·
-vision LLM for receipt extraction · bank data via CSV import.
+vision LLM (OpenAI `gpt-5-mini`, provider-swappable incl. a local on-device option) for
+receipt extraction and the Ask chatbot · bank data via CSV import.
 
 ## Out of scope
 Multi-currency/FX · full double-entry bookkeeping · tax-return generation · multi-user ·

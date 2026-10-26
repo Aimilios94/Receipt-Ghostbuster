@@ -1,7 +1,9 @@
 {
   "name": "receipt-ghostbuster-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.5.2",
+  "description": "Frontend for Receipt Ghostbuster — a personal money assistant: receipt extraction, VAT-split ledger, bank reconciliation, Refund Hunter, rule-based Advice, and an NL Ask chatbot.",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

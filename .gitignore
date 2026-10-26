@@ -33,3 +33,8 @@ backend/uploads/
 # ---- real bank statements / data dropped into docs for local testing (PII) ----
 docs/screenshots/*.csv
 docs/screenshots/account-statement*
+
+# ---- internal agent-handoff scaffolding (kept local, not in the public repo) ----
+# The curated process story lives in DECISIONS.md / feedback-notes.md / roadmap.md / CHANGELOG.md.
+HANDOFF.md
+NEXT-AGENT-PROMPT.md
