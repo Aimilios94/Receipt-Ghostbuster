@@ -8,6 +8,37 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 
+def _to_number(v: Any) -> Any:
+    """Coerce a model-returned number that may be a locale string to a float.
+
+    Portuguese receipts print decimals with a comma ('32,95') and sometimes a
+    thousands separator ('1.234,56' or '1 234,56'), and the vision model often
+    transcribes them verbatim — so a faithful read must not be rejected over
+    formatting. Strips currency/percent symbols and spaces, then resolves which
+    separator is the decimal. Non-strings pass through untouched; a string we
+    still can't parse is returned as-is so the field's own validation raises its
+    normal error (the caller degrades gracefully; see extraction._to_result)."""
+    if not isinstance(v, str):
+        return v
+    s = v.strip().replace(" ", " ").replace(" ", "")
+    for sym in ("€", "$", "£", "%"):
+        s = s.replace(sym, "")
+    if not s:
+        return None
+    if "," in s and "." in s:
+        # The right-most separator is the decimal point; the other is thousands.
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return v
+
+
 # --- Manual / cash expense entry (T3) --------------------------------------
 class LineItemInput(BaseModel):
     """A single VAT line the user enters/edits (per-line VAT). `amount` is the
@@ -53,6 +84,11 @@ class LineItem(BaseModel):
     amount: float | None = None
     vat_rate: float | None = None          # per-line VAT rate (%), e.g. 23
 
+    @field_validator("quantity", "unit_price", "amount", "vat_rate", mode="before")
+    @classmethod
+    def _coerce_nums(cls, v: Any) -> Any:
+        return _to_number(v)
+
 
 class TaxLine(BaseModel):
     """One row of the receipt's PRINTED VAT/IVA summary table (the legal tax
@@ -63,6 +99,11 @@ class TaxLine(BaseModel):
     net: float | None = None               # "Total Liq." — base, VAT-exclusive
     vat: float | None = None               # "IVA" — the printed VAT for this rate
     gross: float | None = None             # "Total" — VAT-inclusive for this rate
+
+    @field_validator("rate", "net", "vat", "gross", mode="before")
+    @classmethod
+    def _coerce_nums(cls, v: Any) -> Any:
+        return _to_number(v)
 
 
 class ExtractionResult(BaseModel):
@@ -90,6 +131,12 @@ class ExtractionResult(BaseModel):
     # code applies rules first and validates this against the real category list.
     category: str | None = None
     confidence: float = 0.0
+
+    @field_validator("total", "vat_amount", "vat_rate", "discount_total", mode="before")
+    @classmethod
+    def _coerce_nums(cls, v: Any) -> Any:
+        """Tolerate locale-formatted numbers from the model ('32,95' -> 32.95)."""
+        return _to_number(v)
 
     @field_validator("confidence", mode="before")
     @classmethod

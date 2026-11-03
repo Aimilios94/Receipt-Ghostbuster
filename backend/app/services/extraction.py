@@ -643,7 +643,11 @@ def extract_receipt(
             monitoring.capture(exc, surface="extraction.orientation_read")
             continue
         calls.append(call)
-        result = _to_result(payload)
+        try:
+            result = _to_result(payload)
+        except Exception as exc:  # noqa: BLE001 - a malformed payload shouldn't drop the whole receipt
+            monitoring.capture(exc, surface="extraction.to_result")
+            continue
         score = _read_score(result)
         if best is None or score > best[0]:
             best = (score, result, candidate)
@@ -670,6 +674,12 @@ def extract_receipt(
         payload, call = _extract_once(oriented, media_type, provider, settings, prompt)
         calls.append(call)
         trace = aggregate(calls, provider=provider, model=model, kind="receipt_extract")
-        return _to_result(payload), oriented, trace
+        try:
+            return _to_result(payload), oriented, trace
+        except Exception as exc:  # noqa: BLE001 - never drop a receipt over a malformed payload
+            # Degrade to an empty, low-confidence read (lands in review, never
+            # auto-posted) rather than raising and dropping the receipt entirely.
+            monitoring.capture(exc, surface="extraction.to_result")
+            return ExtractionResult(confidence=0.0), oriented, trace
     trace = aggregate(calls, provider=provider, model=model, kind="receipt_extract")
     return best[1], best[2], trace
