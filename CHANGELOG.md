@@ -3,6 +3,17 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.3] — 2026-11-03
+
+**Robustness — locale-tolerant number parsing in extraction.** Engineering only (`[eng]`); `feedback-notes.md` untouched. Backend tests **287 → 302**.
+
+A fresh, fully-offline re-measurement of the local Ollama model (`qwen2.5vl-receipt`, CPU-only, $0) surfaced a latent locale bug: a Portuguese receipt's VAT table was transcribed with European comma-decimals as strings (`'32,95'`), which the result model's float fields rejected — the read raised a `ValidationError` and **crashed out of scoring entirely**, silently shrinking the eval denominator (26 → 25) instead of being counted as a miss. The discipline of *"unmeasured = a declared gap with a cause, never a silent zero"* is exactly what forced the drop into the open.
+
+### Fixed
+- **Locale-tolerant coercion** (`app/models.py`, `_to_number`) applied via `mode="before"` validators on the numeric fields of `ExtractionResult`, `LineItem`, and `TaxLine` — comma-decimals, dot/space thousands separators, and currency/percent symbols now parse to real floats (`'32,95'` → `32.95`), so the value is **captured correctly**, not merely rescued from a crash.
+- **No receipt can silently drop** (`app/services/extraction.py`) — both payload→model conversions are guarded, so a single malformed read is logged and skipped and the fallback degrades to a low-confidence read (which lands in human review) rather than raising and removing the receipt from the denominator.
+- **Regression tests** (`tests/test_schema_coercion.py`, +15) — the exact crashing payload is now a test, so the denominator cannot silently shrink again.
+
 ## [0.5.2] — 2026-10-25
 
 **v0.5 — Ask chatbot (Slice 3): calibrated faithfulness judge + response cache.** Completes v0.5 ([D42](DECISIONS.md)). Engineering only — no feedback round; `feedback-notes.md` untouched. Backend tests **272 → 287**.
