@@ -20,7 +20,7 @@ built; it is not legal advice.
 | Data | Destination | Notes |
 |---|---|---|
 | Receipt image | The configured vision model | **Cloud** (OpenAI or Anthropic) **or local** (Ollama, on-device) — your choice, see below. |
-| Bank-PDF text | The configured LLM, **only if cloud** | Text is extracted locally (`pdfplumber`); IBAN/card numbers are **redacted before sending** (see below). |
+| Bank-PDF text | Nowhere for a Revolut PDF that matches its printed totals; otherwise the configured LLM, **only if cloud** | Text is extracted locally (`pdfplumber`). A Revolut PDF is then read in code. For anything sent to an LLM, IBAN/card numbers are **redacted before sending** (see below). |
 | Bank CSV | Nowhere external | Parsed entirely in code — **no LLM, no network**. |
 | Ledger, images, statements | Supabase (Postgres + storage) | Your own project; secrets stay server-side, never in the browser. |
 | Prompts + images (LangSmith) | LangSmith cloud | **Opt-in, off by default** — only if you set `LANGSMITH_TRACING=true`. |

@@ -1,4 +1,4 @@
-# Design — Refund Hunter chatbot (natural-language Q&A)
+# Design — Ask chatbot (natural-language Q&A)
 
 *Status: **built — v0.5 complete.** Slice 1 (the chatbot) shipped as v0.5.0 ([D40](../../DECISIONS.md)); Slice 2
 (the eval harness — items 1, 2, 4) shipped as [D41](../../DECISIONS.md); Slice 3 (item 3, the calibrated

@@ -165,7 +165,7 @@ def test_subscription_candidates_excludes_cash_and_consumption():
     ]
     bank = [
         {"txn_date": "2026-10-07", "amount": -0.83, "description": "fal.ai", "raw": {"Type": "Card Payment"}},
-        {"txn_date": "2026-10-08", "amount": -3.0, "description": "Transfer to Eduardo", "raw": {"Type": "Transfer"}},  # not a purchase
+        {"txn_date": "2026-10-08", "amount": -3.0, "description": "Transfer to Sam", "raw": {"Type": "Transfer"}},  # not a purchase
     ]
     # a bank Continente line with NO category must still be excluded, because the user
     # has categorised Continente as Groceries in the ledger (cross-reference)
@@ -176,14 +176,14 @@ def test_subscription_candidates_excludes_cash_and_consumption():
     assert any("FAL" in m.upper() for m in merchants)  # online card payment → candidate
     assert "Egyptian Restaurant" not in merchants     # cash → never
     assert not any("CONTINENTE" in m.upper() for m in merchants)  # grocery bank line excluded via ledger category
-    assert not any("Eduardo" in m for m in merchants)  # transfer → never
+    assert not any("Sam" in m for m in merchants)  # transfer → never
 
 
 def _bank():
     return [
-        {"txn_date": "2026-10-08", "amount": -500, "description": "To Piero", "raw": {"Type": "Transfer"}},
-        {"txn_date": "2026-10-09", "amount": -3, "description": "Transfer to CHRISTINA", "raw": {"Type": "Transfer"}},
-        {"txn_date": "2026-10-20", "amount": 10, "description": "Transfer from CHRISTINA", "raw": {"Type": "Transfer"}},
+        {"txn_date": "2026-10-08", "amount": -500, "description": "To Robin", "raw": {"Type": "Transfer"}},
+        {"txn_date": "2026-10-09", "amount": -3, "description": "Transfer to ALEX", "raw": {"Type": "Transfer"}},
+        {"txn_date": "2026-10-20", "amount": 10, "description": "Transfer from ALEX", "raw": {"Type": "Transfer"}},
         {"txn_date": "2026-10-17", "amount": -10, "description": "Revolut Bank UAB", "raw": {"Type": "Transfer"}},
         {"txn_date": "2026-10-05", "amount": -11.58, "description": "Continente", "raw": {"Type": "Card Payment"}},
     ]

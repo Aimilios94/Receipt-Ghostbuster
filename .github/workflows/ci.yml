@@ -3,12 +3,34 @@ name: CI
 # Regression gate on every push and PR: the full backend test suite, plus a
 # smoke run of the extraction eval harness in mock mode (no API keys, no personal
 # data) so the whole pipeline — read -> VAT/amount logic -> gate -> scoring ->
-# guardrail metrics — is exercised end-to-end offline.
+# guardrail metrics — is exercised end-to-end offline. The frontend has no test suite
+# yet, so its production build is the check that it still compiles.
 on:
   push:
   pull_request:
 
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
   backend:
     runs-on: ubuntu-latest
     defaults:

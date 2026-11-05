@@ -20,6 +20,14 @@ Outputs (committable aggregates, no per-receipt data):
 This leaves RESULTS.md / metrics.json (the single shipped model, served to the
 in-app Model & Evals page) untouched.
 
+A run only updates the rows of the models it names: every other model in models.json
+keeps its row and its own measurement record, and a replaced row's headline moves to
+that model's history. Pass --replace-all to start a new matrix. A --limit run is a
+smoke test and writes nothing.
+
+A read that fails is declared, never dropped: its fields score as misses, and the row
+records how many reads errored and why.
+
 Usage (from backend/, with the relevant keys in backend/.env):
     python scripts/eval_models.py \
         --models openai:gpt-5-mini openai:gpt-4o anthropic:claude-haiku-4-5
@@ -31,9 +39,13 @@ inherently a real-spend run) and re-runs are free.
 from __future__ import annotations
 
 import argparse
+import collections
 import datetime
 import json
+import os
+import platform
 import re
+import subprocess
 import sys
 import traceback
 from pathlib import Path
@@ -92,7 +104,8 @@ def _extract_with_trace(
     cache = ev.CACHE_DIR / f"{path.stem}.{settings.llm_provider}.{_slug(model)}.models.json"
     if use_cache and cache.exists():
         blob = json.loads(cache.read_text(encoding="utf-8"))
-        return ExtractionResult.model_validate(blob["result"]), blob["trace"]
+        read_on = datetime.date.fromtimestamp(cache.stat().st_mtime).isoformat()
+        return ExtractionResult.model_validate(blob["result"]), {**blob["trace"], "read_date": read_on}
 
     image_bytes = path.read_bytes()
     result, oriented, trace = extraction.extract_receipt(image_bytes, path.name, settings)
@@ -115,7 +128,50 @@ def _extract_with_trace(
         json.dumps({"result": result.model_dump(mode="json"), "trace": trace}),
         encoding="utf-8",
     )
-    return result, trace
+    return result, {**trace, "read_date": today.isoformat()}
+
+
+# --------------------------------------------------------------------------- #
+# Measurement record
+# --------------------------------------------------------------------------- #
+def _git_commit() -> str:
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args], cwd=ev.BACKEND, capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    try:
+        head = git("rev-parse", "--short", "HEAD")
+        return f"{head}+uncommitted" if git("status", "--porcelain", "--untracked-files=no") else head
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+
+
+def _ollama_version(settings: Settings) -> str | None:
+    import httpx
+
+    root = settings.ollama_base_url.rsplit("/v1", 1)[0]
+    try:
+        return httpx.get(f"{root}/api/version", timeout=3).json().get("version")
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+def _provenance(
+    provider: str, model: str, settings: Settings, today: datetime.date, read_dates: list[str]
+) -> dict[str, Any]:
+    runtime = f"Python {platform.python_version()}"
+    if provider == "ollama":
+        runtime += f" · Ollama {_ollama_version(settings) or 'unknown'}"
+    return {
+        "run_date": today.isoformat(),
+        "reads_from": min(read_dates) if read_dates else None,
+        "reads_to": max(read_dates) if read_dates else None,
+        "commit": _git_commit(),
+        "command": f"python backend/scripts/eval_models.py --models {provider}:{model}",
+        "machine": f"{platform.platform()} · {os.cpu_count()} logical CPUs",
+        "runtime": runtime,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -146,12 +202,16 @@ def _run_model(
     fell_back = 0
     fully_correct = 0
     n = 0
+    n_missing = 0
+    errors: collections.Counter[str] = collections.Counter()
+    read_dates: list[str] = []
 
     for label in labels:
         name = label["file"]
         path = receipts_dir / name
         if not path.exists():
             print(f"  MISSING  {name}")
+            n_missing += 1
             continue
         try:
             result, trace = _extract_with_trace(path, settings, today, use_cache=use_cache)
@@ -160,11 +220,15 @@ def _run_model(
         except Exception as exc:  # noqa: BLE001 - a failed read scores all-miss
             print(f"  ERROR    {name}: {exc}")
             traceback.print_exc()
-            for f in ev._score_fields(label, {f: None for f in ev.FIELDS}):
+            errors[type(exc).__name__] += 1
+            missed = ev._score_fields(label, {f: None for f in ev.FIELDS})
+            for f in missed:
                 tally[f][1] += 1
+            slice_rows.append({"tags": label.get("tags", []), "scored": missed})
             continue
 
         n += 1
+        read_dates.append(trace["read_date"])
         latencies.append(float(trace.get("latency_ms", 0)))
         costs.append(float(trace.get("est_cost_usd", 0.0)))
         fell_back += int(bool(trace.get("fell_back")))
@@ -197,17 +261,23 @@ def _run_model(
 
     total_correct = sum(t[0] for t in tally.values())
     total_scored = sum(t[1] for t in tally.values())
+    n_errored = sum(errors.values())
     routing = eval_metrics.routing_scores(gate_rows)
     slices = eval_metrics.slice_accuracy(slice_rows)
     return {
         "provider": provider,
         "model": model,
         "n_receipts": n,
+        "n_labelled": n + n_errored + n_missing,
+        "n_errored": n_errored,
+        "n_missing": n_missing,
+        "error_types": dict(errors),
+        "provenance": _provenance(provider, model, settings, today, read_dates),
         "fields": {f: {"accuracy": (tally[f][0] / tally[f][1]) if tally[f][1] else None,
                        "correct": tally[f][0], "scored": tally[f][1]} for f in ev.FIELDS},
         "overall": {"accuracy": (total_correct / total_scored) if total_scored else None,
                     "correct": total_correct, "scored": total_scored},
-        "receipts_fully_correct": {"count": fully_correct, "n": n},
+        "receipts_fully_correct": {"count": fully_correct, "n": n + n_errored},
         "latency_ms": {"p50": round(_pctl(latencies, 0.5)), "p95": round(_pctl(latencies, 0.95)),
                        "avg": round(sum(latencies) / n)},
         "cost_usd": {"total": round(sum(costs), 6), "avg_per_read": round(sum(costs) / n, 6)},
@@ -230,7 +300,50 @@ def _rpct(x: float | None) -> str:
     return "n/a" if x is None else f"{100.0 * x:.0f}%"
 
 
-def _write_models_md(results: list[dict[str, Any]], today: datetime.date, n: int) -> None:
+def merge_results(
+    existing: list[dict[str, Any]], new: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Replace the rows of the models just run and keep every other row untouched.
+    A replaced row's headline moves to the model's history, so repeat runs stay visible."""
+    def key(r: dict[str, Any]) -> tuple[str, str]:
+        return r["provider"], r["model"]
+
+    fresh = {key(r): r for r in new}
+    merged: list[dict[str, Any]] = []
+    for old in existing:
+        replacement = fresh.pop(key(old), None)
+        if replacement is None:
+            merged.append(old)
+            continue
+        earlier = {
+            "run_date": (old.get("provenance") or {}).get("run_date"),
+            "accuracy": old["overall"]["accuracy"],
+            "correct": old["overall"]["correct"],
+            "scored": old["overall"]["scored"],
+            "n_receipts": old["n_receipts"],
+            "n_errored": old.get("n_errored", 0),
+        }
+        merged.append({**replacement, "history": [*old.get("history", []), earlier]})
+    return merged + list(fresh.values())
+
+
+def _state(r: dict[str, Any]) -> str:
+    if r.get("n_errored") or r.get("n_missing"):
+        return "MEASURED, partial"
+    return (r.get("provenance") or {}).get("state", "MEASURED")
+
+
+def _reads_dated(prov: dict[str, Any]) -> str:
+    first, last = prov.get("reads_from"), prov.get("reads_to")
+    if not first:
+        return prov.get("run_date") or "NO_DATA (not recorded)"
+    return first if first == last else f"{first} to {last}"
+
+
+def _write_models_md(doc: dict[str, Any], *, path: Path = MODELS_MD) -> None:
+    results = doc["models"]
+    n = doc["n_receipts"]
+
     def label(r):
         return f"`{r['model']}`"
 
@@ -242,10 +355,12 @@ def _write_models_md(results: list[dict[str, Any]], today: datetime.date, n: int
         f"the hand-labelled set of **{n}** real Portuguese receipts. Generated by "
         f"`backend/scripts/eval_models.py`.",
         "",
-        f"- **Run date:** {today.isoformat()}",
+        f"- **Last updated:** {doc['run_date']}. Models are measured separately, so each row "
+        f"carries its own date in the measurement record below.",
         f"- **Honest caveat:** n={n} is a small set, so differences of a few points are "
         f"**not statistically significant** — read this as a direction, not a leaderboard. "
         f"Latency/cost are per-receipt estimates (summed across every orientation read).",
+        *[f"- {note}" for note in doc.get("notes", [])],
         "",
         "## Accuracy",
         "",
@@ -261,6 +376,21 @@ def _write_models_md(results: list[dict[str, Any]], today: datetime.date, n: int
             f"{_pct(f['vat_rate']['accuracy'])} | {_pct(f['category']['accuracy'])} | "
             f"{r['receipts_fully_correct']['count']}/{r['receipts_fully_correct']['n']} |"
         )
+    for r in results:
+        if r.get("n_errored"):
+            causes = ", ".join(f"{k} ×{v}" for k, v in r.get("error_types", {}).items())
+            lines += ["", f"{label(r)}: {r['n_errored']} read(s) errored ({causes}); their fields "
+                          f"count as misses, and latency/cost/guardrails cover the {r['n_receipts']} "
+                          f"successful reads only."]
+        if r.get("n_missing"):
+            lines += ["", f"{label(r)}: {r['n_missing']} labelled receipt(s) NO_DATA (image not on "
+                          f"disk for this run); they are left out of its denominators."]
+    for r in results:
+        for h in r.get("history", []):
+            errored = f", {h['n_errored']} read(s) errored" if h.get("n_errored") else ""
+            lines += ["", f"Earlier run of {label(r)} on {h.get('run_date') or 'an unrecorded date'}: "
+                          f"{_pct(h['accuracy'])} ({h['correct']}/{h['scored']} fields, "
+                          f"{h['n_receipts']} reads{errored})."]
     lines += [
         "",
         "## Latency, cost & reliability",
@@ -300,8 +430,43 @@ def _write_models_md(results: list[dict[str, Any]], today: datetime.date, n: int
                 s = r["slices"].get(tag)
                 cells.append(_pct(s["accuracy"]) if s else "—")
             lines.append(f"| {tag} | " + " | ".join(cells) + " |")
+    for footnote in doc.get("footnotes", []):
+        lines += ["", footnote]
+
+    no_data = "NO_DATA (not recorded)"
+    lines += [
+        "",
+        "## Measurement record",
+        "",
+        "How each row was produced. An unrecorded value is stated as `NO_DATA`, never left blank.",
+        "",
+        "| Model | State | Read / labelled | Reads dated | Commit | Machine | Runtime | Command |",
+        "|---|---|---:|---|---|---|---|---|",
+    ]
+    for r in results:
+        prov = r.get("provenance") or {}
+        labelled = r.get("n_labelled", r["n_receipts"])
+        command = prov.get("command")
+        lines.append(
+            f"| {label(r)} | {_state(r)} | {r['n_receipts']}/{labelled} | {_reads_dated(prov)} | "
+            f"{prov.get('commit') or no_data} | {prov.get('machine') or no_data} | "
+            f"{prov.get('runtime') or no_data} | {f'`{command}`' if command else no_data} |"
+        )
     lines.append("")
-    MODELS_MD.write_text("\n".join(lines), encoding="utf-8")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def build_doc(
+    new: list[dict[str, Any]], existing_doc: dict[str, Any], today: datetime.date, *, replace_all: bool
+) -> dict[str, Any]:
+    models = new if replace_all else merge_results(existing_doc.get("models", []), new)
+    return {
+        "run_date": today.isoformat(),
+        "n_receipts": max(r.get("n_labelled", r["n_receipts"]) for r in models),
+        "notes": existing_doc.get("notes", []),
+        "footnotes": existing_doc.get("footnotes", []),
+        "models": models,
+    }
 
 
 def main() -> int:
@@ -312,6 +477,8 @@ def main() -> int:
     ap.add_argument("--receipts", default=str(ev.RECEIPTS_DIR), help="dir of receipt images")
     ap.add_argument("--limit", type=int, default=None, help="only the first N receipts")
     ap.add_argument("--refresh", action="store_true", help="ignore cache, re-call the LLMs")
+    ap.add_argument("--replace-all", action="store_true",
+                    help="start a new matrix instead of updating only the models named here")
     args = ap.parse_args()
 
     labels_path = Path(args.labels)
@@ -342,14 +509,16 @@ def main() -> int:
         print("\nNo model produced a result — leaving MODELS.md untouched.")
         return 1
 
-    n = max(r["n_receipts"] for r in results)
-    _write_models_md(results, today, n)
-    MODELS_JSON.write_text(
-        json.dumps({"run_date": today.isoformat(), "n_receipts": n, "models": results}, indent=2),
-        encoding="utf-8",
-    )
+    if args.limit:
+        print(f"\n--limit run: smoke test only, {MODELS_MD.name} and {MODELS_JSON.name} left untouched.")
+        return 0
+
+    existing = json.loads(MODELS_JSON.read_text(encoding="utf-8")) if MODELS_JSON.exists() else {}
+    doc = build_doc(results, existing, today, replace_all=args.replace_all)
+    _write_models_md(doc)
+    MODELS_JSON.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     print(f"\nWrote {MODELS_MD.relative_to(ev.BACKEND.parent)} + {MODELS_JSON.name} "
-          f"({len(results)} models, {n} receipts).")
+          f"({len(results)} model(s) updated, {len(doc['models'])} in the matrix).")
     return 0
 
 

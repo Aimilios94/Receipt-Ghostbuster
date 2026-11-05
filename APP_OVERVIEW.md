@@ -55,7 +55,7 @@ the Model & Evals dashboard alongside the Phase-1 screens.
 
 ## Accounting depth
 VAT breakdown · reconciliation exceptions report · cash-vs-bank source logic ·
-automated monthly close · budget-vs-actual variance.
+monthly close summary · budget-vs-actual variance.
 
 ## Tech stack
 React + Vite (frontend) · Python/FastAPI (extraction, reconciliation, analytics logic) ·

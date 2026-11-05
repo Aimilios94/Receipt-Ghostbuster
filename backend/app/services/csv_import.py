@@ -93,7 +93,11 @@ def _parse_money(value: str | None) -> float | None:
         return None
     # Normalize European "1.234,56" and thousands separators.
     if "," in s and "." in s:
-        s = s.replace(".", "").replace(",", ".")
+        # Whichever separator comes last is the decimal: "1.010,00" and "1,010.00".
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
     elif "," in s:
         s = s.replace(",", ".")
     s = s.replace(" ", "")

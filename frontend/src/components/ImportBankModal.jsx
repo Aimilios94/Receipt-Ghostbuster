@@ -31,7 +31,8 @@ export default function ImportBankModal({ onClose }) {
         res.imported === 0
           ? (res.message || "All transactions were already imported — nothing new.")
           : `Imported ${res.imported} bank transaction${res.imported === 1 ? "" : "s"}` +
-              `${res.source === "pdf" ? " from PDF" : ""}${skipped}`
+              `${res.source === "pdf" ? " from PDF" : ""}${skipped}` +
+              (res.counterparties_added ? ` · added ${res.counterparties_added} recipient names` : "")
       );
       onClose();
     } catch (e) {

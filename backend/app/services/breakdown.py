@@ -58,8 +58,16 @@ def vendor_breakdown(expenses: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def _named_counterparty(txn: dict[str, Any]) -> str | None:
+    """The recipient or sender the statement names, when it names one."""
+    return (txn.get("raw") or {}).get("Counterparty") or None
+
+
 def _is_own_movement(txn: dict[str, Any]) -> bool:
-    """A transfer to the user's own Revolut (savings/fees), not a third party."""
+    """A transfer to the user's own Revolut (savings/fees), not a third party. A named
+    person makes it a third party, even when the description only says "Revolut"."""
+    if _named_counterparty(txn):
+        return False
     desc = (txn.get("description") or "").lower()
     return any(h in desc for h in _OWN_MOVEMENT_HINTS)
 
@@ -94,7 +102,7 @@ def _counterparty(description: str | None) -> str:
 def _group_transfers(txns: list[dict[str, Any]]) -> list[dict[str, Any]]:
     groups: dict[str, dict[str, Any]] = {}
     for t in txns:
-        name = _counterparty(t.get("description"))
+        name = _named_counterparty(t) or _counterparty(t.get("description"))
         g = groups.setdefault(name.lower(), {"name": name, "count": 0, "total": 0.0, "items": []})
         g["count"] += 1
         g["total"] += _amount(t.get("amount"))

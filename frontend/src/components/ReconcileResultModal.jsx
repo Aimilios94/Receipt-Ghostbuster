@@ -58,6 +58,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   const [txnDetail, setTxnDetail] = useState(null);
   const [view, setView] = useState("all");
   const [dismissed, setDismissed] = useState(new Set()); // "expId::txnId" suggestions rejected as "not a match"
+  const [unmatched, setUnmatched] = useState([]); // pairs unmatched in this popup, newest last
   const toast = useToast();
 
   const dismiss = (expId, txnId) =>
@@ -94,11 +95,35 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     }
   };
 
-  const unmatch = async (expId, txnId) => {
-    setBusy(expId);
+  const unmatch = async (pair) => {
+    setBusy(pair.expense.id);
     try {
-      apply(await api.unmatchExpense(expId, txnId));
+      apply(await api.unmatchExpense(pair.expense.id, pair.transaction.id));
+      setUnmatched((prev) => [...prev, pair]);
       toast("Unmatched");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Only offer Undo while both sides are still free, so it can't double-link a bank
+  // line the user has since matched to something else.
+  const undoable = unmatched.filter(
+    (p) =>
+      unmatchedExp.some((e) => e.id === p.expense.id) &&
+      unmatchedBank.some((t) => t.id === p.transaction.id)
+  );
+  const lastUnmatched = undoable[undoable.length - 1];
+
+  const undoUnmatch = async () => {
+    const pair = lastUnmatched;
+    setBusy(pair.expense.id);
+    try {
+      apply(await api.matchExpense(pair.expense.id, pair.transaction.id));
+      setUnmatched((prev) => prev.filter((p) => p !== pair));
+      toast("Match restored");
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -167,6 +192,20 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   return (
     <Modal title="Reconciliation results" onClose={onClose} width={920}>
       <div className="modal-body">
+        {lastUnmatched ? (
+          <div className="recon-undo" role="status">
+            <span className="recon-undo-text">
+              Unmatched <b>{lastUnmatched.expense.vendor || "Expense"}</b>{" "}
+              <span className="num">{money(lastUnmatched.expense.amount)}</span> from{" "}
+              <b>{lastUnmatched.transaction.description || "Bank payment"}</b>{" "}
+              <span className="num">{money(Math.abs(Number(lastUnmatched.transaction.amount)))}</span>
+            </span>
+            <button className="btn btn-sm" disabled={busy === lastUnmatched.expense.id} onClick={undoUnmatch}>
+              Undo
+            </button>
+          </div>
+        ) : null}
+
         {/* Summary figures double as filters. */}
         <div className="recon-tabs">
           {tabs.map((t) => (
@@ -219,7 +258,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                     <button
                       className="btn btn-sm"
                       disabled={busy === p.expense.id}
-                      onClick={() => unmatch(p.expense.id, p.transaction.id)}
+                      onClick={() => unmatch(p)}
                     >
                       Unmatch
                     </button>
@@ -248,7 +287,18 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                     <div className="recon-unmatched" key={e.id}>
                       <div className="recon-pair">
                         <div className="recon-side">
-                          <div className="recon-vendor">{e.vendor || "Expense"}</div>
+                          {cands.length > 0 ? (
+                            <button
+                              className="recon-vendor recon-vendor-btn"
+                              aria-expanded={open}
+                              title={`See possible matches (${cands.length})`}
+                              onClick={() => setPickFor(open ? null : e.id)}
+                            >
+                              {e.vendor || "Expense"}
+                            </button>
+                          ) : (
+                            <div className="recon-vendor">{e.vendor || "Expense"}</div>
+                          )}
                           <div className="recon-meta">
                             {shortDate(e.expense_date)} · {e.category || "—"} · {e.source}
                           </div>
@@ -318,6 +368,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                       </div>
                       {open ? (
                         <div className="recon-cands">
+                          <div className="recon-meta">Possible matches, closest first. Click one to match it.</div>
                           {cands.slice(0, 10).map((c) => (
                             <button
                               key={c.t.id}

@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     dev_user_id: str = ""
 
     # --- Vision LLM ---
-    llm_provider: str = "anthropic"          # anthropic | openai | ollama | mock
+    llm_provider: str = "openai"             # openai | anthropic | ollama | mock
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-4-8"
     openai_api_key: str = ""

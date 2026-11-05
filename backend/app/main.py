@@ -2,7 +2,7 @@
 
 Run locally:
     cd backend
-    uvicorn app.main:app --reload
+    uvicorn app.main:app --port 8000
 Docs at http://localhost:8000/docs
 """
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import __version__
 from .config import get_settings
 from .routers import (
     bank,
@@ -36,7 +37,7 @@ monitoring.init_sentry_if_enabled(settings)
 
 app = FastAPI(
     title="Receipt Ghostbuster API",
-    version="0.1.0",
+    version=__version__,
     description="Personal money assistant: track, categorize, VAT-split, reconcile, close.",
 )
 

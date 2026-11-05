@@ -54,6 +54,10 @@ See the full plan and status in **[roadmap.md](roadmap.md)**.
   - **Slice 1 — the chatbot** ([D40](DECISIONS.md)).
   - **Slice 2 — a built-in eval harness** ([D41](DECISIONS.md)) over a **committed, synthetic** fixed ledger (reproducible + public-safe, unlike the git-ignored real receipts): **tool-selection accuracy** (the LLM's real job — right tool, right args), **answer-correctness** (the figure, graded in code — no LLM judge), and **refusal** (out-of-scope questions must decline). On gpt-5-mini: **tool-selection 18/18, answer 18/18, refusal 5/5**; the offline check is deterministic and gated in CI.
   - **Slice 3 — a calibrated faithfulness judge + a response cache** ([D42](DECISIONS.md)). An LLM judge checks the **prose** follows from the computed numbers; it's **calibrated against human-verified labels before it's trusted** (100% agreement, caught 100% of unfaithful answers → **TRUSTED**; live prose **18/18 faithful**). Plus an in-process response cache keyed on a **ledger fingerprint** that self-invalidates on any data change. Backend tests **241 → 287** (see [docs/design/chatbot.md](docs/design/chatbot.md), [D40–D42](DECISIONS.md)).
+- **v0.5.3–v0.5.4 — Locale-safe parsing & a trustworthy model matrix ✅ shipped**
+  European comma-decimals (`'32,95'`) no longer crash a read. The model matrix can now re-measure one model without touching the others, reports any failed read, and records how each row was measured. Backend tests **287 → 310** (see [D43](DECISIONS.md), [CHANGELOG.md](CHANGELOG.md)).
+- **v0.5.5 — Real Revolut PDF statements ✅ shipped**
+  From a Round 11 session: Revolut PDFs in English and Greek are read in code, with no model call, and accepted only if they match their own printed totals to the cent. Re-upload protection now works across languages and formats, Unmatch can be undone, and a Revolut transfer that names a person counts as a third party. Backend tests **310 → 329** (see [feedback-notes.md](feedback-notes.md), [D44–D45](DECISIONS.md)).
 
 ---
 
@@ -90,7 +94,7 @@ Supabase (Postgres + Auth + Storage)   n8n (Docker, :5678) → Gmail draft (draf
 **Stack & why:**
 - **React + Vite** — fast SPA for a dashboard-heavy UI.
 - **Python / FastAPI** — all logic as tested endpoints (the accounting-critical paths are unit-tested).
-- **Supabase (Postgres + Auth + Storage)** — managed DB, row-level security, and receipt image storage without standing up infra.
+- **Supabase (Postgres + Auth + Storage)** — managed DB and receipt image storage without standing up infra. The frontend has no login yet: the app runs single-user through `DEV_USER_ID` (see [Run it yourself](#run-it-yourself)).
 - **Vision LLM (OpenAI `gpt-5-mini`)** — reads receipts *and* powers the Ask chatbot's tool-calling; provider is swappable (Anthropic / a local on-device Ollama model), and the choice was made with an eval (see Results — `gpt-4o` is the compared baseline).
 - **n8n** — thin orchestration for Gmail delivery + cron, so email logic stays out of the app ([D5](DECISIONS.md)).
 - **Bank via CSV import** — works with any bank, no open-banking OAuth ([D2](DECISIONS.md)).
@@ -99,35 +103,35 @@ Supabase (Postgres + Auth + Storage)   n8n (Docker, :5678) → Gmail draft (draf
 
 ## Results
 
-- **Extraction accuracy (measured):** a reproducible harness ([`backend/scripts/eval_extraction.py`](backend/scripts/eval_extraction.py)) scores the shipped pipeline — the vision read **plus** the deterministic VAT/amount/category logic — field-by-field against a hand-labelled set of 26 real Portuguese receipts (multi-rate VAT tables, rotated photos, discounts, a crumpled receipt, a 0%-VAT tobacco receipt, a payment-only receipt, and a handwritten prompt-injection receipt). On `gpt-5-mini`:
+- **Extraction accuracy (measured):** a re-runnable harness ([`backend/scripts/eval_extraction.py`](backend/scripts/eval_extraction.py)) scores the shipped pipeline — the vision read **plus** the deterministic VAT/amount/category logic — field-by-field against a hand-labelled set of 26 real Portuguese receipts (multi-rate VAT tables, rotated photos, discounts, a crumpled receipt, a 0%-VAT tobacco receipt, a payment-only receipt, and a handwritten prompt-injection receipt). On `gpt-5-mini`:
 
   | vendor | date | total | vat amount | vat rate | category | **overall** |
   |---:|---:|---:|---:|---:|---:|---:|
   | 100% | 96% | 100% | 100% | 100% | 100% | **99.3%** |
 
-  Choosing the model was itself eval-driven: `gpt-4o` scored **84%** and reliably mis-read dense 3-rate VAT tables; swapping in the `gpt-5-mini` reasoning model (which reads those tables correctly) lifted it to **93%**, and validated structured outputs (Instructor, v0.3.0) took it to **98%** — and on the grown 26-receipt set it holds at **99.3%**, the one miss a date read a day off. (The eval also caught a *labelling* error of its own — a tobacco receipt labelled 0%/Tobacco from outside knowledge the receipt doesn't print; corrected, because an extraction label must score only what's on the paper.) See [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md).
-- **Model comparison (accuracy × latency × cost × privacy):** a reproducible runner ([`backend/scripts/eval_models.py`](backend/scripts/eval_models.py)) scores several models over the same set on every axis a production choice turns on, and breaks accuracy down **by receipt type** so a strong average can't hide a weak slice. Run over 26 receipts — **gpt-5-mini 98.6%** · **gpt-4o 92.3%** · **claude-haiku-4-5 86.6%** · **claude-opus-4-8 98.2%** (frozen at n=20) · and a **local, on-device `qwen2.5vl:7b` at 89.4%**. Two decisive findings: **Opus ties gpt-5-mini on accuracy but costs ~39× more per read** ($0.32 vs $0.0076), so the cheap reasoning model wins on accuracy *and* cost; and a **free local model (data never leaves the machine) reaches ~90%** — above cloud Haiku — the privacy↔accuracy price quantified (the catch is latency: ~5–18 min/read on CPU). See [`backend/eval/MODELS.md`](backend/eval/MODELS.md) and [D33](DECISIONS.md). Each cloud model's run is also pushed to **LangSmith** as an Experiment; the local reads deliberately are not (privacy). *(n=26, so small differences aren't significant.)*
+  Choosing the model was itself eval-driven: `gpt-4o` scored **84%** and reliably mis-read dense 3-rate VAT tables; swapping in the `gpt-5-mini` reasoning model (which reads those tables correctly) lifted it to **93%**, and validated structured outputs (Instructor, v0.3.0) took it to **98%** — and on the grown 26-receipt set it holds at **99.3%**, the one miss a date read a day off. (The eval also caught a *labelling* error of its own — a tobacco receipt labelled 0%/Tobacco from outside knowledge the receipt doesn't print; corrected, because an extraction label must score only what's on the paper.) See [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). **Read this as a development-set number:** some of these receipts were also used to tune the prompts, there's no held-out set yet, and the receipts and labels are private, so nobody else can reproduce the exact figure.
+- **Model comparison (accuracy × latency × cost × privacy):** a runner ([`backend/scripts/eval_models.py`](backend/scripts/eval_models.py)) scores several models over the same set on every axis a production choice turns on, and breaks accuracy down **by receipt type** so a strong average can't hide a weak slice. Run over 26 receipts — **gpt-5-mini 98.6%** · **gpt-4o 92.3%** · **claude-haiku-4-5 86.6%** · **claude-opus-4-8 98.2%** (frozen at n=20) · and a **local, on-device `qwen2.5vl:7b` at 90.1%**. Two decisive findings: **Opus ties gpt-5-mini on accuracy but costs ~39× more per read** ($0.32 vs $0.0076), so the cheap reasoning model wins on accuracy *and* cost; and a **free local model (data never leaves the machine) reaches ~90%** — above cloud Haiku — the privacy↔accuracy price quantified (the catch is latency on CPU: about 4.6 min at p50 and 16 min at p95). See [`backend/eval/MODELS.md`](backend/eval/MODELS.md) and [D33](DECISIONS.md). Each cloud model's run is also pushed to **LangSmith** as an Experiment; the local reads deliberately are not (privacy). *(n=26, so small differences aren't significant, and that includes the local model's lead over Haiku.)*
 
   ![LangSmith model comparison](docs/screenshots/Langsmith-compare-experiments.png)
-  *The same runs in **LangSmith** — three experiments (gpt-5-mini / gpt-4o / Haiku) compared against the receipt dataset: per-field feedback scores, latency (p50/p99), token count and estimated cost side by side, over a per-receipt pass/fail grid. Opt-in; the offline eval depends on none of it.*
-- **Guardrails, measured (not asserted):** the same harness runs the shipped review gate over the set and reports whether it actually catches bad reads — the **false-auto-post rate**, the **over-review rate**, and a **confidence-calibration** table — surfaced in an in-app **Model & Evals** dashboard alongside live per-read latency/cost. An honest finding it produced: the model's self-reported confidence is poorly calibrated (0.7–0.8 reads were 100% correct, 0.8–0.9 only 75%), so the gate currently over-reviews correct reads. See [D30](DECISIONS.md).
+  *Earlier runs in **LangSmith**, on the 20-receipt set — three experiments (gpt-5-mini / gpt-4o / Haiku) compared against the receipt dataset: per-field feedback scores, latency (p50/p99), token count and estimated cost side by side, over a per-receipt pass/fail grid. Opt-in; the offline eval depends on none of it.*
+- **Guardrails, measured (not asserted):** the same harness runs the shipped review gate over the set and reports whether it actually catches bad reads — the **false-auto-post rate**, the **over-review rate**, and a **confidence-calibration** table — surfaced in an in-app **Model & Evals** dashboard alongside live per-read latency/cost. On the current 26-receipt run, the gate sends **52% of correct reads** (13/25) to review and **did not catch the one wrong read**, a date a day off that still reconciles. The model's self-reported confidence is also poorly calibrated (0.7–0.8 reads were 100% correct, 0.8–0.9 reads 93%). See [`RESULTS.md`](backend/eval/RESULTS.md) and [D30](DECISIONS.md).
 
 ![Model & Evals dashboard](docs/screenshots/model-evals.png)
 *The in-app **Model & Evals** page: field accuracy, guardrail effectiveness, confidence calibration, and live per-read latency/cost/outcome — the layers a production LLM feature has and a demo usually skips.*
 - **Ask chatbot (measured):** the NL Q&A chatbot ships with its own eval harness ([`backend/scripts/eval_chatbot.py`](backend/scripts/eval_chatbot.py)) over a **committed, synthetic** fixed ledger — reproducible and public-safe, unlike the git-ignored real receipts. On `gpt-5-mini`: **tool-selection 18/18** (did it call the right analytics tool with the right args — the LLM's actual job), **answer-correctness 18/18** (the figure, graded in **code** by dispatching the tool — no LLM judge), **refusal 5/5** (out-of-scope questions declined). Prose faithfulness is checked by a **calibrated** LLM judge — measured against human-verified labels before it's trusted: **100% agreement, 100% recall on catching unfaithful answers → TRUSTED**, and live answers score **18/18 faithful**. The offline answer-check is deterministic and gated in CI; the model-dependent numbers run locally (like the extraction eval). See [`backend/eval/chatbot/RESULTS.md`](backend/eval/chatbot/RESULTS.md) and [`CALIBRATION.md`](backend/eval/chatbot/CALIBRATION.md).
 - **Reconciliation / close:** figures reconcile to the cent against the ledger (covered by pytest). Bank import handles a real Revolut CSV and text-based PDF statements; reconciliation can be driven by hand (match / unmatch / not-a-match / no-receipt) with believable suggestions only.
-- **Tests:** **302 passing** — reconciliation + manual-match + no-bank-match helpers, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization incl. food-delivery rules, date re-read + year-repair, discounts, estimated/0% VAT, duplicate fingerprinting, idempotent statement de-dup, spending breakdown, the gate decision + guardrail/calibration metrics, LLM-trace cost/usage helpers, the local Ollama provider wiring, locale-tolerant number coercion (comma-decimals) with a no-silent-drop guarantee, IBAN/card redaction, close, exceptions, validation, subscriptions, CSV/PDF bank import, statement aggregation, **the chatbot analytics + tool dispatch, the chatbot eval scoring + judge-agreement, the faithfulness judge, and the response cache**.
-- **Impact:** turns a manual personal month-end into minutes; surfaces forgotten subscriptions by annual cost.
+- **Tests:** **329 passing** — reconciliation + manual-match + no-bank-match helpers, VAT incl. per-line/mixed-rate + bucket rounding + printed-table source of truth, categorization incl. food-delivery rules, date re-read + year-repair, discounts, estimated/0% VAT, duplicate fingerprinting, idempotent statement de-dup, spending breakdown, the gate decision + guardrail/calibration metrics, LLM-trace cost/usage helpers, the local Ollama provider wiring, locale-tolerant number coercion (comma-decimals) with a no-silent-drop guarantee, IBAN/card redaction, close, exceptions, validation, subscriptions, CSV/PDF bank import, statement aggregation, **the chatbot analytics + tool dispatch, the chatbot eval scoring + judge-agreement, the faithfulness judge, and the response cache**, plus the model-matrix merge and failed-read reporting, and Revolut PDF parsing.
+- **Impact:** not measured yet. The goal is a personal month-end in minutes rather than the 1–2 hours estimated by hand, but no month-end has been timed. Refund Hunter ranks recurring charges by annual cost; on the sample data it finds 4, and on one real month it correctly finds none, because a subscription needs at least 3 charges ([D37](DECISIONS.md)).
 
 ---
 
 ## Process (how this was built)
 
-This project is built the way a product engineer works — ship small, test, capture feedback, decide, iterate:
+The project is built in small releases: ship, test, capture feedback, decide, iterate.
 
 - **[roadmap.md](roadmap.md)** — phases, goals, and what's planned.
 - **[DECISIONS.md](DECISIONS.md)** — every real decision as Problem → Evidence → Decision → Result.
-- **[feedback-notes.md](feedback-notes.md)** — real testing rounds; the evidence behind the decisions.
+- **[feedback-notes.md](feedback-notes.md)** — real testing rounds, all self-tests so far; the evidence behind the decisions.
 - **[CHANGELOG.md](CHANGELOG.md)** — what changed per version.
 
 ---
@@ -135,17 +139,19 @@ This project is built the way a product engineer works — ship small, test, cap
 ## Run it yourself
 
 ### Prerequisites
-- **Python 3.14** and **Node 18+**
-- A **Supabase** project and a **vision-LLM API key** (OpenAI or Anthropic)
-- Copy `backend/.env.example` → `backend/.env` and fill it in. Set `DEV_USER_ID` to a user UUID for keyless demo mode. Copy `frontend/.env.example` → `frontend/.env` (defaults to `VITE_API_BASE_URL=http://localhost:8000`).
+- **Python 3.12+** (CI runs 3.12; developed on 3.14) and **Node 18+**
+- A **Supabase** project and an **OpenAI API key**. The default model is `gpt-5-mini`, and the Ask chatbot needs OpenAI. Receipts can also be read with Anthropic or a local Ollama model.
+- Copy `backend/.env.example` → `backend/.env` and fill it in. Create a user under Supabase → Authentication → Users and set `DEV_USER_ID` to its UUID. Copy `frontend/.env.example` → `frontend/.env` (defaults to `VITE_API_BASE_URL=http://localhost:8000`).
+
+> **Keep the backend on localhost.** The frontend has no login yet, so with `DEV_USER_ID` set, any request without a token acts as that user, deletes included.
 
 ```powershell
 # backend
 cd backend
-py -3.14 -m venv .venv
+py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+# needs SUPABASE_ACCESS_TOKEN in .env, or paste db/schema.sql into the Supabase SQL editor
 .\.venv\Scripts\python.exe scripts\apply_schema.py
-.\.venv\Scripts\python.exe scripts\load_sample_data.py   # expenses + bank CSV + reconcile
 
 # frontend
 cd ..\frontend
@@ -163,6 +169,16 @@ cd frontend
 npm run dev
 ```
 Open **http://localhost:5173**. API docs at **http://localhost:8000/docs**.
+
+### Load the sample data
+With the backend running, in a third terminal:
+```powershell
+cd backend
+.\.venv\Scripts\python.exe scripts\load_sample_data.py    # expenses + bank CSV + reconcile
+.\.venv\Scripts\python.exe scripts\load_phase2_demo.py    # optional: recurring charges for Refund Hunter
+```
+These post into the ledger of `DEV_USER_ID`. If that ledger holds real data, point `DEV_USER_ID` at a separate user first.
+
 Refund Hunter's Gmail delivery (Phase 2) needs n8n — see **[n8n/README.md](n8n/README.md)**.
 
 ### Tests
@@ -181,7 +197,7 @@ The sample dataset is shaped so **every reconciliation path shows up**:
 2. **Add → Snap a receipt** — a confident read auto-posts; a shaky/rotated one lands in the **Review queue** with reasons. *"The AI is never trusted blindly."*
 3. **Add → Manual / cash** — add cash; it counts in totals but is **never** a reconciliation exception.
 4. **Reconciliation** — **Run reconciliation**, then walk the exceptions (amount-differs, duplicate, no-bank-match). Hit **Resolve** on the duplicate → the Ledger filters to the flagged pair, badged side by side.
-5. **Monthly close** — money in/out, VAT owed, and a close gated while card items are unreconciled.
+5. **Monthly close** — money in/out, VAT owed, and a close check that stays blocked while card items are unreconciled. It's a summary: closing doesn't save or lock the month yet.
 6. **Refund Hunter** — detected subscriptions by annual cost; draft a cancellation email → **Save to Gmail drafts** (draft-only).
 7. **Advice** — budget-vs-actual + rule-based nudges (over budget / spending up / unused subscription), each deep-linking to the fix. *"Deterministic guidance — the AI stays out of the math here too."*
 8. **Ask** — type a plain-language question (*"which day did I spend the most in October?"*, *"show me the receipt for Pingo Doce"*). The answer is phrased by the model but **every number comes from a tool computed in code**; receipts and CSVs render inline; out-of-scope questions are declined.

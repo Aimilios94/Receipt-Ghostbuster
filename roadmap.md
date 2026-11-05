@@ -120,7 +120,7 @@ Scope:
   …) so the harness breaks accuracy down by slice; a strong average can't hide a weak case.
 - **LangSmith per-model experiments** — `scripts/langsmith_eval.py` takes `--provider/--model`, so each
   model is its own Experiment for the LangSmith compare view (opt-in, unchanged otherwise).
-- **Honesty:** the comparison states n=11 and that small differences aren't statistically significant.
+- **Honesty:** the comparison states its sample size and that small differences aren't statistically significant.
 
 Run over 20 receipts: **gpt-5-mini 98.2%** · **gpt-4o 94.5%** · **claude-haiku-4-5 87.3%** · **claude-opus-4-8
 98.2%** — Opus *ties* gpt-5-mini on accuracy but costs ~39× more per read, so gpt-5-mini wins on accuracy
@@ -152,7 +152,7 @@ Status: **shipped.** Backend tests **130 → 137**. gpt-5-mini stays the product
 
 ## v0.3.4 — Regression gate & app-layer error tracking ✅
 
-**Goal:** harden the observability/eval spine — stop a code change from silently dropping accuracy, and make application-layer failures visible — before the repo goes public.
+**Goal:** harden the observability/eval spine — stop a code change from silently dropping accuracy, and make application-layer failures visible.
 
 Scope:
 - **Accuracy-regression gate** — `scripts/check_regression.py` fails if any tracked extraction metric drops below a committed floor (`eval/baseline.json`) minus a tolerance band. Runs **locally on the real number** (cached reads, deterministic, $0) and **in CI on a deterministic mock mechanism** (`baseline.mock.json`) so the public runner catches a broken scoring/VAT/gate pipeline without exposing the git-ignored receipt data. **README badges**: CI status + extraction accuracy.
@@ -208,6 +208,33 @@ Status: **✅ complete** — v0.5 shipped in three slices (chatbot, eval harness
 
 ---
 
+## v0.5.3–v0.5.4 — Locale-safe parsing & honest public numbers ✅
+
+**Goal:** a receipt must never vanish from a measurement, and every public claim must match what has actually been measured.
+
+Scope delivered:
+- **Locale-tolerant number parsing** (`'32,95'` → 32.95), and a malformed read can't crash extraction ([CHANGELOG](CHANGELOG.md) 0.5.3).
+- **A model matrix that survives a single-model re-measure**, reports failed reads, and records how each row was measured ([D43](DECISIONS.md)). The local model is **90.1%** over all 26 receipts.
+- **Public-page corrections:** claims, quick start, version strings, and a frontend build in CI.
+
+Status: **shipped.** Backend tests **287 → 310**.
+
+---
+
+## v0.5.5 — Real Revolut PDF statements ✅
+
+**Goal:** a real bank PDF imports correctly, not just a synthetic one.
+
+Scope delivered ([D44](DECISIONS.md), [Round 11](feedback-notes.md)):
+- **Revolut PDFs read in code** (English and Greek), accepted only if they match their own printed totals.
+- **Re-upload protection across languages and formats**, and the model path repaired for other banks' PDFs.
+- **Undo for Unmatch**, and possible matches from an unmatched expense's name ([D45](DECISIONS.md)).
+- **Named recipients:** a Revolut transfer that names a person counts as a third party ([D45](DECISIONS.md)).
+
+Status: **shipped.** Backend tests **310 → 329**.
+
+---
+
 ## v0.6 — Payslip tracking ⬜
 
 **Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance
@@ -222,6 +249,16 @@ Status: **planned** — not started.
 
 ---
 
+## Open gaps (found 2026-11-05, not yet scheduled)
+
+- **A saved monthly close.** ⬜ `GET /close` computes the summary and the Close button only confirms it on screen: no close record is stored and the month isn't locked, so later edits change a "closed" month. Build it or keep the summary wording, decided after a real timed close.
+- **A timed month-end.** ⬜ The "minutes, not hours" target has no measurement yet (`problem-statement.md`).
+- **A held-out accuracy number.** ⬜ Some of the 26 eval receipts were also used to tune the prompts. Scoring the next batch of new receipts before any tuning would give an untouched number.
+- **An outside tester.** ⬜ All feedback rounds so far are self-tests.
+- **Fewer correct reads sent to review.** ⬜ The gate holds back 52% of correct reads because model confidence is poorly calibrated ([D30](DECISIONS.md)).
+
+---
+
 ## Planned improvements (from testing feedback)
 
 - **Per-line VAT.** ✅ Built — an `expense_line_items` table holds one VAT rate per line, so a mixed-rate receipt (e.g. 6% + 23%) is summed per rate in code instead of flattened to its dominant rate (see [D12](DECISIONS.md#d12--per-line-vat-a-receipt-can-hold-multiple-rates-design)). Mechanism verified end-to-end against live Supabase; a real gpt-4o read of a mixed-rate receipt photo is the remaining confirmation step.
@@ -233,10 +270,10 @@ Status: **planned** — not started.
 - **Refund Hunter detection accuracy & transparency (Round 8).** ✅ Built — subscription detection now excludes non-purchase bank lines (top-ups/transfers/exchanges, reusing `is_reconcilable`) and one-off retail categories, requires **≥3** same-amount charges (two is a coincidence; no more annualising a single gap into a bogus €520/yr), and prunes stale auto-detections on re-run. Each subscription shows its charge dates + a "view charges" snapshot of the exact bank/CSV rows. Plus a cross-cutting fix so modals always render centered (portal to body). See [D37](DECISIONS.md), [feedback-notes.md](feedback-notes.md).
 - **Idempotent bank re-upload + spending breakdown (Round 9).** ✅ Built — re-importing a statement that overlaps a previous one now adds only the genuinely-new rows (count-aware fingerprint on date + amount + description + balance) and preserves existing reconciliation, instead of duplicating the overlap. A new **Spending breakdown** (by vendor, and bank transfers split into third parties sent/received vs own-Revolut movements) is reachable from Reconciliation and the Ledger and drills to each transaction, plus a **"View CSV"** of a statement's raw source rows. See [D38](DECISIONS.md)/[D39](DECISIONS.md), [feedback-notes.md](feedback-notes.md).
 - **Read-twice-and-compare** consensus mode. ⬜ Deferred option for maximum reliability on the hardest (crumpled + rotated) receipts.
-- **`claude-opus-4-8` eval comparison.** ⬜ Pending Anthropic credits — add a cross-model column to RESULTS.md.
-- **Full measurement-receipt provenance on eval numbers.** ⬜ Deferred (reporting polish) — give every published eval figure an explicit state label (*measured* / *declared* / *no-data-with-a-cause*) and a complete measurement receipt (command · machine · date · commit · artifact hash), extending the provenance `RESULTS.md`/`MODELS.md` already carry (command + run date + model, and informal "frozen n=20" / "—" gaps). The *pipeline* already refuses to silently drop a receipt ([0.5.3] / [CHANGELOG](CHANGELOG.md)); this makes the *reporting* layer equally explicit, so an unmeasured number is a declared gap with a cause, never a silent omission. Low risk, not urgent.
+- **`claude-opus-4-8` eval comparison.** ✅ Built — a column in `backend/eval/MODELS.md`, frozen at n=20 (see [D31](DECISIONS.md)).
+- **Full measurement-receipt provenance on eval numbers.** 🚧 Partly done: `MODELS.md` now carries a per-model measurement record ([D43](DECISIONS.md)). `RESULTS.md`, the chatbot results and the README badges don't yet, and `eval_extraction.py` still needs the same failed-read reporting. The goal: give every published eval figure an explicit state label (*measured* / *declared* / *no-data-with-a-cause*) and a complete measurement receipt (command · machine · date · commit · artifact hash), extending the provenance `RESULTS.md`/`MODELS.md` already carry (command + run date + model, and informal "frozen n=20" / "—" gaps). The *pipeline* already refuses to silently drop a receipt ([0.5.3] / [CHANGELOG](CHANGELOG.md)); this makes the *reporting* layer equally explicit, so an unmeasured number is a declared gap with a cause, never a silent omission. Low risk, not urgent.
 
-## Beyond v0.3 (future work)
+## Future work
 
 Not committed, but the natural directions: a mobile app, support for **more banks** (more CSV formats / open-banking), and **more languages / locales** for receipts and VAT rules. See the README's *Future work* section.
 

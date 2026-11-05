@@ -51,7 +51,8 @@ async def import_statement(
 
     if not rows:
         detail = (
-            "No transactions found in the PDF. If it's a scanned image, export a CSV instead."
+            "This PDF has readable text, but no transactions could be found in it. "
+            "Export the statement as a CSV instead, or add a hint in the note."
             if source == "pdf"
             else "No transactions parsed. Check the CSV has date and amount columns."
         )
@@ -61,14 +62,23 @@ async def import_statement(
     # re-uploading an overlapping statement adds just the new rows and preserves
     # the existing reconciliation (nothing is duplicated or double-counted).
     existing = repo.list_bank_transactions(user_id)
+    named = 0
+    for txn_id, raw_row in statements.counterparty_updates(rows, existing):
+        try:
+            repo.update_bank_transaction(user_id, txn_id, {"raw": raw_row})
+            named += 1
+        except Exception as exc:  # noqa: BLE001 - a missing name must not fail the import
+            monitoring.capture(exc, surface="bank.update_counterparty")
     rows, skipped = statements.filter_new_transactions(rows, existing)
     if not rows:
+        filled = f" Added {named} recipient name{'' if named == 1 else 's'}." if named else ""
         return {
             "imported": 0,
             "skipped": skipped,
+            "counterparties_added": named,
             "source": source,
             "statement": None,
-            "message": f"All {skipped} transactions were already imported — nothing new.",
+            "message": f"All {skipped} transactions were already imported — nothing new.{filled}",
         }
 
     # One statement row per imported file: period + money in/out/net. Transactions
@@ -108,6 +118,7 @@ async def import_statement(
     return {
         "imported": len(inserted),
         "skipped": skipped,
+        "counterparties_added": named,
         "transactions": inserted,
         "source": source,
         "statement": statement,

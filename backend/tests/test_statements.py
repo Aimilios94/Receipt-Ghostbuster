@@ -107,3 +107,34 @@ def test_filter_description_whitespace_and_case_insensitive():
     incoming = [_txn("2026-10-05", -11.58, "  continente ", 74.27)]
     to_insert, skipped = st.filter_new_transactions(incoming, existing)
     assert to_insert == [] and skipped == 1
+
+
+def _stored(txn_id, **raw):
+    return {"id": txn_id, "txn_date": "2026-10-09", "amount": -10.0, "description": "Revolut Ltd",
+            "balance": 28.78, "raw": raw}
+
+
+def _incoming(**raw):
+    return {"txn_date": "2026-10-09", "amount": -10.0, "description": "Revolut Ltd",
+            "balance": 28.78, "raw": raw}
+
+
+def test_counterparty_fills_a_stored_row_and_keeps_its_raw():
+    updates = st.counterparty_updates([_incoming(Counterparty="Robin")], [_stored("t1", Type="Transfer")])
+    assert updates == [("t1", {"Type": "Transfer", "Counterparty": "Robin"})]
+
+
+def test_counterparty_never_overwrites_a_name_or_invents_one():
+    assert st.counterparty_updates([_incoming(Counterparty="Robin")], [_stored("t1", Counterparty="Sam")]) == []
+    assert st.counterparty_updates([_incoming()], [_stored("t1")]) == []
+
+
+def test_counterparty_ignores_rows_that_are_not_stored():
+    other = {**_incoming(Counterparty="Robin"), "balance": 1.0}
+    assert st.counterparty_updates([other], [_stored("t1")]) == []
+
+
+def test_counterparty_pairs_identical_rows_one_to_one():
+    incoming = [_incoming(Counterparty="Robin"), _incoming(Counterparty="Sam")]
+    updates = st.counterparty_updates(incoming, [_stored("t1"), _stored("t2")])
+    assert [(i, r["Counterparty"]) for i, r in updates] == [("t1", "Robin"), ("t2", "Sam")]

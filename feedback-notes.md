@@ -1,6 +1,6 @@
 # Feedback Notes
 
-*Real observations from testing rounds. One section per round. This is the **Evidence** source for [DECISIONS.md](DECISIONS.md) — every decision there should trace back to something recorded here. No invented feedback.*
+*Real observations from testing rounds. One section per round. This is the **Evidence** source for [DECISIONS.md](DECISIONS.md) — every decision there should trace back to something recorded here. No invented feedback. All rounds so far are self-tests by the developer; no outside user has tested the app yet.*
 
 ---
 
@@ -130,7 +130,7 @@
 
 **Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D22 PDF import · D23 top-ups/transfers aren't purchases · D24 statements first-class + collapsed exceptions · D25 online-payment "no receipt" + manual reconciliation workbench. Printed-table tolerance + scaling extends D14.
 
-**Round 4 outcome:** bank import now handles a real Revolut CSV and PDF statements; reconciliation became a hand-drivable workbench (match / unmatch / not-a-match / no-receipt / re-scan) with believable suggestions only; receipt totals stay internally consistent through a crumpled-digit misread. All verified in-browser against live Supabase; backend tests **80 → 97**. Sample demo data was cleared at the tester's request so the ledger shows only real uploads (reload via `scripts/load_sample_data.py` + `load_phase2_demo.py` before a recruiter demo).
+**Round 4 outcome:** bank import now handles a real Revolut CSV and PDF statements; reconciliation became a hand-drivable workbench (match / unmatch / not-a-match / no-receipt / re-scan) with believable suggestions only; receipt totals stay internally consistent through a crumpled-digit misread. All verified in-browser against live Supabase; backend tests **80 → 97**. Sample demo data was cleared at the tester's request so the ledger shows only real uploads (reload via `scripts/load_sample_data.py` + `load_phase2_demo.py` before a demo).
 
 ## Round 5 — 2026-10-18 (self-testing, developer) — accuracy eval, a model upgrade, and a clean reconciliation
 
@@ -309,3 +309,37 @@ natural answers, inline receipts and CSV export, readable grouped lists, and sub
 fooled by cash or consumption. Backend tests **255 → 262** (pure analytics unit-tested over a fixed ledger). All
 verified live against the real October data; the first slice of v0.5 is shipped, with the eval harness + calibrated
 judge as the next slices.
+
+---
+
+## Round 11 — 2026-11-05 (self-testing, developer) — importing a real PDF statement
+
+**Setup:** local build (backend `:8000`, frontend `:5173`), live Supabase. The tester imported a real Revolut PDF for
+October, covering a period that overlaps statements already imported. The real statement is PII and is kept **out of the repo**.
+
+**What was exercised:** bank-statement import from PDF, in Greek and then in English.
+
+**Observations & fixes:**
+
+- **"I thought we fixed re-uploading a statement."** Importing the Greek PDF showed *"No transactions found in the PDF. If
+  it's a scanned image, export a CSV instead."* The re-upload protection ([D38](DECISIONS.md)) wasn't the cause: the import
+  stopped earlier, while reading the file. The PDF isn't scanned either, so the message was misleading.
+- **The English PDF failed the same way**, so language wasn't the root cause. The backup parser couldn't read this layout's
+  dates or amounts, and the model path couldn't produce rows. It was the first real PDF reported through this path;
+  [D22](DECISIONS.md) had only been checked on a synthetic statement.
+- **Fixing the read alone wouldn't have been enough.** Testing the rows against the stored statements showed Greek wording
+  would have added about 20 duplicates and shown transfers as purchases needing a receipt. → **FIXED ([D44](DECISIONS.md)):**
+  Revolut PDFs are read in code and must match their own printed totals; re-upload matching no longer depends on wording.
+- **Found alongside:** the OpenAI account had run out of credits, which stopped receipt reading and the Ask chatbot until the
+  tester topped it up.
+- **"I pressed Unmatch by mistake and can't undo it."** A pair dropped out of the matched list with no way back. → **FIXED
+  ([D45](DECISIONS.md)):** an Undo bar stays at the top of the popup, and clicking an unmatched expense's name shows its possible matches.
+- **"Revolut" rows that went to other people.** Rows a CSV shows only as *Revolut Bank* / *Revolut Ltd* were treated as the
+  tester's own movements ([D39](DECISIONS.md)), but the PDF names other people as the recipients. → **FIXED ([D45](DECISIONS.md)):**
+  a named recipient makes it a third party, and importing the PDF fills the name into rows already stored.
+
+**Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D44, D45.
+
+**Round 11 outcome:** the real PDF imported correctly, adding only the 16 new rows, and importing the other language added
+nothing. Reconciliation and the Breakdown looked right on the new data. Re-importing filled in the recipient names (third parties
+sent €643.42 to 7 people, and the own-movements section emptied), and Undo restored a match in the tester's own run.

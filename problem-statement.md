@@ -1,6 +1,6 @@
 # Problem Statement
 
-*Written once, before building. This is the "why" the rest of the project is measured against.*
+*Written once, before building. This is the "why" the rest of the project is measured against. Only the status table under the success criteria is kept current.*
 
 ## Who it's for
 
@@ -34,7 +34,7 @@ Receipt Ghostbuster automates the messy manual process end-to-end:
 - A vision model extracts vendor / amount / date / VAT; uncertain reads go to a **review queue** instead of being trusted blindly.
 - Card spend is **reconciled against the bank statement**; mismatches surface as **exceptions** (unmatched, duplicate, amount-differs, missing VAT).
 - Cash is counted in totals but **excluded from reconciliation** — there's nothing in the bank to match it to.
-- A **monthly close** locks the numbers: money in/out, VAT owed, what's still unreconciled.
+- A **monthly close** summarizes the numbers: money in/out, VAT paid, what's still unreconciled.
 - Later phases hunt dead subscriptions and advise where to cut.
 
 ## What "good" looks like (success criteria)
@@ -45,10 +45,20 @@ Receipt Ghostbuster automates the messy manual process end-to-end:
 - Every number on every screen traces back to **one ledger** — no double-entry, no disagreeing totals.
 - Nothing financial is ever sent or charged automatically; the human approves.
 
+### Status against those criteria (checked 2026-11-05)
+
+| Criterion | State | Evidence |
+|---|---|---|
+| Adding an expense takes seconds | **Not met** for a snapped receipt; manual entry `NO_DATA` (not timed) | A `gpt-5-mini` read takes 24.7s at p50 and 76.7s at p95 ([MODELS.md](backend/eval/MODELS.md)). Accuracy was chosen over speed ([D27](DECISIONS.md)). |
+| The AI never does the money math and is never trusted blindly | Built and tested | [D1](DECISIONS.md), [D40](DECISIONS.md); the numbers are unit-tested, and the gate is measured ([D30](DECISIONS.md)). |
+| A month-end takes minutes, not ~1–2 hours | `NO_DATA` | No month-end has been timed, and the 1–2 hours is an estimate. A close is also a summary today: it isn't saved or locked. |
+| Every number traces back to one ledger | Built | [D10](DECISIONS.md) |
+| Nothing financial is sent or charged automatically | Built | [D4](DECISIONS.md) |
+
 ## Explicitly out of scope
 
 Multi-currency / FX · full double-entry bookkeeping · tax-return generation · multi-user / client accounts · live open-banking API. These would delay shipping without strengthening the core promise.
 
 ---
 
-*This project is also a portfolio piece — built to show that I can ship, automate a messy process end-to-end, and work with real accounting depth. The engineering process (roadmap → decisions → changelog, driven by real testing feedback) is tracked in the linked docs from the [README](README.md).*
+*The engineering process (roadmap → decisions → changelog, driven by real testing feedback) is tracked in the linked docs from the [README](README.md).*

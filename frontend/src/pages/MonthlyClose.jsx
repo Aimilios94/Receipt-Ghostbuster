@@ -44,7 +44,7 @@ export default function MonthlyClose() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Monthly close</h1>
-          <div className="page-sub">Lock a month's totals and produce a close summary.</div>
+          <div className="page-sub">Check a month's totals and produce a close summary.</div>
         </div>
         <div className="head-actions">
           <select
@@ -120,7 +120,7 @@ export default function MonthlyClose() {
                 <div className="card-title">Close {monthLabel(month)}</div>
                 <div className="card-desc">
                   {ready
-                    ? "Everything reconciles. You're clear to lock this month."
+                    ? "Everything reconciles. This month is ready to close."
                     : `${close.unreconciled_count} card expense${close.unreconciled_count > 1 ? "s" : ""} still unreconciled — resolve them first for a clean close.`}
                 </div>
               </div>
@@ -131,13 +131,13 @@ export default function MonthlyClose() {
               onClick={() =>
                 toast(
                   ready
-                    ? `${monthLabel(month)} closed · ${money(close.total_out)} out`
+                    ? `${monthLabel(month)} reconciles · ${money(close.total_out)} out. Close records aren't saved yet.`
                     : "Resolve open exceptions before closing",
                   ready ? "ok" : "err"
                 )
               }
             >
-              <Icon.lock size={14} /> {ready ? `Close ${monthLabel(month)}` : "Not ready to close"}
+              <Icon.check size={14} /> {ready ? `Check ${monthLabel(month)}` : "Not ready to close"}
             </Button>
           </Card>
         </>

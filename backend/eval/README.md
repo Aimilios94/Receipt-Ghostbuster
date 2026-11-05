@@ -23,7 +23,7 @@ committed and quoted in the top-level README.
 
 ## Run it
 
-From `backend/` (needs `ANTHROPIC_API_KEY` in `backend/.env`):
+From `backend/` (needs the configured provider's API key in `backend/.env`):
 
 ```bash
 python scripts/eval_extraction.py            # all receipts, using the per-image cache
@@ -94,6 +94,26 @@ well past it). It runs in two places:
 then update `baseline.json` to the new floors **deliberately** (commit them together),
 and bump the static `extraction accuracy` badge in the top-level `README.md`. A changed
 sample size is surfaced as a non-fatal NOTE by the gate, not a failure.
+
+## Model matrix (`eval_models.py`)
+
+`scripts/eval_models.py` runs the same pipeline across models and writes
+`MODELS.md` + `models.json`:
+
+```bash
+python scripts/eval_models.py --models ollama:qwen2.5vl-receipt   # re-measure one model
+python scripts/eval_models.py --models openai:gpt-5-mini --limit 3  # smoke test, writes nothing
+```
+
+A run updates only the models it names. Every other row keeps its numbers and its own
+measurement record, and the replaced headline moves to that model's history, so repeat
+runs stay visible. `--replace-all` starts a new matrix. The prose in `MODELS.md` lives
+under `notes` / `footnotes` in `models.json`; edit it there, because `MODELS.md` is
+generated.
+
+A read that fails is declared: its fields count as misses, and the row records how many
+reads errored and why. A labelled image missing from disk is declared `NO_DATA` and left
+out of that row's denominators.
 
 ## LangSmith (optional)
 

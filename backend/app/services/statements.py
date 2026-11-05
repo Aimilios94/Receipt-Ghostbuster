@@ -16,6 +16,9 @@ def _txn_fingerprint(txn: dict[str, Any]) -> tuple:
     top-ups on one day). The running `balance` disambiguates them when present, and a
     count-aware reconciliation in `filter_new_transactions` covers formats with no
     balance column — so neither a true duplicate nor a real repeat is mishandled.
+
+    With a balance, the description is left out: the same transaction reads differently
+    across a statement's languages and formats, while date+amount+balance doesn't change.
     """
     try:
         amount = round(float(txn.get("amount") or 0), 2)
@@ -27,7 +30,10 @@ def _txn_fingerprint(txn: dict[str, Any]) -> tuple:
         bal = round(float(bal), 2) if bal is not None else None
     except (TypeError, ValueError):
         bal = None
-    return (str(txn.get("txn_date") or "")[:10], amount, desc, bal)
+    date = str(txn.get("txn_date") or "")[:10]
+    if bal is not None:
+        return (date, amount, None, bal)
+    return (date, amount, desc, None)
 
 
 def filter_new_transactions(
@@ -49,6 +55,28 @@ def filter_new_transactions(
             continue
         to_insert.append(row)
     return to_insert, len(new_rows) - len(to_insert)
+
+
+def counterparty_updates(
+    new_rows: list[dict[str, Any]], existing_rows: list[dict[str, Any]]
+) -> list[tuple[str, dict[str, Any]]]:
+    """Stored rows a richer statement can name: (transaction id, updated raw) for each row
+    already imported without a counterparty, when an incoming copy of it has one. A CSV
+    doesn't show who a Revolut transfer went to, and the PDF of the same statement does."""
+    stored: dict[tuple, list[dict[str, Any]]] = {}
+    for t in existing_rows:
+        stored.setdefault(_txn_fingerprint(t), []).append(t)
+    updates: list[tuple[str, dict[str, Any]]] = []
+    for row in new_rows:
+        matches = stored.get(_txn_fingerprint(row))
+        if not matches:
+            continue
+        match = matches.pop(0)
+        name = (row.get("raw") or {}).get("Counterparty")
+        raw = match.get("raw") or {}
+        if name and match.get("id") and not raw.get("Counterparty"):
+            updates.append((match["id"], {**raw, "Counterparty": name}))
+    return updates
 
 
 def statement_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:

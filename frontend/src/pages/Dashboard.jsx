@@ -524,7 +524,7 @@ function CloseChecklist({ close, reviewCount, excCount }) {
       <div className="card-head">
         <div>
           <div className="card-title">Monthly close</div>
-          <div className="card-desc">Lock this month's totals and create a close summary.</div>
+          <div className="card-desc">Check this month's totals and create a close summary.</div>
         </div>
       </div>
       {items.map((it) => (
@@ -542,7 +542,7 @@ function CloseChecklist({ close, reviewCount, excCount }) {
           className={`btn ${ready ? "btn-primary" : ""}`}
           style={{ width: "100%", justifyContent: "center" }}
         >
-          <Icon.lock size={14} /> {ready ? "Close this month" : "Review before closing…"}
+          <Icon.check size={14} /> {ready ? "Open close summary" : "Review before closing…"}
         </Link>
       </div>
     </Card>

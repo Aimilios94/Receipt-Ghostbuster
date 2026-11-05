@@ -17,7 +17,9 @@ from __future__ import annotations
 
 from typing import Any
 
-_RELEASE = "receipt-ghostbuster@0.3.4"
+from .. import __version__
+
+_RELEASE = f"receipt-ghostbuster@{__version__}"
 
 # Request keys that can carry personal/financial data or secrets — dropped before send.
 _SCRUB_REQUEST_KEYS = ("data", "headers", "cookies", "query_string")

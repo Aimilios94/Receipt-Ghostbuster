@@ -3,16 +3,58 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.5] — 2026-11-05
+
+**Real Revolut PDF statements import.** From a real [Round 11](feedback-notes.md) test ([D44](DECISIONS.md), [D45](DECISIONS.md)). Backend tests **310 → 329**.
+
+### Added
+- **Undo for Unmatch** in the reconciliation results: a bar stays at the top of the popup with an Undo button, one step at a time, for as long as both sides are still free.
+- **Possible matches from the expense name:** click an unmatched expense's name to see its candidates, closest first.
+
+### Changed
+- **Revolut transfers with a named recipient are third parties.** A PDF names the person, and importing one fills that name into rows a CSV already stored. Rows with no named recipient stay under own account movements.
+
+### Fixed
+- **Revolut PDFs in English and Greek import correctly.** They were rejected with a misleading "scanned image" message. They are now read in code, with no model call, and accepted only if every row and the totals match the statement's own printed summary. Reverted rows are skipped, and third parties' IBANs aren't stored.
+- **The model path for other banks' PDFs** no longer sends `max_tokens`, which `gpt-5-mini` doesn't accept, and has room for a full month of rows.
+- **Re-upload protection works across languages and formats:** with a running balance, a row is recognised by date + amount + balance, so wording no longer matters.
+- **Greek transfers and top-ups aren't treated as purchases.**
+- **`_parse_money` misread English thousands:** `1,010.00` became `1.01`, in CSV imports too.
+- **A clearer error** when a PDF has text but no transactions could be found in it.
+
+## [0.5.4] — 2026-11-05
+
+**Honest public numbers and a working quick start.** Engineering and docs only (`[eng]`, [D43](DECISIONS.md)); `feedback-notes.md` gains only a note that all rounds are self-tests. Backend tests **302 → 310**.
+
+### Added
+- **Measurement record per model** in `backend/eval/MODELS.md`: state, reads vs labelled, read dates, commit, machine, runtime and command.
+- **Frontend build in CI**, as the check that the frontend still compiles.
+- **A version test**: the API, the Sentry release and `frontend/package.json` now report one version.
+
+### Changed
+- **`eval_models.py` updates only the models it names**, keeps a replaced headline as history, and writes nothing on a `--limit` run. Use `--replace-all` for a new matrix.
+- **Default provider is now OpenAI** in `.env.example` and `config.py`. The old Anthropic default ran the most expensive model and made Ask return 503.
+- **Monthly close wording** in the docs and on screen no longer says it locks a month, because close records aren't saved yet.
+
+### Fixed
+- **Failed reads are reported** in the model matrix, instead of quietly shrinking the receipt count.
+- **Local model number:** `qwen2.5vl-receipt` is now **90.1% (128/142, n=26)** after re-reading the receipt that crashed. See [D43](DECISIONS.md).
+- **README quick start:** starts the backend before loading sample data, and documents `SUPABASE_ACCESS_TOKEN` and the `DEV_USER_ID` requirements.
+- **README claims:** the month-end impact is marked as not yet timed, the gate numbers are current, and the accuracy figure is labelled a development-set number.
+- **Stale version strings:** the API reported 0.1.0 and Sentry 0.3.4.
+- **Test fixtures:** replaced names from a real bank statement with fake ones.
+- **Docs:** removed framing that didn't belong, and updated stale roadmap items.
+
 ## [0.5.3] — 2026-11-03
 
 **Robustness — locale-tolerant number parsing in extraction.** Engineering only (`[eng]`); `feedback-notes.md` untouched. Backend tests **287 → 302**.
 
-A fresh, fully-offline re-measurement of the local Ollama model (`qwen2.5vl-receipt`, CPU-only, $0) surfaced a latent locale bug: a Portuguese receipt's VAT table was transcribed with European comma-decimals as strings (`'32,95'`), which the result model's float fields rejected — the read raised a `ValidationError` and **crashed out of scoring entirely**, silently shrinking the eval denominator (26 → 25) instead of being counted as a miss. The discipline of *"unmeasured = a declared gap with a cause, never a silent zero"* is exactly what forced the drop into the open.
+A fresh, fully-offline re-measurement of the local Ollama model (`qwen2.5vl-receipt`, CPU-only, $0) surfaced a latent locale bug: a Portuguese receipt's VAT table was transcribed with European comma-decimals as strings (`'32,95'`), which the result model's float fields rejected — the read raised a `ValidationError` and failed. Its fields were scored as misses, while the report's receipt count, latency and slice figures quietly shrank from 26 reads to 25 with no stated cause. The discipline of *"unmeasured = a declared gap with a cause, never a silent zero"* is exactly what forced the drop into the open. *(Corrected 2026-11-05: this entry first said the receipt was dropped instead of being counted as a miss. The field denominator never shrank; see [0.5.4].)*
 
 ### Fixed
 - **Locale-tolerant coercion** (`app/models.py`, `_to_number`) applied via `mode="before"` validators on the numeric fields of `ExtractionResult`, `LineItem`, and `TaxLine` — comma-decimals, dot/space thousands separators, and currency/percent symbols now parse to real floats (`'32,95'` → `32.95`), so the value is **captured correctly**, not merely rescued from a crash.
 - **No receipt can silently drop** (`app/services/extraction.py`) — both payload→model conversions are guarded, so a single malformed read is logged and skipped and the fallback degrades to a low-confidence read (which lands in human review) rather than raising and removing the receipt from the denominator.
-- **Regression tests** (`tests/test_schema_coercion.py`, +15) — the exact crashing payload is now a test, so the denominator cannot silently shrink again.
+- **Regression tests** (`tests/test_schema_coercion.py`, +15) — the exact crashing payload is now a test, so this read cannot crash again.
 
 ## [0.5.2] — 2026-10-25
 
@@ -282,7 +324,7 @@ Post-feedback UX & extraction improvements (from Round 1 testing — see [feedba
 - **"Possible duplicate"** badge, row highlight, a "Possible duplicates" Ledger filter, and a deep-link from the duplicate exception (`Ledger?view=duplicates`) (D11).
 - **View receipt** button and a **VAT rate (%)** field in the review Edit form.
 - **Capture hint** on the snap screen (shoot flat, upright, good light) (D9).
-- Product-engineering docs: `problem-statement.md`, `roadmap.md`, `DECISIONS.md`, `CHANGELOG.md`, `feedback-notes.md`.
+- Process docs: `problem-statement.md`, `roadmap.md`, `DECISIONS.md`, `CHANGELOG.md`, `feedback-notes.md`.
 
 ### Changed
 - Extraction prompt now reads **Portuguese day-first dates**, handles rotation, prefers the terminal date, and extracts every line item; OpenAI vision set to `detail:"high"` (D7, D9).

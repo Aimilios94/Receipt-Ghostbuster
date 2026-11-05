@@ -126,8 +126,9 @@ export default function BreakdownModal({ onClose }) {
 
             <p style={{ fontSize: 11.5, color: "var(--text-dim)", margin: "20px 0 0", lineHeight: 1.5 }}>
               Click any row to see its individual transactions. Vendors are your ledger expenses grouped by
-              merchant; third parties are person-to-person transfers; own account movements are transfers
-              to/from your own Revolut (savings, fees), shown separately.
+              merchant; third parties are person-to-person transfers; own account movements are Revolut
+              transfers with no named recipient, such as savings or fees. A CSV doesn't show recipients, so
+              importing the same statement as a PDF fills in any names it has.
             </p>
           </>
         )}

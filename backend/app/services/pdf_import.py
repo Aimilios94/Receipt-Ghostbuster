@@ -6,9 +6,12 @@ downstream (reconciliation, exceptions, close) is identical:
 
 1. Deterministic text extraction with `pdfplumber` (local, free, no network).
 2. Structuring the extracted text into transactions:
-   - with a real LLM provider, gpt-4o *reads* the text into {date, description,
-     amount} rows (it never does math — amounts/dates are re-parsed in code,
-     consistent with D1 "the AI is never trusted blindly");
+   - a **Revolut statement** is read in code. It is accepted only if every row and the
+     totals reconcile to the statement's own printed summary, so it needs no model
+     and no statement text leaves the machine;
+   - any other PDF goes to a real LLM provider, which *reads* the text into {date,
+     description, amount} rows (it never does math — amounts/dates are re-parsed in
+     code, consistent with D1 "the AI is never trusted blindly");
    - a deterministic **regex heuristic** handles the common
      "DATE  DESCRIPTION  AMOUNT [BALANCE]" layout and is the offline/mock
      fallback (and the safety net if the model call fails).
@@ -22,11 +25,13 @@ from __future__ import annotations
 import io
 import json
 import re
+import unicodedata
 from typing import Any
 
 from ..config import Settings
 from . import monitoring
 from .csv_import import _parse_date, _parse_money
+from .extraction import _is_reasoning_model
 from .redaction import redact_sensitive
 
 try:  # pdfplumber is optional — the endpoint reports a clear error if absent.
@@ -117,7 +122,142 @@ def parse_lines_heuristic(text: str, date_format: str | None = None) -> list[dic
     return rows
 
 
-# --- 2b. LLM structuring -----------------------------------------------------
+# --- 2b. Revolut statements, read in code ------------------------------------
+
+_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+    "fev": 2, "abr": 4, "mai": 5, "ago": 8, "set": 9, "out": 10, "dez": 12,
+    "ιαν": 1, "φεβ": 2, "μαρ": 3, "απρ": 4, "μαι": 5, "ιουν": 6,
+    "ιουλ": 7, "αυγ": 8, "σεπ": 9, "οκτ": 10, "νοε": 11, "δεκ": 12,
+}
+_EURO = r"(?:€\s?[\d.,]+|[\d.,]+\s?€)"
+_REVOLUT_ROW = re.compile(
+    rf"^(?P<day>\d{{1,2}})\s+(?P<month>\S+)\s+(?P<year>\d{{4}})\s+(?P<desc>.+?)\s+"
+    rf"(?P<amount>{_EURO})\s+(?P<balance>{_EURO})$"
+)
+_REVOLUT_TOTALS = re.compile(
+    rf"^(?:Total|Σύνολο)\s+(?P<opening>{_EURO})\s+(?P<out>{_EURO})\s+(?P<in>{_EURO})\s+(?P<closing>{_EURO})$"
+)
+# Sections after the completed transactions list movements that never settled.
+_REVOLUT_STOP = re.compile(r"^(?:Reverted|Αντιστράφηκε|Pending|Σε εκκρεμότητα)\b", re.IGNORECASE)
+_CARD_DETAIL = ("card:", "κάρτα:", "cartão:")
+_REFERENCE_DETAIL = ("reference:", "αναφορά:", "referência:")
+_COUNTERPARTY_DETAIL = ("to:", "from:", "προς:", "από:", "para:", "de:")
+_TOP_UP = re.compile(r"top-up|προσθήκη", re.IGNORECASE)
+# Greek rows take the English wording, so reconciliation, the breakdown and the chatbot
+# treat a statement the same in either language. The original stays in `raw`.
+_GREEK_PREFIXES = (
+    ("Μεταφορά προς ", "Transfer to "),
+    ("Μεταφορά από ", "Transfer from "),
+    ("Προσθήκη Google Pay από ", "Google Pay top-up by "),
+)
+_CENT = 0.005  # float rounding only: the figures must match to the cent
+
+
+def _month_number(token: str) -> int | None:
+    plain = "".join(
+        c for c in unicodedata.normalize("NFD", token.lower()) if not unicodedata.combining(c)
+    ).strip(".")
+    return _MONTHS.get(plain[:4]) or _MONTHS.get(plain[:3])
+
+
+def _revolut_type(description: str, details: list[str]) -> str | None:
+    lowered = [d.strip().lower() for d in details]
+    if any(d.startswith(_CARD_DETAIL) for d in lowered):
+        return "Card Payment"
+    if _TOP_UP.search(description):
+        return "Topup"
+    if any(d.startswith(_REFERENCE_DETAIL) for d in lowered):
+        return "Transfer"
+    return None
+
+
+def _revolut_counterparty(details: list[str]) -> str | None:
+    """The transfer's named recipient or sender. The IBAN after the comma is dropped."""
+    for line in details:
+        label, sep, value = line.strip().partition(":")
+        if sep and f"{label.lower()}:" in _COUNTERPARTY_DETAIL:
+            return value.split(",")[0].strip() or None
+    return None
+
+
+def parse_revolut_statement(text: str) -> list[dict[str, Any]]:
+    """Read a Revolut statement in code, or return [] so another path can try.
+
+    The money columns aren't signed, so direction comes from the running balance. The
+    result is only trusted if every row moves the balance by its own amount and the
+    totals equal the statement's printed summary.
+    """
+    if "revolut" not in text.lower():
+        return []
+    lines = text.splitlines()
+    totals = next((m for m in map(_REVOLUT_TOTALS.match, lines) if m), None)
+    if not totals:
+        return []
+    opening, printed_out, printed_in, closing = (
+        _parse_money(totals.group(k)) for k in ("opening", "out", "in", "closing")
+    )
+
+    rows: list[dict[str, Any]] = []
+    details: list[list[str]] = []
+    balance = opening
+    total_out = total_in = 0.0
+    for line in lines:
+        if _REVOLUT_STOP.match(line.strip()):
+            break
+        m = _REVOLUT_ROW.match(line.strip())
+        if not m:
+            if details:
+                details[-1].append(line)
+            continue
+        month = _month_number(m.group("month"))
+        amount = _parse_money(m.group("amount"))
+        new_balance = _parse_money(m.group("balance"))
+        if month is None or amount is None or new_balance is None:
+            return []
+        change = round(new_balance - balance, 2)
+        if abs(abs(change) - amount) > _CENT:
+            return []
+        balance = new_balance
+        if change < 0:
+            total_out += amount
+        else:
+            total_in += amount
+        original = m.group("desc").strip()
+        description = original
+        for greek, english in _GREEK_PREFIXES:
+            if original.startswith(greek):
+                description = english + original[len(greek):]
+                break
+        rows.append({
+            "txn_date": f"{m.group('year')}-{month:02d}-{int(m.group('day')):02d}",
+            "description": description,
+            "amount": -amount if change < 0 else amount,
+            "balance": new_balance,
+            "raw": {"Date": f"{m.group('day')} {m.group('month')} {m.group('year')}", "Description": original},
+        })
+        details.append([])
+
+    reconciles = (
+        rows
+        and abs(balance - closing) <= _CENT
+        and abs(total_out - printed_out) <= _CENT
+        and abs(total_in - printed_in) <= _CENT
+    )
+    if not reconciles:
+        return []
+    for row, row_details in zip(rows, details):
+        kind = _revolut_type(row["raw"]["Description"], row_details)
+        if kind:
+            row["raw"]["Type"] = kind
+        counterparty = _revolut_counterparty(row_details) if kind == "Transfer" else None
+        if counterparty:
+            row["raw"]["Counterparty"] = counterparty
+    return rows
+
+
+# --- 2c. LLM structuring -----------------------------------------------------
 
 _LLM_PROMPT = """You are reading the plain text of a bank-statement PDF. Return ONLY a JSON
 object (no prose, no markdown fences): {"transactions": [ {"date": "YYYY-MM-DD",
@@ -126,6 +266,8 @@ object (no prose, no markdown fences): {"transactions": [ {"date": "YYYY-MM-DD",
 Rules:
 - One object per transaction ROW. Ignore headers, footers, page numbers, opening/closing
   balance summary lines, and marketing text — list only real dated movements.
+- The statement may be in any language. List completed movements only: skip any section of
+  reversed, reverted, declined or pending items.
 - "amount" is SIGNED: money OUT (debit, payment, withdrawal, purchase) is NEGATIVE; money
   IN (credit, deposit, salary, refund) is POSITIVE. Statements show this via a debit/credit
   column, a sign, parentheses "(12,34)", a trailing "D"/"C", or the running balance going
@@ -156,10 +298,17 @@ def _structure_with_llm(text: str, settings: Settings, note: str | None = None) 
         from openai import OpenAI
 
         client = OpenAI(api_key=settings.openai_api_key)
+        # Reasoning models reject max_tokens and spend part of the budget on hidden
+        # reasoning, and a month of rows is long.
+        token_arg = (
+            {"max_completion_tokens": 16000}
+            if _is_reasoning_model(settings.openai_model)
+            else {"max_tokens": 4096}
+        )
         resp = client.chat.completions.create(
             model=settings.openai_model,
-            max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
+            **token_arg,
         )
         content = resp.choices[0].message.content or "{}"
     elif provider == "anthropic":
@@ -220,13 +369,18 @@ def normalize_rows(raw_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def parse_statement_text(
     text: str, settings: Settings, note: str | None = None
 ) -> list[dict[str, Any]]:
-    """Turn already-extracted statement text into normalized rows. Prefers the
-    LLM when a real provider is configured; always falls back to the heuristic."""
+    """Turn already-extracted statement text into normalized rows. A Revolut statement
+    that reconciles is read in code. Otherwise prefers the LLM when a real provider is
+    configured, and always falls back to the heuristic."""
     if not text.strip():
         raise PdfImportError(
             "No text found in the PDF — it looks scanned (an image). "
             "Please upload a CSV, or a text-based PDF exported from your bank."
         )
+
+    revolut_rows = parse_revolut_statement(text)
+    if revolut_rows:
+        return revolut_rows
 
     provider = settings.llm_provider.lower()
     if provider in ("openai", "anthropic") and settings.llm_configured:

@@ -33,14 +33,14 @@ def test_vendor_breakdown_items_carry_date_amount_note():
 
 def test_transfer_items_carry_date_amount_and_label():
     txns = [
-        _transfer("Transfer to CHRISTINA", -2.72),
-        _transfer("Transfer to CHRISTINA", -2.0),
+        _transfer("Transfer to ALEX", -2.72),
+        _transfer("Transfer to ALEX", -2.0),
     ]
     tp = bd.third_party_breakdown(txns)
     items = tp["sent"][0]["items"]
     assert len(items) == 2
     assert {it["amount"] for it in items} == {2.72, 2.0}
-    assert all(it["label"] == "Transfer to CHRISTINA" for it in items)
+    assert all(it["label"] == "Transfer to ALEX" for it in items)
 
 
 def test_vendor_breakdown_blank_vendor_is_unknown():
@@ -54,22 +54,22 @@ def _transfer(desc, amount, ttype="Transfer"):
 
 def test_third_party_split_sent_received_with_totals():
     txns = [
-        _transfer("To Eduardo Eduardo", -3),
-        _transfer("Transfer to CHRISTINA IFIGENEIA", -2.72),
-        _transfer("Transfer to CHRISTINA IFIGENEIA", -2.0),
-        _transfer("Transfer from CHRISTINA IFIGENEIA", 10),
+        _transfer("To Sam Sample", -3),
+        _transfer("Transfer to ALEX EXAMPLE", -2.72),
+        _transfer("Transfer to ALEX EXAMPLE", -2.0),
+        _transfer("Transfer from ALEX EXAMPLE", 10),
         # a card purchase and a top-up must be ignored
         {"description": "Continente", "amount": -11.58, "raw": {"Type": "Card Payment"}},
         {"description": "Google Pay top-up by *6517", "amount": 100, "raw": {"Type": "Topup"}},
     ]
     tp = bd.third_party_breakdown(txns)
     sent_names = {r["name"]: r for r in tp["sent"]}
-    assert "Eduardo Eduardo" in sent_names
-    # the two Christina sends merge: 2.72 + 2.00
-    assert sent_names["CHRISTINA IFIGENEIA"]["count"] == 2
-    assert sent_names["CHRISTINA IFIGENEIA"]["total"] == 4.72
+    assert "Sam Sample" in sent_names
+    # the two Alex sends merge: 2.72 + 2.00
+    assert sent_names["ALEX EXAMPLE"]["count"] == 2
+    assert sent_names["ALEX EXAMPLE"]["total"] == 4.72
     assert tp["total_sent"] == 7.72          # 3 + 4.72
-    assert tp["received"][0]["name"] == "CHRISTINA IFIGENEIA"
+    assert tp["received"][0]["name"] == "ALEX EXAMPLE"
     assert tp["total_received"] == 10.0
 
 
@@ -81,19 +81,19 @@ def test_third_party_detects_transfer_from_description_without_type():
 
 def test_third_party_excludes_own_revolut_movements():
     txns = [
-        _transfer("To Eduardo Eduardo", -3),
+        _transfer("To Sam Sample", -3),
         _transfer("Revolut Bank UAB Sucursal em Portugal", -10),
         _transfer("Revolut Ltd", -41.2),
     ]
     tp = bd.third_party_breakdown(txns)
     names = {r["name"] for r in tp["sent"]}
-    assert names == {"Eduardo Eduardo"}        # Revolut own-movements excluded
+    assert names == {"Sam Sample"}        # Revolut own-movements excluded
     assert tp["total_sent"] == 3.0
 
 
 def test_own_movement_breakdown_collects_revolut_only():
     txns = [
-        _transfer("To Eduardo Eduardo", -3),
+        _transfer("To Sam Sample", -3),
         _transfer("Revolut Bank UAB Sucursal em Portugal", -10),
         _transfer("Revolut Ltd", -41.2),
         {"description": "Continente", "amount": -11.58, "raw": {"Type": "Card Payment"}},
@@ -104,10 +104,20 @@ def test_own_movement_breakdown_collects_revolut_only():
     assert own["total_sent"] == 51.2
     # and the third-party view is disjoint — only the person
     tp = bd.third_party_breakdown(txns)
-    assert {r["name"] for r in tp["sent"]} == {"Eduardo Eduardo"}
+    assert {r["name"] for r in tp["sent"]} == {"Sam Sample"}
 
 
 def test_third_party_empty_when_no_transfers():
     tp = bd.third_party_breakdown([{"description": "Bolt", "amount": -3.5, "raw": {"Type": "Card Payment"}}])
     assert tp["sent"] == [] and tp["received"] == []
     assert tp["total_sent"] == 0 and tp["total_received"] == 0
+
+
+def test_a_named_recipient_makes_a_revolut_transfer_a_third_party():
+    named = _transfer("Revolut Ltd", -41.2)
+    named["raw"]["Counterparty"] = "Robin Example"
+    unnamed = _transfer("Revolut Bank UAB Sucursal em Portugal", -10)
+    tp = bd.third_party_breakdown([named, unnamed])
+    assert [(r["name"], r["total"]) for r in tp["sent"]] == [("Robin Example", 41.2)]
+    own = bd.own_movement_breakdown([named, unnamed])
+    assert [r["name"] for r in own["sent"]] == ["Revolut Bank UAB Sucursal em Portugal"]

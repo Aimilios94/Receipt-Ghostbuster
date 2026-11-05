@@ -42,6 +42,7 @@ _NON_PURCHASE_TYPES = {
 _NON_PURCHASE_DESC_HINTS = (
     "top-up", "topup", "top up", "transfer to", "transfer from", "to revolut",
     "revolut bank", "revolut ltd", "google pay top-up",
+    "μεταφορά προς", "μεταφορά από", "προσθήκη google pay",
 )
 
 
