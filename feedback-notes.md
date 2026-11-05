@@ -364,7 +364,11 @@ October, covering a period that overlaps statements already imported. The real s
 - **Five Continente receipts in the wrong category.** Visible once the tester opened the vendor's expenses: Groceries was €78.10
   and should be €103.68. → **FIXED ([D49](DECISIONS.md)):** supermarkets are Groceries by rule, and the 5 rows were moved with the
   tester's OK.
-- **Still open:** a Continente receipt of €4.14 on 9 October sits beside a €4.16 bank line, and may be misread or a duplicate.
+- **A duplicate hiding in the ledger.** A Continente receipt of €4.14 on 9 October sat beside a €4.16 bank line. Comparing the
+  photos showed the 6 October receipt shot twice in different light: same invoice number and ATCUD code. → **FIXED ([D49](DECISIONS.md)):**
+  duplicate deleted, and the kept row's VAT corrected to the printed €0.57. October total €186.33.
+- **Still open:** two €10 cash meals, "Egyptian" on 17 October and "Egyptian Restaurant" on 12 October. They're on different days, so
+  the tester's rule keeps both as separate meals.
 
 **Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D44, D45, D46, D47, D48, D49.
 
