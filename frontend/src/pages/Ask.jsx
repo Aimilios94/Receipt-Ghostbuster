@@ -4,6 +4,7 @@ import { money, shortDate } from "../lib/format.js";
 import { Card, Button, Modal, ErrorBanner } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import { ReceiptLightbox } from "../components/ReceiptLightbox.jsx";
+import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
 
 // Receipt thumbnails → open the lightbox.
 function ReceiptThumbs({ items, onOpen }) {
@@ -41,8 +42,8 @@ function ExpenseGroups({ att, onOpenGroup }) {
   );
 }
 
-// Small popup listing one vendor's expenses (date · category · amount, with a receipt link).
-function GroupDetailModal({ group, onClose, onReceipt }) {
+// Small popup listing one vendor's expenses. A row opens its full detail.
+function GroupDetailModal({ group, onClose, onReceipt, onOpenExpense }) {
   return (
     <Modal title={group.vendor} onClose={onClose} width={440}>
       <div className="modal-body">
@@ -51,7 +52,11 @@ function GroupDetailModal({ group, onClose, onReceipt }) {
             <div className="bd-detail-item" key={i}>
               <span className="bd-item-date">{shortDate(it.date)}</span>
               <span className="bd-item-label">
-                {it.category}
+                {it.id ? (
+                  <button type="button" className="ask-inline-link" onClick={() => onOpenExpense(it.id)} title="See the products, VAT and receipt">
+                    {it.category}
+                  </button>
+                ) : it.category}
                 {it.has_receipt ? (
                   <button type="button" className="ask-inline-link" onClick={() => onReceipt(it.receipt_url)}>· receipt</button>
                 ) : null}
@@ -113,13 +118,181 @@ function TxnTable({ att }) {
   );
 }
 
-function Attachments({ atts, onOpen, onOpenGroup }) {
+// Expense rows inside a card. Each opens the full detail: products, VAT per rate, receipt.
+function ExpenseRows({ expenses, onOpenExpense, amountKey = "amount" }) {
+  return expenses.map((e, i) => (
+    <button type="button" className="ask-expense" key={e.id || i} onClick={() => onOpenExpense(e.id)} title="See the products, VAT and receipt">
+      <span className="ask-expense-name">{e.vendor}</span>
+      <span className="ask-expense-amt num">{money(e[amountKey])}</span>
+      <span className="ask-expense-meta">
+        {shortDate(e.date)} · {e.category}{e.source === "cash" ? " · cash" : ""}
+      </span>
+    </button>
+  ));
+}
+
+// Ranked rows with bars: days, categories, vendors, products, people. A row with
+// expenses opens to list them, so a long answer starts as a short overview.
+function TransactionRows({ transactions }) {
+  return transactions.map((t, i) => (
+    <div className="ask-expense ask-transaction" key={i}>
+      <span className="ask-expense-name">{t.label || "Transfer"}</span>
+      <span className="ask-expense-amt num">{money(t.amount)}</span>
+      <span className="ask-expense-meta">{shortDate(t.date)}</span>
+    </div>
+  ));
+}
+
+function RankingCard({ att, onOpenExpense }) {
+  // A one-row answer ("the busiest day") opens straight away: its expenses are the answer.
+  const [open, setOpen] = useState(att.rows.length === 1 && att.rows[0].expenses?.length ? 0 : null);
+  const countText = (r) => {
+    if (r.count == null) return "";
+    if (att.count_unit === "times") return `${r.count}×`;
+    const unit = att.count_unit === "transfers" ? "transfer" : "expense";
+    return `${r.count} ${unit}${r.count === 1 ? "" : "s"}`;
+  };
+  return (
+    <div className="ask-card">
+      <div className="ask-card-head">
+        <span className="ask-card-title">{att.title}</span>
+        <span className="ask-card-sub">
+          {att.subtitle}
+          {att.total != null ? <> · total <b className="num">{money(att.total)}</b></> : null}
+        </span>
+      </div>
+      {att.rows.map((r, i) => {
+        const hasDetail = r.expenses?.length > 0 || r.transactions?.length > 0;
+        const isOpen = open === i;
+        const content = (
+          <>
+            <span className="ask-rank-label" title={r.label}>{r.label}</span>
+            <span className="ask-rank-bar"><span className="ask-rank-fill" style={{ width: `${r.bar * 100}%` }} /></span>
+            <span className="ask-rank-amt num">{money(r.total)}</span>
+            <span className="ask-rank-count">{countText(r)}</span>
+            <span className={`ask-rank-chev${isOpen ? " open" : ""}`}>{hasDetail ? "▸" : ""}</span>
+          </>
+        );
+        return (
+          <div key={i}>
+            {hasDetail ? (
+              <button type="button" className="ask-rank-row" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : i)}>
+                {content}
+              </button>
+            ) : (
+              <div className="ask-rank-row">{content}</div>
+            )}
+            {isOpen && hasDetail ? (
+              <div className="ask-expenses">
+                {r.expenses ? <ExpenseRows expenses={r.expenses} onOpenExpense={onOpenExpense} /> : null}
+                {r.transactions ? <TransactionRows transactions={r.transactions} /> : null}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ExpenseListCard({ att, onOpenExpense }) {
+  return (
+    <div className="ask-card">
+      <div className="ask-card-head">
+        <span className="ask-card-title">{att.title}</span>
+        {att.subtitle ? <span className="ask-card-sub">{att.subtitle}</span> : null}
+      </div>
+      <ExpenseRows expenses={att.expenses} onOpenExpense={onOpenExpense} />
+      {att.products?.length ? (
+        <div className="ask-products">
+          {att.products.map((p, i) => (
+            <div className="ask-product" key={i}>
+              <span className="ask-product-name" title={p.name}>{p.name}</span>
+              <span className="num">{money(p.amount)}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TotalCard({ att, onOpenExpense }) {
+  const [open, setOpen] = useState(false);
+  const count = att.expenses?.length || 0;
+  return (
+    <div className="ask-card">
+      <div className="ask-card-head">
+        <span className="ask-card-title">{att.title}</span>
+        <span className="ask-card-sub">{att.subtitle}</span>
+      </div>
+      <div className="ask-total-value num">{money(att.total)}</div>
+      {count ? (
+        <>
+          <button type="button" className="ask-drill" aria-expanded={open} onClick={() => setOpen(!open)}>
+            <span className={`ask-rank-chev${open ? " open" : ""}`}>▸</span> {count} expense{count === 1 ? "" : "s"}
+          </button>
+          {open ? (
+            <div className="ask-expenses">
+              <ExpenseRows expenses={att.expenses} onOpenExpense={onOpenExpense} amountKey={att.amount_key || "amount"} />
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function ComparisonCard({ att, onOpenExpense }) {
+  const [open, setOpen] = useState(null);
+  const delta = Number(att.delta || 0);
+  return (
+    <div className="ask-card">
+      <div className="ask-card-head"><span className="ask-card-title">{att.title}</span></div>
+      <div className="ask-compare">
+        {[att.a, att.b].map((side, i) => (
+          <div key={side.label}>
+            <div className="ask-compare-label">{side.label}</div>
+            <div className="ask-compare-value num">
+              {side.total == null ? <span className="ask-compare-empty">No records</span> : money(side.total)}
+            </div>
+            {side.expenses?.length ? (
+              <button type="button" className="ask-drill" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)}>
+                <span className={`ask-rank-chev${open === i ? " open" : ""}`}>▸</span> {side.expenses.length} expense{side.expenses.length === 1 ? "" : "s"}
+              </button>
+            ) : null}
+          </div>
+        ))}
+        {att.delta != null ? (
+          <div className={`ask-compare-delta ${delta > 0 ? "up" : delta < 0 ? "down" : ""}`}>
+            {delta > 0 ? "+" : delta < 0 ? "−" : ""}{money(Math.abs(delta))}
+            {att.pct_change != null ? ` (${att.pct_change > 0 ? "+" : ""}${att.pct_change}%)` : ""}
+          </div>
+        ) : null}
+      </div>
+      {open != null ? (
+        <div className="ask-expenses ask-compare-rows">
+          <ExpenseRows expenses={(open === 0 ? att.a : att.b).expenses} onOpenExpense={onOpenExpense} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Attachments({ atts, onOpen, onOpenGroup, onOpenExpense }) {
   const receipts = atts.filter((a) => a.type === "receipt");
   return (
     <>
       {receipts.length ? <ReceiptThumbs items={receipts} onOpen={onOpen} /> : null}
-      {atts.filter((a) => a.type === "expense_groups").map((a, i) => <ExpenseGroups key={i} att={a} onOpenGroup={onOpenGroup} />)}
-      {atts.filter((a) => a.type === "table").map((a, i) => <TxnTable key={i} att={a} />)}
+      {atts.map((a, i) => {
+        if (a.type === "ranking") return <RankingCard key={i} att={a} onOpenExpense={onOpenExpense} />;
+        if (a.type === "expense_list") return <ExpenseListCard key={i} att={a} onOpenExpense={onOpenExpense} />;
+        if (a.type === "comparison") return <ComparisonCard key={i} att={a} onOpenExpense={onOpenExpense} />;
+        if (a.type === "total") return <TotalCard key={i} att={a} onOpenExpense={onOpenExpense} />;
+        if (a.type === "expense_groups") return <ExpenseGroups key={i} att={a} onOpenGroup={onOpenGroup} />;
+        if (a.type === "table") return <TxnTable key={i} att={a} />;
+        return null;
+      })}
     </>
   );
 }
@@ -139,11 +312,33 @@ export default function Ask() {
   const [err, setErr] = useState(null);
   const [lightbox, setLightbox] = useState(null);
   const [groupDetail, setGroupDetail] = useState(null);
+  const [expenseDetail, setExpenseDetail] = useState(null);
   const endRef = useRef(null);
+  const lastRef = useRef(null);
 
+  // A new answer is read from its first line, so scroll to its start, not its end.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant" && !busy) {
+      lastRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, busy]);
+
+  // Stay available during a conversation, minus what was already asked.
+  const asked = new Set(messages.filter((m) => m.role === "user").map((m) => m.content));
+  const remaining = SUGGESTIONS.filter((s) => !asked.has(s));
+
+  const openExpense = async (id) => {
+    try {
+      const expenses = await api.listExpenses();
+      const expense = expenses.find((e) => e.id === id);
+      if (expense) setExpenseDetail(expense);
+    } catch (e) {
+      setErr(e.message);
+    }
+  };
 
   const send = async (text) => {
     const q = (text ?? input).trim();
@@ -203,17 +398,24 @@ export default function Ask() {
         ) : (
           <div className="ask-thread">
             {messages.map((m, i) => (
-              <div key={i} className={`ask-msg ask-${m.role}`}>
+              <div
+                key={i}
+                ref={i === messages.length - 1 ? lastRef : null}
+                className={`ask-msg ask-${m.role}${m.attachments?.length ? " ask-with-cards" : ""}`}
+              >
                 <div className="ask-bubble">{m.content}</div>
                 {m.role === "assistant" && m.attachments?.length ? (
-                  <Attachments atts={m.attachments} onOpen={setLightbox} onOpenGroup={setGroupDetail} />
+                  <Attachments atts={m.attachments} onOpen={setLightbox} onOpenGroup={setGroupDetail} onOpenExpense={openExpense} />
                 ) : null}
                 {m.role === "assistant" && m.tools?.length ? (
-                  <div className="ask-tools" title="Analytics functions used to compute the answer">
-                    {m.tools.map((t, j) => (
-                      <span className="ask-tool" key={j}>{t.name}</span>
-                    ))}
-                  </div>
+                  <details className="ask-how">
+                    <summary>How this was calculated</summary>
+                    <div className="ask-tools" title="Analytics functions used to compute the answer">
+                      {[...new Set(m.tools.map((t) => t.name))].map((name) => (
+                        <span className="ask-tool" key={name}>{name}</span>
+                      ))}
+                    </div>
+                  </details>
                 ) : null}
               </div>
             ))}
@@ -221,6 +423,23 @@ export default function Ask() {
             <div ref={endRef} />
           </div>
         )}
+
+        {messages.length > 0 && remaining.length > 0 ? (
+          <div className="ask-suggestions ask-suggestions-compact" aria-label="Suggested questions">
+            {remaining.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className="chip"
+                disabled={busy}
+                title={busy ? "Available once this answer arrives" : undefined}
+                onClick={() => send(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <form
           className="ask-input-row"
@@ -243,8 +462,9 @@ export default function Ask() {
       </Card>
 
       {groupDetail ? (
-        <GroupDetailModal group={groupDetail} onClose={() => setGroupDetail(null)} onReceipt={setLightbox} />
+        <GroupDetailModal group={groupDetail} onClose={() => setGroupDetail(null)} onReceipt={setLightbox} onOpenExpense={openExpense} />
       ) : null}
+      {expenseDetail ? <ExpenseDetailModal expense={expenseDetail} onClose={() => setExpenseDetail(null)} /> : null}
       {lightbox ? <ReceiptLightbox src={lightbox} onClose={() => setLightbox(null)} /> : null}
     </div>
   );

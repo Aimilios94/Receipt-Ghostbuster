@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { Card, Loading, ErrorBanner, Empty } from "../components/ui.jsx";
+import { Card, Loading, ErrorBanner, Empty, Modal } from "../components/ui.jsx";
 
 // 0..1 -> "87%"; null/undefined -> "—"
 const fpct = (v) => (v == null ? "—" : `${Math.round(v * 100)}%`);
@@ -45,6 +46,129 @@ function Stat({ label, value, foot }) {
   );
 }
 
+const ASK_EVAL_FIELDS = [
+  ["tool_selection", "Right calculation"],
+  ["answer_correctness", "Right figure"],
+  ["refusal", "Out-of-scope declined"],
+  ["faithfulness", "Faithful wording"],
+];
+
+// What's behind an accuracy tile: every question it scored, failures first.
+function AskQuestionsModal({ metric, label, onClose }) {
+  const q = useQuery({ queryKey: ["metrics-ask-questions"], queryFn: api.askEvalQuestions });
+  const kind = metric === "refusal" ? "refusal" : "answerable";
+  const rows = (q.data?.questions || [])
+    .filter((r) => r.kind === kind)
+    .sort((a, b) => Number(a[metric] === true) - Number(b[metric] === true));
+  const passed = rows.filter((r) => r[metric] === true).length;
+  return (
+    <Modal title={label} onClose={onClose} width={720}>
+      <div className="modal-body">
+        <ErrorBanner error={q.error} />
+        <p className="me-note">
+          {passed}/{rows.length} passed in the last live run. These questions run against a made-up ledger, so they hold none of your data.
+        </p>
+        {q.isLoading ? (
+          <Loading label="Loading questions…" />
+        ) : (
+          <div className="me-questions">
+            {rows.map((r) => {
+              const result = r[metric];
+              const state = result === true ? "pass" : result === false ? "fail" : "none";
+              return (
+                <div className="me-question" key={r.id}>
+                  <span className={`me-q-mark ${state}`} aria-label={state === "none" ? "not run" : state}>
+                    {state === "pass" ? "✓" : state === "fail" ? "✗" : "–"}
+                  </span>
+                  <span className="me-q-text">
+                    {r.question}
+                    {r.tools?.length ? <span className="me-q-tools">{[...new Set(r.tools)].join(", ")}</span> : null}
+                    {state === "none" ? <span className="me-q-tools">Not run on this machine</span> : null}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function AskSection() {
+  const [openMetric, setOpenMetric] = useState(null);
+  const usageQ = useQuery({ queryKey: ["metrics-ask"], queryFn: api.askMetrics });
+  const evalQ = useQuery({ queryKey: ["metrics-ask-eval"], queryFn: api.askEvalMetrics });
+  const usage = usageQ.data;
+  const ev = evalQ.data;
+
+  return (
+    <Section
+      title="Ask chatbot"
+      note={`Accuracy comes from the eval over a fixed synthetic ledger${ev?.run_date ? ` (${ev.model}, run ${ev.run_date})` : ""}. Latency and cost come from your own questions; the question text isn't stored.`}
+    >
+      <ErrorBanner error={usageQ.error || evalQ.error} />
+      {ev?.available ? (
+        <>
+          <div className="grid grid-stats" style={{ marginBottom: 14 }}>
+            {ASK_EVAL_FIELDS.map(([key, label]) => {
+              const f = ev.fields?.[key];
+              return f ? (
+                <button type="button" className="me-stat-btn" key={key} onClick={() => setOpenMetric([key, label])} title="See the questions behind this score">
+                  <Stat label={label} value={fpct(f.accuracy)} foot={`${f.correct}/${f.scored} · view questions`} />
+                </button>
+              ) : null;
+            })}
+          </div>
+        </>
+      ) : null}
+      {usageQ.isLoading ? (
+        <Loading label="Loading traces…" />
+      ) : !usage?.total_reads ? (
+        <Empty>No questions traced yet. Ask something and it will appear here.</Empty>
+      ) : (
+        <>
+          <div className="grid grid-stats">
+            <Stat label="Questions" value={usage.total_reads} foot={`${usage.cached} from cache · ${usage.failed} failed`} />
+            <Stat label="Latency" value={`${(usage.latency_ms.p50 / 1000).toFixed(1)}s`}
+              foot={`p50 · p95 ${(usage.latency_ms.p95 / 1000).toFixed(1)}s`} />
+            <Stat label="Est. cost" value={`$${usage.cost_usd.total.toFixed(4)}`}
+              foot={`≈ $${usage.cost_usd.avg.toFixed(4)}/answer`} />
+            <Stat label="Tokens" value={`${(usage.tokens.total / 1000).toFixed(1)}k`}
+              foot={`${(usage.tokens.input / 1000).toFixed(1)}k in · ${(usage.tokens.output / 1000).toFixed(1)}k out`} />
+          </div>
+          <div className="me-subhead">Recent questions</div>
+          <div className="me-table-wrap">
+            <table className="me-table">
+              <thead>
+                <tr>
+                  <th>When</th><th>Model</th><th className="num">Latency</th>
+                  <th className="num">Tokens</th><th className="num">Cost</th><th>Calculations</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.recent.map((t, i) => (
+                  <tr key={i}>
+                    <td>{t.created_at ? new Date(t.created_at).toLocaleString() : "—"}</td>
+                    <td>{t.model}</td>
+                    <td className="num">{t.cached ? "cached" : `${((t.latency_ms || 0) / 1000).toFixed(1)}s`}</td>
+                    <td className="num">{((t.input_tokens || 0) + (t.output_tokens || 0)) || "—"}</td>
+                    <td className="num">{`$${Number(t.est_cost_usd || 0).toFixed(4)}`}</td>
+                    <td>
+                      {t.success === false ? <span className="me-tag">failed</span> : (t.tools || []).join(", ") || "none"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      {openMetric ? <AskQuestionsModal metric={openMetric[0]} label={openMetric[1]} onClose={() => setOpenMetric(null)} /> : null}
+    </Section>
+  );
+}
+
 export default function ModelEvals() {
   const evalQ = useQuery({ queryKey: ["metrics-eval"], queryFn: api.evalMetrics });
   const llmQ = useQuery({ queryKey: ["metrics-llm"], queryFn: api.llmMetrics });
@@ -60,8 +184,8 @@ export default function ModelEvals() {
         <div>
           <h1 className="page-title">Model &amp; Evals</h1>
           <div className="page-sub">
-            How the receipt reader performs, whether the guardrails actually catch bad reads,
-            and what each call costs — measured, not asserted.
+            How the receipt reader and Ask perform, whether the guardrails actually catch bad
+            reads, and what each call costs — measured, not asserted.
           </div>
         </div>
       </div>
@@ -138,7 +262,7 @@ export default function ModelEvals() {
 
       {/* ---------- Live LLM operations ---------- */}
       <Section
-        title="Live model operations"
+        title="Live receipt reads"
         note="Every receipt read is traced: latency, tokens, estimated cost and the gate outcome. This is your own usage (nothing synthetic)."
       >
         {llmQ.isLoading ? (
@@ -188,6 +312,8 @@ export default function ModelEvals() {
           </>
         )}
       </Section>
+
+      <AskSection />
     </div>
   );
 }

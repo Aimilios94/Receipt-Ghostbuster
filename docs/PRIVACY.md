@@ -13,7 +13,8 @@ built; it is not legal advice.
 - **Derived records** — expenses, VAT splits, categories, reconciliation links, the
   monthly close, detected subscriptions.
 - **Per-read observability** — latency, token counts and estimated cost of each model
-  call (no card/account numbers), used by the Model & Evals page.
+  call (no card/account numbers), used by the Model & Evals page. For Ask, this also lists
+  which calculations ran. The question text isn't stored in the app.
 
 ## Where it goes
 

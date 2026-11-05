@@ -10,6 +10,14 @@ from typing import Callable
 
 # vendor/description keyword -> category. Lowercase substring match.
 DEFAULT_RULES: dict[str, str] = {
+    "continente": "Groceries",
+    "pingo doce": "Groceries",
+    "auchan": "Groceries",
+    "intermarch": "Groceries",
+    "minipreço": "Groceries",
+    "minipreco": "Groceries",
+    "mercadona": "Groceries",
+    "minimercado": "Groceries",
     "lidl": "Groceries",
     "aldi": "Groceries",
     "sklavenitis": "Groceries",

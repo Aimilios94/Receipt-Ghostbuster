@@ -16,6 +16,14 @@ from .. import repository as repo
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+def _record_trace(user_id: str, trace: dict) -> None:
+    """Persist one question's trace, best-effort: tracking must never break an answer."""
+    try:
+        repo.insert_llm_trace(user_id, trace)
+    except Exception as exc:  # noqa: BLE001
+        monitoring.capture(exc, surface="chat.record_trace")
+
+
 class ChatMessage(BaseModel):
     role: str
     content: str
@@ -52,6 +60,7 @@ def ask(
         return chat_service.answer_question(
             body.message, [m.model_dump() for m in body.history], data, settings,
             use_cache=settings.chat_cache_enabled, cache_scope=user_id,
+            on_trace=lambda trace: _record_trace(user_id, trace),
         )
     except Exception as exc:  # noqa: BLE001 - surface a clean message (with CORS headers)
         monitoring.capture(exc, surface="chat.answer")

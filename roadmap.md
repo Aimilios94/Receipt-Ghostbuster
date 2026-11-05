@@ -235,6 +235,22 @@ Status: **shipped.** Backend tests **310 → 329**.
 
 ---
 
+## v0.5.6 — Ask: summary plus cards ✅
+
+**Goal:** an answer you can read at a glance, shaped by real use.
+
+Scope delivered ([D46](DECISIONS.md), [Round 11](feedback-notes.md)):
+- **One or two sentences, then cards drawn by the code:** ranked bars, a month comparison and expense lists, with detail on click.
+- **Correct "most expenses" and VAT:** a count per day, and no single rate for a mixed receipt.
+- **The tester's real questions in the eval:** 22 answerable + 5 refusal.
+- **Ask's cost and latency tracked** on Model & Evals, beside its accuracy ([D47](DECISIONS.md)).
+- **Every total opens to its rows**, and an unknown category is never reported as €0 ([D48](DECISIONS.md)).
+- **Clickable accuracy tiles**, one-vendor cards, and supermarkets categorized by rule ([D49](DECISIONS.md)).
+
+Status: **shipped.** Backend tests **329 → 373**.
+
+---
+
 ## v0.6 — Payslip tracking ⬜
 
 **Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance
@@ -253,7 +269,8 @@ Status: **planned** — not started.
 
 - **A saved monthly close.** ⬜ `GET /close` computes the summary and the Close button only confirms it on screen: no close record is stored and the month isn't locked, so later edits change a "closed" month. Build it or keep the summary wording, decided after a real timed close.
 - **A timed month-end.** ⬜ The "minutes, not hours" target has no measurement yet (`problem-statement.md`).
-- **A held-out accuracy number.** ⬜ Some of the 26 eval receipts were also used to tune the prompts. Scoring the next batch of new receipts before any tuning would give an untouched number.
+- **A held-out accuracy number.** ⬜ Some of the 26 eval receipts were also used to tune the prompts. November's receipts are the next batch: score them before any prompt change for an untouched number, stating that they ran with the supermarket rules.
+- **A faster model for Ask.** ⬜ After November: compare models on the chatbot eval, since Ask takes about 10 seconds an answer ([D47](DECISIONS.md)).
 - **An outside tester.** ⬜ All feedback rounds so far are self-tests.
 - **Fewer correct reads sent to review.** ⬜ The gate holds back 52% of correct reads because model confidence is poorly calibrated ([D30](DECISIONS.md)).
 

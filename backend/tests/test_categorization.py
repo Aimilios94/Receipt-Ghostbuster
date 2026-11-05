@@ -37,10 +37,10 @@ def test_rules_win_over_llm_suggestion():
 
 
 def test_llm_fallback_fills_unknown_vendor():
-    # Continente is a real gap: not in the keyword rules. The LLM, which already
+    # Unknown Shop is a real gap: not in the keyword rules. The LLM, which already
     # read the receipt, suggests "Groceries" and it is accepted.
     result = categorize(
-        "Continente",
+        "Unknown Shop",
         llm_fallback=lambda _: "Groceries",
         valid_categories=VALID,
     )
@@ -49,7 +49,7 @@ def test_llm_fallback_fills_unknown_vendor():
 
 def test_llm_suggestion_rejected_when_not_a_valid_category():
     result = categorize(
-        "PD OLAIAS",
+        "Unknown Shop",
         llm_fallback=lambda _: "Snacks",  # not a real category
         valid_categories=VALID,
     )
@@ -62,8 +62,17 @@ def test_no_fallback_returns_uncategorized():
 
 def test_null_llm_suggestion_returns_uncategorized():
     result = categorize(
-        "Pingo Doce",
+        "Unknown Shop",
         llm_fallback=lambda _: None,  # LLM was unsure
         valid_categories=VALID,
     )
     assert result == "Uncategorized"
+
+
+def test_portuguese_supermarkets_are_groceries_without_the_model():
+    def fail(_):
+        raise AssertionError("a known supermarket must not need the model")
+
+    for vendor in ("Continente", "CONTINENTE BOM DIA", "Pingo Doce - PD Olaias", "My Auchan", "MyAuchan",
+                   "Intermarché", "Minipreço", "Mercadona", "Minimercado Niham"):
+        assert categorize(vendor, llm_fallback=fail) == "Groceries", vendor

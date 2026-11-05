@@ -22,8 +22,8 @@ def test_total_spend_excludes_income_and_pending():
 
 def test_spend_by_day_max_and_min():
     r = analytics.spend_by_day(_expenses(), "2026-10")
-    assert r["max_day"] == {"date": "2026-10-20", "total": 50.00}
-    assert r["min_day"] == {"date": "2026-10-05", "total": 15.72}   # 11.58 + 4.14
+    assert r["max_day"] == {"date": "2026-10-20", "total": 50.00, "count": 1}
+    assert r["min_day"] == {"date": "2026-10-05", "total": 15.72, "count": 2}   # 11.58 + 4.14
     assert r["total"] == 84.11
     assert [d["date"] for d in r["days"]] == ["2026-10-05", "2026-10-09", "2026-10-20"]
 

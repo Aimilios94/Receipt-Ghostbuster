@@ -3,6 +3,33 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.6] — 2026-11-05
+
+**Ask answers as a summary plus cards.** From real use in [Round 11](feedback-notes.md) ([D46](DECISIONS.md), [D47](DECISIONS.md), [D48](DECISIONS.md), [D49](DECISIONS.md)). Backend tests **329 → 373**.
+
+### Changed
+- **The model writes one or two sentences, and the code draws the details.** New cards: ranked bars for days, categories, vendors, products and people; a two-month comparison; and expense lists. Rows open to their expenses, and an expense opens the existing detail popup with its products, VAT per rate and receipt.
+- **"Most expenses" means the number of expenses.** The by-day calculation now returns a count per day, the busiest day, and the top N days with their total and share of the month.
+- **A mixed-VAT receipt is no longer described by one rate.** VAT is reported in total or per rate.
+- **Fewer questions back:** a misspelled month is understood, and with no month given Ask uses the latest month with data and says so.
+- **Calculation tags** moved behind a "How this was calculated" link.
+- **A new answer opens at its first line** rather than its end.
+- **Suggested questions stay available** during a conversation, not only on the empty page.
+- **A month with no expenses shows "No records"** in a comparison, instead of €0.00 and an "increase".
+
+### Fixed
+- **A wrong €0 in Ask:** the model sometimes sent a category in lowercase, the comparison matched it exactly, and Ask reported "groceries: €0.00". Categories now match in any case, and one that doesn't exist is reported as not found, never as €0.
+
+### Changed (categories)
+- **Portuguese supermarkets are Groceries by rule** (Continente, Pingo Doce, Auchan, Intermarché, Minipreço, Mercadona, minimercados), so these vendors no longer depend on the model.
+
+### Added
+- **Accuracy tiles on Model & Evals are clickable:** each opens the eval questions behind its score, with pass or fail and the calculation used.
+- **A question about one vendor shows only that vendor** on its card.
+- **Every total opens to the rows behind it:** comparison months, total spend, VAT paid, products, people and the date-range vendor list, on top of days, categories and vendors.
+- **Ask's cost and latency are tracked.** Each question records its latency, tokens, estimated cost and the calculations used, never the question text. Model & Evals shows Ask in its own section beside its eval accuracy, separate from receipt reads.
+- **The tester's two real questions** in the chatbot eval, plus the two category cases: now 22 answerable + 5 refusal. Live on `gpt-5-mini`: tool choice 22/22, answers 22/22, refusals 5/5, faithfulness 22/22, with the judge's calibration re-run (TRUSTED).
+
 ## [0.5.5] — 2026-11-05
 
 **Real Revolut PDF statements import.** From a real [Round 11](feedback-notes.md) test ([D44](DECISIONS.md), [D45](DECISIONS.md)). Backend tests **310 → 329**.

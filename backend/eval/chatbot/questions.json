@@ -110,8 +110,32 @@
     {
       "id": "q18", "kind": "answerable",
       "question": "How much did I spend at Continente in October?",
-      "expected_tool": {"name": "spend_by_vendor", "args": {"month": "2026-10"}},
+      "expected_tool": {"name": "spend_by_vendor", "args": {"month": "2026-10", "vendor": "continente"}},
       "expected_answer": {"vendors": [{"vendor": "Continente", "total": 30.00}]}
+    },
+    {
+      "id": "q19", "kind": "answerable",
+      "question": "wich day i had the most expenses and wich ones",
+      "expected_tool": {"name": "spend_by_day", "args": {"month": "2026-10", "rank_by": "count"}},
+      "expected_answer": {"busiest_day": {"date": "2026-10-05", "count": 2, "total": 30.00}}
+    },
+    {
+      "id": "q20", "kind": "answerable",
+      "question": "give me a dashboard of the 3 days that i spend more this month—oktomber",
+      "expected_tool": {"name": "spend_by_day", "args": {"month": "2026-10", "top": 3}},
+      "expected_answer": {"ranked": {"days": [{"date": "2026-10-20", "total": 50.00}, {"date": "2026-10-05", "total": 30.00}, {"date": "2026-10-12", "total": 30.00}], "total": 110.00, "share_pct": 79.1}}
+    },
+    {
+      "id": "q21", "kind": "answerable",
+      "question": "compare groceries october with september",
+      "expected_tool": {"name": "compare_category", "args": {"category": "groceries", "month_a": "2026-10", "month_b": "2026-09"}},
+      "expected_answer": {"category": "Groceries", "total_a": 80.00, "total_b": 30.00}
+    },
+    {
+      "id": "q22", "kind": "answerable",
+      "question": "compare pets october with september",
+      "expected_tool": {"name": "compare_category", "args": {"category": "pets", "month_a": "2026-10", "month_b": "2026-09"}},
+      "expected_answer": {"category_found": false}
     },
     {
       "id": "r01", "kind": "refusal",

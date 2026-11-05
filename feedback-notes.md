@@ -338,8 +338,36 @@ October, covering a period that overlaps statements already imported. The real s
   tester's own movements ([D39](DECISIONS.md)), but the PDF names other people as the recipients. → **FIXED ([D45](DECISIONS.md)):**
   a named recipient makes it a third party, and importing the PDF fills the name into rows already stored.
 
-**Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D44, D45.
+- **"Which day I had the most expenses, and which ones."** Ask answered with the day of the most *money* (3 October, 1 expense)
+  rather than the most expenses (13 October, 3 expenses), and described a mixed-VAT receipt as a single 6%. → **FIXED
+  ([D46](DECISIONS.md)):** the calculation now returns a count per day, and a mixed receipt reports no single rate.
+- **"I don't like the output, it's messy, I'm struggling to read it."** Asked for a dashboard of the top 3 days, Ask returned a
+  long block of text, one line per receipt item, after first asking which month "oktomber" meant. The tester asked for a small
+  overview first and then a real dashboard. → **FIXED ([D46](DECISIONS.md)):** one or two sentences, then cards drawn by the
+  code, with detail on click.
+
+- **"Do we track cost, latency and accuracy for this?"** Accuracy yes, in the eval, but the app didn't save Ask's cost or latency.
+  → **FIXED ([D47](DECISIONS.md)):** each question is traced, and Model & Evals shows Ask in its own section.
+- **"I just don't have September records."** Comparing with September showed €0.00 and an "increase", as if nothing had been spent.
+  → **FIXED ([D47](DECISIONS.md)):** a month with no expenses shows "No records" and no change.
+
+- **"When it lists a sum, let me click to see the expenses one by one."** Days, categories and vendors opened, but other totals
+  didn't. → **FIXED ([D48](DECISIONS.md)):** every total Ask shows now opens to its rows.
+- **A wrong €0, found while testing that.** Asking to compare groceries sometimes returned "€0.00" because the model sent the
+  category in lowercase and the match was exact. → **FIXED ([D48](DECISIONS.md)):** categories match in any case, and an unknown
+  one is reported as not found.
+
+- **"Can the accuracy tiles be clickable?"** "100%" means little without seeing what was tested. → **BUILT:** each tile opens its
+  questions with pass or fail.
+- **Asking about Continente listed every vendor.** The figure was right, but the card showed all of them. → **FIXED:** a question
+  about one vendor shows only that vendor.
+- **Five Continente receipts in the wrong category.** Visible once the tester opened the vendor's expenses: Groceries was €78.10
+  and should be €103.68. → **FIXED ([D49](DECISIONS.md)):** supermarkets are Groceries by rule, and the 5 rows were moved with the
+  tester's OK.
+- **Still open:** a Continente receipt of €4.14 on 9 October sits beside a €4.16 bank line, and may be misread or a duplicate.
+
+**Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D44, D45, D46, D47, D48, D49.
 
 **Round 11 outcome:** the real PDF imported correctly, adding only the 16 new rows, and importing the other language added
-nothing. Reconciliation and the Breakdown looked right on the new data. Re-importing filled in the recipient names (third parties
+nothing. Ask moved to a short summary plus cards, with every total opening to its rows, and the tester confirmed each in a manual pass. Reconciliation and the Breakdown looked right on the new data. Re-importing filled in the recipient names (third parties
 sent €643.42 to 7 people, and the own-movements section emptied), and Undo restored a match in the tester's own run.

@@ -1154,6 +1154,27 @@ table.ledger tbody tr:hover {
   gap: 8px;
   justify-content: center;
 }
+.ask-suggestions-compact {
+  justify-content: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+}
+.ask-suggestions-compact .chip {
+  font-size: 12px;
+}
+.ask-suggestions-compact .chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (max-width: 680px) {
+  .ask-suggestions-compact {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .ask-suggestions-compact .chip {
+    flex: none;
+  }
+}
 .ask-thread {
   display: flex;
   flex-direction: column;
@@ -1256,6 +1277,248 @@ table.ledger tbody tr:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.ask-with-cards {
+  width: 100%;
+  max-width: 100%;
+}
+.ask-with-cards .ask-bubble {
+  align-self: flex-start;
+  max-width: 82%;
+}
+.ask-card {
+  margin-top: 10px;
+  width: 100%;
+  max-width: 680px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.05));
+}
+.ask-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+.ask-card-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.ask-card-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.ask-rank-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 150px) minmax(40px, 1fr) 78px 74px 14px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+button.ask-rank-row {
+  cursor: pointer;
+}
+button.ask-rank-row:hover .ask-rank-label {
+  text-decoration: underline;
+}
+.ask-rank-label {
+  font-weight: 560;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-rank-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-3, rgba(127, 127, 127, 0.14));
+  overflow: hidden;
+}
+.ask-rank-fill {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 999px;
+  background: var(--accent, #6a58f0);
+}
+.ask-rank-amt {
+  text-align: right;
+  font-weight: 560;
+  white-space: nowrap;
+}
+.ask-rank-count {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: right;
+  white-space: nowrap;
+}
+.ask-rank-chev {
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+.ask-rank-chev.open {
+  transform: rotate(90deg);
+}
+.ask-expenses {
+  padding: 2px 0 8px 12px;
+  border-left: 2px solid var(--border-strong);
+  margin-bottom: 6px;
+}
+.ask-expense {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.ask-expense:hover {
+  background: var(--surface-3, rgba(127, 127, 127, 0.1));
+}
+.ask-expense-name {
+  font-weight: 560;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-expense-meta {
+  grid-column: 1;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.ask-expense-amt {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-weight: 560;
+}
+.ask-products {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.ask-product {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+.ask-product-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 18px;
+  align-items: start;
+}
+.ask-compare-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+.ask-compare-value {
+  font-size: 19px;
+  font-weight: 600;
+}
+.ask-total-value {
+  font-size: 22px;
+  font-weight: 600;
+}
+.ask-drill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted, inherit);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ask-drill:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.ask-compare-rows {
+  margin: 12px 0 0;
+}
+.ask-transaction {
+  cursor: default;
+}
+.ask-transaction:hover {
+  background: none;
+}
+.ask-compare-empty {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+.ask-compare-delta {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ask-compare-delta.up {
+  color: var(--red, #e5636a);
+}
+.ask-compare-delta.down {
+  color: var(--green, #3fbf7f);
+}
+.ask-how {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.ask-how summary {
+  cursor: pointer;
+  width: fit-content;
+}
+@media (max-width: 680px) {
+  .ask-rank-row {
+    grid-template-columns: minmax(0, 1fr) auto 14px;
+    gap: 4px 10px;
+  }
+  .ask-rank-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .ask-rank-count {
+    display: none;
+  }
+  .ask-products {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ask-with-cards .ask-bubble {
+    max-width: 100%;
+  }
 }
 .ask-tools {
   display: flex;
@@ -2183,6 +2446,49 @@ table.ledger tbody tr:hover {
 /* ============================================================ */
 /* Model & Evals dashboard (v0.3.0)                              */
 /* ============================================================ */
+.me-stat-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 14px;
+}
+.me-stat-btn:hover .stat-foot {
+  text-decoration: underline;
+}
+.me-questions {
+  display: flex;
+  flex-direction: column;
+}
+.me-question {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.me-q-mark {
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.me-q-mark.pass {
+  color: var(--green, #3fbf7f);
+}
+.me-q-mark.fail {
+  color: var(--red, #e5636a);
+}
+.me-q-tools {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
 .me-note {
   color: var(--text-dim);
   font-size: 13px;

@@ -166,4 +166,7 @@ export const api = {
   // ----- model & evals (v0.3.0 — observability) -----
   evalMetrics: () => request("/metrics/eval"),
   llmMetrics: () => request("/metrics/llm"),
+  askMetrics: () => request("/metrics/llm?kind=chat"),
+  askEvalMetrics: () => request("/metrics/eval/chat"),
+  askEvalQuestions: () => request("/metrics/eval/chat/questions"),
 };

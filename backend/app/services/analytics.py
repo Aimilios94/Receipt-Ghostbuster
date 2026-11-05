@@ -47,6 +47,82 @@ def _norm_product(name: str) -> str:
     return s
 
 
+def display_product(name: str) -> str:
+    """A product name without the leading VAT-class letter some tills print ("C …")."""
+    return re.sub(r"^[A-Z]\s+", "", (name or "").strip())
+
+
+def expense_rows(expenses: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Compact expense rows for a card, newest first. `id` lets a row open its detail."""
+    rows = [
+        {
+            "id": e.get("id"),
+            "date": str(e.get("expense_date") or "")[:10],
+            "vendor": e.get("vendor") or "Unknown",
+            "category": e.get("category") or "Uncategorized",
+            "amount": _q(_dec(e["amount"])),
+            "vat_amount": _q(_dec(e["vat_amount"])) if e.get("vat_amount") else None,
+            "source": e.get("source"),
+        }
+        for e in expenses
+    ]
+    rows.sort(key=lambda r: (r["date"], r["amount"]), reverse=True)
+    return rows
+
+
+def spend_rows(expenses: list[dict[str, Any]], month: str | None = None) -> list[dict[str, Any]]:
+    """The rows that count as spend, for building a card's expense lists."""
+    return _spend_rows(expenses, month)
+
+
+def _resolve_category(expenses: list[dict[str, Any]], category: str) -> tuple[str, bool, list[str]]:
+    """(the ledger's own spelling, whether it exists, every known category). The model may
+    write a category in any case, and "groceries" must not silently total €0."""
+    known = sorted({e.get("category") or "Uncategorized" for e in _spend_rows(expenses)})
+    wanted = (category or "").strip().casefold()
+    match = next((k for k in known if k.casefold() == wanted), None)
+    return (match or category), match is not None, known
+
+
+def category_rows(expenses: list[dict[str, Any]], category: str, month: str) -> list[dict[str, Any]]:
+    """The expenses behind one category's total in a month."""
+    name, _, _ = _resolve_category(expenses, category)
+    return expense_rows(
+        [e for e in _spend_rows(expenses, month) if (e.get("category") or "Uncategorized") == name]
+    )
+
+
+def vat_rows(expenses: list[dict[str, Any]], period: str) -> list[dict[str, Any]]:
+    """The expenses behind a VAT total, for a `YYYY-MM` month or a `YYYY` year."""
+    return expense_rows([
+        e for e in _spend_rows(expenses)
+        if e.get("vat_amount") and str(e.get("expense_date") or "")[:len(period)] == period
+    ])
+
+
+def product_rows(
+    expenses: list[dict[str, Any]], product: str, *, vendor: str | None = None, month: str | None = None
+) -> list[dict[str, Any]]:
+    """The expenses whose receipt lists a product, matched the way top_products groups them."""
+    key = _norm_product(product)
+    return expense_rows([
+        e for e in _spend_rows(expenses, month)
+        if (not vendor or vendor.lower() in (e.get("vendor") or "").lower())
+        and any(_norm_product(p["description"]) == key for p in _products_of(e))
+    ])
+
+
+def _vat_by_rate(expense: dict[str, Any], products: list[dict[str, Any]]) -> tuple[Any, list[dict[str, Any]] | None]:
+    """(single rate, per-rate VAT). A mixed receipt has no single rate: the stored one is
+    only its dominant rate, so it's withheld rather than reported as if it covered all."""
+    tax_lines = (expense.get("raw_extraction") or {}).get("tax_lines") or []
+    by_rate = [{"rate": t.get("rate"), "vat": t.get("vat")} for t in tax_lines if t.get("rate") is not None]
+    rates = {r["rate"] for r in by_rate} or {p["vat_rate"] for p in products if p.get("vat_rate") is not None}
+    if len(rates) > 1:
+        return None, by_rate or None
+    return expense.get("vat_rate"), by_rate or None
+
+
 def _q(value: Decimal) -> float:
     return float(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
@@ -80,22 +156,46 @@ def total_spend(expenses: list[dict[str, Any]], month: str) -> dict[str, Any]:
     return {"month": month, "total": _q(total), "count": len(rows)}
 
 
-def spend_by_day(expenses: list[dict[str, Any]], month: str) -> dict[str, Any]:
-    """Spend per day in a month, plus the highest- and lowest-spend days."""
+def spend_by_day(
+    expenses: list[dict[str, Any]], month: str, *, top: int | None = None, rank_by: str = "amount"
+) -> dict[str, Any]:
+    """Spend and number of expenses per day in a month: the highest- and lowest-spend
+    days, the busiest day by count, and the days ranked by amount or count (`top` keeps
+    the first N, with their combined total and share of the month)."""
     rows = _spend_rows(expenses, month)
     by_day: dict[str, Decimal] = {}
+    counts: dict[str, int] = {}
     for e in rows:
         d = str(e.get("expense_date") or "")[:10]
         by_day[d] = by_day.get(d, Decimal(0)) + _dec(e["amount"])
-    days = [{"date": d, "total": _q(v)} for d, v in sorted(by_day.items())]
-    top = max(days, key=lambda x: x["total"], default=None)
+        counts[d] = counts.get(d, 0) + 1
+    days = [{"date": d, "total": _q(v), "count": counts[d]} for d, v in sorted(by_day.items())]
+    high = max(days, key=lambda x: x["total"], default=None)
     low = min(days, key=lambda x: x["total"], default=None)
+    busiest = max(days, key=lambda x: (x["count"], x["total"]), default=None)
+    total = sum(by_day.values(), Decimal(0))
+
+    by_count = rank_by == "count"
+    ranked = sorted(
+        days,
+        key=lambda x: (-x["count"], -x["total"], x["date"]) if by_count else (-x["total"], -x["count"], x["date"]),
+    )
+    if top:
+        ranked = ranked[: max(1, int(top))]
+    ranked_total = sum((by_day[x["date"]] for x in ranked), Decimal(0))
     return {
         "month": month,
         "days": days,
-        "max_day": top,
+        "max_day": high,
         "min_day": low,
-        "total": _q(sum((by_day[d] for d in by_day), Decimal(0))),
+        "busiest_day": busiest,
+        "ranked": {
+            "by": "count" if by_count else "amount",
+            "days": ranked,
+            "total": _q(ranked_total),
+            "share_pct": float((ranked_total / total * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)) if total else 0.0,
+        },
+        "total": _q(total),
     }
 
 
@@ -108,7 +208,13 @@ def spend_by_category(expenses: list[dict[str, Any]], month: str) -> dict[str, A
 def compare_category(
     expenses: list[dict[str, Any]], category: str, month_a: str, month_b: str
 ) -> dict[str, Any]:
-    """Compare one category's spend between two months (a vs b)."""
+    """Compare one category's spend between two months (a vs b). A month with no expenses
+    at all has no records, which isn't the same as spending nothing, so it gets no delta."""
+    category, found, known = _resolve_category(expenses, category)
+    if not found:
+        return {"category": category, "category_found": False, "known_categories": known,
+                "month_a": month_a, "month_b": month_b}
+
     def cat_total(month: str) -> Decimal:
         return sum(
             (_dec(e["amount"]) for e in _spend_rows(expenses, month)
@@ -117,13 +223,17 @@ def compare_category(
         )
 
     a, b = cat_total(month_a), cat_total(month_b)
+    a_has_data = bool(_spend_rows(expenses, month_a))
+    b_has_data = bool(_spend_rows(expenses, month_b))
+    both = a_has_data and b_has_data
     delta = a - b
-    pct = float(delta / b * 100) if b else None
+    pct = float(delta / b * 100) if b and both else None
     return {
         "category": category,
-        "month_a": month_a, "total_a": _q(a),
-        "month_b": month_b, "total_b": _q(b),
-        "delta": _q(delta),
+        "category_found": True,
+        "month_a": month_a, "total_a": _q(a), "month_a_has_data": a_has_data,
+        "month_b": month_b, "total_b": _q(b), "month_b_has_data": b_has_data,
+        "delta": _q(delta) if both else None,
         "pct_change": round(pct, 1) if pct is not None else None,
     }
 
@@ -134,10 +244,12 @@ def top_expenses(expenses: list[dict[str, Any]], month: str, n: int = 5) -> dict
     rows = sorted(_spend_rows(expenses, month), key=lambda e: abs(float(e.get("amount") or 0)), reverse=True)
     items = [
         {
+            "id": e.get("id"),
             "date": str(e.get("expense_date") or "")[:10],
             "vendor": e.get("vendor") or "Unknown",
             "amount": _q(_dec(e["amount"])),
             "category": e.get("category") or "Uncategorized",
+            "source": e.get("source"),
         }
         for e in rows[:n]
     ]
@@ -174,13 +286,16 @@ def expense_details(
     out = []
     for e in rows[: max(1, min(int(limit or 20), 50))]:
         products = _products_of(e)
+        vat_rate, vat_by_rate = _vat_by_rate(e, products)
         out.append({
+            "id": e.get("id"),
             "date": str(e.get("expense_date") or "")[:10],
             "vendor": e.get("vendor") or "Unknown",
             "category": e.get("category") or "Uncategorized",
             "amount": _q(_dec(e["amount"])),
             "vat_amount": _q(_dec(e["vat_amount"])) if e.get("vat_amount") else None,
-            "vat_rate": e.get("vat_rate"),
+            "vat_rate": vat_rate,
+            "vat_by_rate": vat_by_rate,
             "source": e.get("source"),
             "has_receipt": bool(e.get("receipt_image_url")),
             "receipt_url": e.get("receipt_image_url"),
@@ -188,6 +303,7 @@ def expense_details(
             # The actual named products the model read (from raw extraction); empty
             # when the receipt wasn't itemized (then has_receipt lets the user check the photo).
             "products": products,
+            "product_count": len(products),
         })
     return {"date": date, "vendor": vendor, "month": month, "count": len(out), "expenses": out}
 
@@ -259,6 +375,7 @@ def expenses_in_range(
         g["count"] += 1
         g["total"] += amt
         g["items"].append({
+            "id": e.get("id"),
             "date": d,
             "amount": _q(amt),
             "category": e.get("category") or "Uncategorized",
@@ -395,14 +512,19 @@ def subscription_candidates(
     }
 
 
-def spend_by_vendor(expenses: list[dict[str, Any]], month: str | None = None) -> dict[str, Any]:
-    """Spend grouped by vendor (optionally for one month), highest first."""
+def spend_by_vendor(
+    expenses: list[dict[str, Any]], month: str | None = None, vendor: str | None = None
+) -> dict[str, Any]:
+    """Spend grouped by vendor (optionally for one month, or for vendors matching a name),
+    highest first."""
     rows = _spend_rows(expenses, month)
+    if vendor:
+        rows = [e for e in rows if vendor.strip().lower() in (e.get("vendor") or "").lower()]
     vendors = [
         {"vendor": r["vendor"], "count": r["count"], "total": r["total"]}
         for r in breakdown_service.vendor_breakdown(rows)
     ]
-    return {"month": month, "vendors": vendors}
+    return {"month": month, "vendor": vendor, "vendors": vendors}
 
 
 def transfers_summary(bank_txns: list[dict[str, Any]], month: str | None = None) -> dict[str, Any]:

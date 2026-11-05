@@ -1,22 +1,22 @@
 {
   "mode": "live",
   "model": "gpt-5-mini",
-  "run_date": "2026-10-25",
+  "run_date": "2026-11-05",
   "eval_today": "2026-10-31",
-  "n_questions": 23,
-  "n_receipts": 18,
-  "n_answerable": 18,
+  "n_questions": 27,
+  "n_receipts": 22,
+  "n_answerable": 22,
   "n_refusal": 5,
   "fields": {
     "answer_correctness": {
       "accuracy": 1.0,
-      "correct": 18,
-      "scored": 18
+      "correct": 22,
+      "scored": 22
     },
     "tool_selection": {
       "accuracy": 1.0,
-      "correct": 18,
-      "scored": 18
+      "correct": 22,
+      "scored": 22
     },
     "refusal": {
       "accuracy": 1.0,
@@ -25,13 +25,13 @@
     },
     "faithfulness": {
       "accuracy": 1.0,
-      "correct": 18,
-      "scored": 18
+      "correct": 22,
+      "scored": 22
     }
   },
   "overall": {
     "accuracy": 1.0,
-    "correct": 41,
-    "scored": 41
+    "correct": 49,
+    "scored": 49
   }
 }

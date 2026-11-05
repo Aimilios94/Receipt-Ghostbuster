@@ -77,6 +77,12 @@ fingerprint + the model, so re-runs are free and the gate is deterministic in pr
   below the observed number with a tolerance band; refresh them deliberately with the
   `metrics.json` they came from.
 
+## Per-question results in the app
+
+The accuracy tiles on Model & Evals open these questions with pass or fail. The results come
+from `results.detail.json`, which is git-ignored, so on a machine that hasn't run `--live` the
+questions show as not run.
+
 ## Labelling
 
 Each `questions.json` entry is `{id, kind, question, ...}`:

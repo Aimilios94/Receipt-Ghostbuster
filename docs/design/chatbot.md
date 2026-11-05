@@ -5,7 +5,8 @@
 LLM-as-judge for prose faithfulness, + a response cache) shipped as [D42](../../DECISIONS.md)
 (`services/chat_judge.py`, `services/chat_cache.py`, `eval_chatbot.py --judge`). This doc fixed the
 architecture and the evaluation approach up front so the build stayed honest and testable — the same way
-DECISIONS.md fixes "why" before code.*
+DECISIONS.md fixes "why" before code. Answers later moved to a short summary plus cards drawn by the code
+([D46](../../DECISIONS.md)), so the "phrases the computed result" step below is now one or two sentences.*
 
 ## Problem
 
@@ -86,12 +87,13 @@ The chatbot is highly evaluable, and in a way that mostly avoids an LLM judge:
 4. ✅ **(Slice 2)** **Refusal correctness.** Out-of-scope / unanswerable questions should be declined, not
    answered — scored on a small adversarial set. *(Shipped: `--live` `refusal`, a correct refusal calls no
    analytics tool — 5/5.)*
-5. ⬜ **(later)** **Multi-model + cost/latency.** Reuse the `eval_models.py` pattern to compare models on
-   tool-selection accuracy, latency and cost, and trace live calls to LangSmith like extraction does.
+5. 🚧 **Cost/latency tracked live; multi-model later.** Each live question records its latency, tokens and
+   estimated cost, shown on Model & Evals ([D47](../../DECISIONS.md)). Still open: reuse the `eval_models.py`
+   pattern to compare models on tool-selection accuracy, latency and cost.
 
 This means the chatbot ships with its own measured quality story from day one, consistent with D26/D30.
 
 ## Out of scope (initially)
 
-Multi-turn memory beyond the current session · charts/visual answers · writing to the ledger · financial or
+Multi-turn memory beyond the current session · writing to the ledger · financial or
 tax advice (separate, rule-based — see v0.4) · anything that bypasses the compute-in-code rule.
