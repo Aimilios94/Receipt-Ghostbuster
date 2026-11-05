@@ -74,13 +74,13 @@ The chatbot is highly evaluable, and in a way that mostly avoids an LLM judge:
 2. ✅ **(Slice 2 — key metric)** **Tool-selection accuracy.** Given a question, did the model call the
    **right** analytics function with the **right** arguments? Scored deterministically against a labelled
    expected tool-call — this is the LLM's actual job here, so it's the key metric. *(Shipped: `--live`
-   `tool_selection`, 18/18 on gpt-5-mini.)*
+   `tool_selection`, 18/18 on gpt-5-mini when built; now 22/22, see `eval/chatbot/RESULTS.md`.)*
 3. ✅ **(Slice 3)** **Faithfulness / grounding (LLM-as-judge, calibrated).** For open-ended phrasing, a judge
    checks the prose answer **follows from the computed numbers** (no added/changed figures). The judge is
    **calibrated against human labels** on a sample before it's trusted — an uncalibrated judge is just vibes
    with extra cost. *(Shipped: `services/chat_judge.py`; `eval_chatbot.py --judge` calibrates it against
    `calibration.json` → `CALIBRATION.md` (100% agreement, 100% recall on catching unfaithful → TRUSTED) and
-   `--live --judge` grades the prose of each real answer: 18/18 faithful. The first run over-flagged on the
+   `--live --judge` grades the prose of each real answer: 18/18 faithful when built; now 22/22. The first run over-flagged on the
    `€` symbol and was fixed — the calibration earning its keep.)* **Plus** a response cache
    (`services/chat_cache.py`) keyed on the ledger fingerprint, so a repeated question on unchanged data skips
    the model and self-invalidates on any change.

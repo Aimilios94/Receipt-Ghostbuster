@@ -367,8 +367,11 @@ October, covering a period that overlaps statements already imported. The real s
 - **A duplicate hiding in the ledger.** A Continente receipt of €4.14 on 9 October sat beside a €4.16 bank line. Comparing the
   photos showed the 6 October receipt shot twice in different light: same invoice number and ATCUD code. → **FIXED ([D49](DECISIONS.md)):**
   duplicate deleted, and the kept row's VAT corrected to the printed €0.57. October total €186.33.
-- **Still open:** two €10 cash meals, "Egyptian" on 17 October and "Egyptian Restaurant" on 12 October. They're on different days, so
-  the tester's rule keeps both as separate meals.
+- **A meal recorded as cash was paid by transfer.** Two €10 meals sit in the ledger as cash, on 12 and 17 October. The tester confirmed
+  one was paid by transfer and forgotten. The month total doesn't change, but the cash subtotal reads €20 instead of €10. **Gap found:**
+  the app has no honest label for this. A row is either cash, which skips reconciliation, or non-cash, which must match a bank line, and
+  transfers never match a receipt. Marking it as card would leave it unreconciled at every close. → **Logged on the roadmap;** the row
+  stays as it is for now.
 
 **Candidate decisions (→ [DECISIONS.md](DECISIONS.md)):** D44, D45, D46, D47, D48, D49.
 

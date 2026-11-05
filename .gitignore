@@ -38,3 +38,6 @@ docs/screenshots/account-statement*
 # The curated process story lives in DECISIONS.md / feedback-notes.md / roadmap.md / CHANGELOG.md.
 HANDOFF.md
 NEXT-AGENT-PROMPT.md
+# Holds the last session's conversation, including real names and amounts.
+previus-chat-catchup.md
+update-chat-catchup.py

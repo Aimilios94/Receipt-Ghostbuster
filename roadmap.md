@@ -271,6 +271,7 @@ Status: **planned** — not started.
 - **A timed month-end.** ⬜ The "minutes, not hours" target has no measurement yet (`problem-statement.md`).
 - **A held-out accuracy number.** ⬜ Some of the 26 eval receipts were also used to tune the prompts. November's receipts are the next batch: score them before any prompt change for an untouched number, stating that they ran with the supermarket rules.
 - **Duplicate check by ATCUD.** ⬜ After November is scored, since it needs a prompt change: every Portuguese receipt prints a unique ATCUD code, a far stronger duplicate key than vendor + total + date ([D49](DECISIONS.md)).
+- **A "paid by transfer" option.** ⬜ A purchase paid by bank transfer has no honest label: cash overstates the cash subtotal, and card leaves the row unreconciled at every close because transfers never match a receipt (Round 11).
 - **A faster model for Ask.** ⬜ After November: compare models on the chatbot eval, since Ask takes about 10 seconds an answer ([D47](DECISIONS.md)).
 - **An outside tester.** ⬜ All feedback rounds so far are self-tests.
 - **Fewer correct reads sent to review.** ⬜ The gate holds back 52% of correct reads because model confidence is poorly calibrated ([D30](DECISIONS.md)).

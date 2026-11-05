@@ -50,8 +50,10 @@ Natural-language Q&A over the one ledger, built as **tool-calling over a fixed, 
 unit-tested analytics surface** — the model picks the calculation, **every number is
 computed in code** (never by the model). It ships with its own eval harness
 (tool-selection accuracy + code-graded answers + refusals) and a **calibrated**
-faithfulness judge for the prose. Routes now include Bank statements, Advice, Ask, and
-the Model & Evals dashboard alongside the Phase-1 screens.
+faithfulness judge for the prose. Answers are a short summary plus cards drawn by the code,
+where every total opens to the rows behind it, and each question's latency and estimated
+cost are tracked. Routes now include Bank statements, Advice, Ask, and the Model & Evals
+dashboard alongside the Phase-1 screens.
 
 ## Accounting depth
 VAT breakdown · reconciliation exceptions report · cash-vs-bank source logic ·
