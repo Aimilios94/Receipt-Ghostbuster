@@ -22,10 +22,12 @@ built; it is not legal advice.
 |---|---|---|
 | Receipt image | The configured vision model | **Cloud** (OpenAI or Anthropic) **or local** (Ollama, on-device) — your choice, see below. |
 | Bank-PDF text | Nowhere for a Revolut PDF that matches its printed totals; otherwise the configured LLM, **only if cloud** | Text is extracted locally (`pdfplumber`). A Revolut PDF is then read in code. For anything sent to an LLM, IBAN/card numbers are **redacted before sending** (see below). |
-| Bank CSV | Nowhere external | Parsed entirely in code — **no LLM, no network**. |
+| Bank CSV | Nowhere external on import | Parsed entirely in code — **no LLM, no network**. Its rows can reach OpenAI later if you ask Ask about them (see below). |
+| Ask: your question and the calculation results | OpenAI, when you use Ask | Can include vendor names, amounts, dates, products, bank descriptions and the names of people in your transfers. Ask needs OpenAI: on other providers it returns 503. |
 | Ledger, images, statements | Supabase (Postgres + storage) | Your own project; secrets stay server-side, never in the browser. |
-| Prompts + images (LangSmith) | LangSmith cloud | **Opt-in, off by default** — only if you set `LANGSMITH_TRACING=true`. |
-| Refund-draft email | Gmail **draft** via n8n | Draft-only; nothing is ever sent automatically. |
+| Prompts, images and Ask's calculation results (LangSmith) | LangSmith cloud | **Opt-in, off by default** — only if you set `LANGSMITH_TRACING=true`. |
+| Error reports (Sentry) | Sentry cloud | **Opt-in, off by default** — only with a DSN. Exception and stack trace only: request body, headers, cookies and query string are stripped. See [MONITORING.md](MONITORING.md). |
+| Refund-draft email | Gmail **draft** via n8n | Draft-only; nothing is ever sent automatically. On the Anthropic provider the subscription's details also go to Anthropic to write the draft; otherwise a local template writes it. |
 
 ## The local-model option (data never leaves the machine)
 
@@ -34,7 +36,8 @@ The reading model is pluggable. With `LLM_PROVIDER=ollama` the receipt is read b
 image and prompt **never leave your computer**. This is the privacy-maximising choice
 for financial documents. It trades speed and some accuracy for locality; that trade-off
 is **measured**, not asserted — see the local column in
-[`backend/eval/MODELS.md`](../backend/eval/MODELS.md).
+[`backend/eval/MODELS.md`](../backend/eval/MODELS.md). This covers reading receipts only: there
+is no local option for Ask, so don't use Ask if nothing should leave the machine.
 
 Cloud providers (OpenAI/Anthropic) are faster and currently more accurate, and under
 their API terms do not train on inputs by default — but the data does leave the machine.
@@ -57,7 +60,7 @@ Receipt **images** cannot be text-redacted. The honest mitigation there is the
 - Receipt images live in your Supabase storage bucket; manage or purge them in your own
   Supabase project.
 - Nothing is sold or shared. There is no third-party analytics beyond the **opt-in**
-  LangSmith tracer. Cloud model providers may retain API inputs per their own data-usage
+  LangSmith tracer and **opt-in** Sentry error reports. Cloud model providers may retain API inputs per their own data-usage
   policies — review OpenAI's / Anthropic's terms if you use the cloud path.
 
 ## Roles (plain-language)

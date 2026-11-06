@@ -63,7 +63,9 @@ Restart the backend (one uvicorn, no `--reload`) and rebuild/reload the frontend
   - `extraction.date_reread`, `extraction.orientation_read`
   - `extract.record_trace`, `extract.upload_receipt`
   - `pdf_import.llm_structuring`
-  - `bank.insert_statement`, `bank.insert_transactions`
+  - `extraction.to_result`
+  - `bank.insert_statement`, `bank.insert_transactions`, `bank.update_counterparty`
+  - `chat.answer`, `chat.record_trace`
   - `refunds.n8n_webhook`
 - **Frontend render errors** — caught by `Sentry.ErrorBoundary`, which shows a small
   reload fallback instead of a blank page.
@@ -113,7 +115,8 @@ Sentry error**. The issue was then marked **Resolved** — the closing bookend:
 That's the complete loop: *observed → caught (scrubbed) → root-caused → fixed + tested →
 verified live → resolved.*
 
-> The user-facing "after" (the app's graceful *"not a readable image"* message) isn't shown
-> here: that screenshot was taken over a live dashboard with real vendor names and amounts, so
-> it's kept local until cropped — the same "review every screenshot for leaked data" rule this
-> whole setup is built around.
+The user-facing "after", the app's graceful message, is cropped to the dialog. The full
+screenshot had a live dashboard with real vendor names behind it, so it stays local: the same
+"review every screenshot for leaked data" rule this whole setup is built around.
+
+![The upload dialog's clear message](screenshots/sentry-fix-after-error-handling.png)

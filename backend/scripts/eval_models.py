@@ -82,53 +82,17 @@ def _pctl(xs: list[float], p: float) -> float:
     return float(s[lo] + (s[hi] - s[lo]) * (k - lo))
 
 
-def _slug(model: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", model.lower())
-
-
-def _model_of(settings: Settings) -> str:
-    if settings.llm_provider == "anthropic":
-        return settings.anthropic_model
-    if settings.llm_provider == "ollama":
-        return settings.ollama_model
-    return settings.openai_model
+_slug = ev._slug
+_model_of = ev._model_of
 
 
 def _extract_with_trace(
     path: Path, settings: Settings, today: datetime.date, *, use_cache: bool
 ) -> tuple[ExtractionResult, dict[str, Any]]:
-    """Like eval_extraction._extract but also returns the observability trace
-    (latency/tokens/cost). Combined result+trace cache, so re-runs don't re-spend
-    and still report the real latency/cost from the first read."""
-    model = _model_of(settings)
-    cache = ev.CACHE_DIR / f"{path.stem}.{settings.llm_provider}.{_slug(model)}.models.json"
-    if use_cache and cache.exists():
-        blob = json.loads(cache.read_text(encoding="utf-8"))
-        read_on = datetime.date.fromtimestamp(cache.stat().st_mtime).isoformat()
-        return ExtractionResult.model_validate(blob["result"]), {**blob["trace"], "read_date": read_on}
-
-    image_bytes = path.read_bytes()
-    result, oriented, trace = extraction.extract_receipt(image_bytes, path.name, settings)
-
-    # Mirror the router / single-model harness: re-read a suspicious date, then
-    # deterministically repair a misread year, so the number reflects the shipped
-    # pipeline rather than a stripped-down read.
-    d = result.date
-    if d is None or d > today or (today - d).days > validation.MAX_AGE_DAYS:
-        better = extraction.reread_date(oriented, path.name, settings, today)
-        if better is not None and better != result.date:
-            result.date = better
-    if result.date is not None:
-        fixed = validation.repair_year(result.date, today)
-        if fixed is not None:
-            result.date = fixed
-
-    ev.CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cache.write_text(
-        json.dumps({"result": result.model_dump(mode="json"), "trace": trace}),
-        encoding="utf-8",
-    )
-    return result, {**trace, "read_date": today.isoformat()}
+    """The shared read path, so the matrix and RESULTS.md score the same reads. Combined
+    result+trace cache, so re-runs don't re-spend and still report the real latency/cost
+    from the first read."""
+    return ev.read_receipt(path, settings, today, use_cache=use_cache)
 
 
 # --------------------------------------------------------------------------- #

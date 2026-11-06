@@ -41,3 +41,8 @@ NEXT-AGENT-PROMPT.md
 # Holds the last session's conversation, including real names and amounts.
 previus-chat-catchup.md
 update-chat-catchup.py
+
+# ---- uncropped originals: personal details or real ledger data in frame ----
+docs/screenshots/prompt-injectin-image.png
+docs/screenshots/sentry-fix-after -erro-handling.png
+docs/screenshots/sentry-issues.png

@@ -14,7 +14,7 @@ accuracy the user actually gets is the model read PLUS the deterministic VAT /
 amount-paid / category logic (printed-table source of truth, discount scaling,
 dominant-rate selection). That is the honest, user-facing number.
 
-Usage (from the backend/ dir, with ANTHROPIC_API_KEY in backend/.env):
+Usage (from the backend/ dir, with the provider's API key in backend/.env):
     python scripts/eval_extraction.py                 # all labelled receipts (cached)
     python scripts/eval_extraction.py --refresh       # ignore cache, re-call the LLM
     python scripts/eval_extraction.py --provider mock # smoke-test the harness, no key
@@ -144,17 +144,35 @@ def _score_fields(label: dict[str, Any], pred: dict[str, Any]) -> dict[str, bool
 # --------------------------------------------------------------------------- #
 # Extraction (with a per-image cache so scorer iteration is free)
 # --------------------------------------------------------------------------- #
-def _extract(path: Path, settings: Settings, today: datetime.date, *, use_cache: bool) -> ExtractionResult:
-    """Return the ExtractionResult for one image, mirroring the /extract date
-    re-read + year-repair steps. Cached as JSON unless --refresh."""
-    model = settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
-    model_tag = re.sub(r"[^a-z0-9]+", "-", model.lower())
-    cache = CACHE_DIR / f"{path.stem}.{settings.llm_provider}.{model_tag}.json"
+def _slug(model: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", model.lower())
+
+
+def _model_of(settings: Settings) -> str:
+    if settings.llm_provider == "anthropic":
+        return settings.anthropic_model
+    if settings.llm_provider == "ollama":
+        return settings.ollama_model
+    return settings.openai_model
+
+
+def read_receipt(
+    path: Path, settings: Settings, today: datetime.date, *, use_cache: bool
+) -> tuple[ExtractionResult, dict[str, Any]]:
+    """One image's read plus its trace (latency/tokens/cost), mirroring the /extract date
+    re-read + year-repair steps. Cached unless --refresh.
+
+    This is the only read path, shared with eval_models.py, so RESULTS.md and the model
+    matrix score the same reads. The model is non-deterministic: separate passes once made
+    the two reports disagree over a single vendor read (D50)."""
+    cache = CACHE_DIR / f"{path.stem}.{settings.llm_provider}.{_slug(_model_of(settings))}.models.json"
     if use_cache and cache.exists():
-        return ExtractionResult.model_validate_json(cache.read_text(encoding="utf-8"))
+        blob = json.loads(cache.read_text(encoding="utf-8"))
+        read_on = datetime.date.fromtimestamp(cache.stat().st_mtime).isoformat()
+        return ExtractionResult.model_validate(blob["result"]), {**blob["trace"], "read_date": read_on}
 
     image_bytes = path.read_bytes()
-    result, oriented, _trace = extraction.extract_receipt(image_bytes, path.name, settings)
+    result, oriented, trace = extraction.extract_receipt(image_bytes, path.name, settings)
 
     # Mirror the router: re-read a suspicious date, then deterministically repair a
     # misread year. On a recent, clean set these are no-ops, but we keep them so the
@@ -170,8 +188,16 @@ def _extract(path: Path, settings: Settings, today: datetime.date, *, use_cache:
             result.date = fixed
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cache.write_text(result.model_dump_json(), encoding="utf-8")
-    return result
+    cache.write_text(
+        json.dumps({"result": result.model_dump(mode="json"), "trace": trace}),
+        encoding="utf-8",
+    )
+    return result, {**trace, "read_date": today.isoformat()}
+
+
+def _extract(path: Path, settings: Settings, today: datetime.date, *, use_cache: bool) -> ExtractionResult:
+    """The read alone, for callers that don't need its trace."""
+    return read_receipt(path, settings, today, use_cache=use_cache)[0]
 
 
 def _predict(result: ExtractionResult, fields: dict[str, Any]) -> dict[str, Any]:
@@ -253,6 +279,7 @@ def main() -> int:
     details: list[dict[str, Any]] = []
     gate_rows: list[dict[str, Any]] = []   # one per read, for the guardrail metrics
     slice_rows: list[dict[str, Any]] = []  # one per read, for accuracy-by-receipt-type
+    read_dates: list[str] = []             # when the scored reads were made, not when scored
 
     for label in labels:
         name = label["file"]
@@ -263,7 +290,8 @@ def main() -> int:
             details.append({**row, "error": "image missing"})
             continue
         try:
-            result = _extract(path, settings, today, use_cache=not args.refresh)
+            result, trace = read_receipt(path, settings, today, use_cache=not args.refresh)
+            read_dates.append(trace["read_date"])
             fields = receipt_fields.compute(result, CATEGORIES)
             pred = _predict(result, fields)
         except Exception as exc:  # noqa: BLE001 - a failed read scores as all-miss
@@ -373,9 +401,9 @@ def main() -> int:
         return 1
 
     _write_results_md(settings, tally, total_correct, total_scored, receipts_fully_correct,
-                      n, today, routing, calibration, slices, out=results_md)
+                      n, today, routing, calibration, slices, read_dates, out=results_md)
     _write_metrics_json(settings, tally, total_correct, total_scored, receipts_fully_correct,
-                        n, today, routing, calibration, confusion, slices, out=metrics_json)
+                        n, today, routing, calibration, confusion, slices, read_dates, out=metrics_json)
     detail_json.write_text(json.dumps(details, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nWrote {results_md} + {metrics_json.name} (aggregates, "
           f"committable) and {detail_json.name} (per-receipt, git-ignored).")
@@ -383,14 +411,14 @@ def main() -> int:
 
 
 def _write_results_md(settings, tally, total_correct, total_scored,
-                      fully_correct, n, today, routing, calibration, slices, *, out: Path) -> None:
+                      fully_correct, n, today, routing, calibration, slices, read_dates, *, out: Path) -> None:
     def pct(c, t):
         return f"{100.0 * c / t:.1f}%" if t else "n/a"
 
     def rpct(v):
         return "n/a" if v is None else f"{100.0 * v:.0f}%"
 
-    model = settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
+    model = _model_of(settings)
     lines = [
         "# Extraction accuracy",
         "",
@@ -400,7 +428,7 @@ def _write_results_md(settings, tally, total_correct, total_scored,
         f"`backend/scripts/eval_extraction.py`.",
         "",
         f"- **Provider / model:** {settings.llm_provider} · `{model}`",
-        f"- **Run date:** {today.isoformat()}",
+        f"- **Scored on:** {today.isoformat()}, using reads made {min(read_dates)} to {max(read_dates)}",
         f"- **Scored:** the user-facing fields after the deterministic VAT / amount / "
         f"category logic (not just the raw LLM JSON).",
         "",
@@ -463,14 +491,16 @@ def _write_results_md(settings, tally, total_correct, total_scored,
 
 
 def _write_metrics_json(settings, tally, total_correct, total_scored,
-                        fully_correct, n, today, routing, calibration, confusion, slices, *, out: Path) -> None:
+                        fully_correct, n, today, routing, calibration, confusion, slices, read_dates,
+                        *, out: Path) -> None:
     """Aggregate metrics for the API/dashboard. Aggregates only — no receipt data —
     so it is safe to commit."""
-    model = settings.anthropic_model if settings.llm_provider == "anthropic" else settings.openai_model
     data = {
         "provider": settings.llm_provider,
-        "model": model,
+        "model": _model_of(settings),
         "run_date": today.isoformat(),
+        "reads_from": min(read_dates),
+        "reads_to": max(read_dates),
         "n_receipts": n,
         "fields": {
             f: {"accuracy": (tally[f][0] / tally[f][1]) if tally[f][1] else None,

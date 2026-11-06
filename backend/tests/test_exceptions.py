@@ -12,7 +12,7 @@ def test_unmatched_bank_excludes_topups_transfers_and_credits():
          "matched_expense_id": None, "raw": {"Type": "Card Payment"}},
         {"id": "t1", "description": "Google Pay top-up by *6517", "amount": 100.0,
          "matched_expense_id": None, "raw": {"Type": "Topup"}},
-        {"id": "t2", "description": "To Piero Francisco", "amount": -500.0,
+        {"id": "t2", "description": "To Alex Example", "amount": -500.0,
          "matched_expense_id": None, "raw": {"Type": "Transfer"}},
         {"id": "t3", "description": "Exchanged to USD", "amount": -20.0,
          "matched_expense_id": None, "raw": {"Type": "Exchange"}},

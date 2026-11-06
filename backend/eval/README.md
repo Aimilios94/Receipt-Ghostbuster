@@ -10,6 +10,7 @@ backend/eval/
   labels.example.json  the label format, synthetic  (committed)
   RESULTS.md           aggregate accuracy + guardrail table   (committed — safe to publish)
   metrics.json         machine-readable aggregates  (committed — served by /metrics/eval)
+  badges/              README badges, generated from the metrics (committed)
   results.detail.json  per-receipt breakdown        (git-ignored)
   .cache/              cached LLM reads per image    (git-ignored)
 ```
@@ -33,7 +34,8 @@ python scripts/eval_extraction.py --provider mock   # smoke-test the harness, no
 ```
 
 Each image's read is cached under `.cache/`, so re-runs (e.g. while tweaking the
-scorer) cost no API calls until you pass `--refresh`.
+scorer) cost no API calls until you pass `--refresh`. `eval_models.py` shares this read path
+and cache, so `RESULTS.md` and the shipped model's row in `MODELS.md` score the same reads.
 
 ## What's scored
 
@@ -76,7 +78,7 @@ re-label; on CACHED reads the pipeline is deterministic so a real regression dro
 well past it). It runs in two places:
 
 - **Locally, on the real number** — run before committing any change to the
-  extraction / VAT / gate code. Reads come from the per-image `.cache/` (deterministic,
+  scoring / VAT / category / gate code. Reads come from the per-image `.cache/` (deterministic,
   no API cost):
 
   ```bash
@@ -90,10 +92,17 @@ well past it). It runs in two places:
   (deterministic, tolerance 0). That catches a code change that silently breaks the
   scoring / VAT / gate pipeline. See `.github/workflows/ci.yml`.
 
+**What the gate can't see.** Reads are cached, and the cache key ignores the prompt, so a
+prompt or model change is invisible until you run with `--refresh`. A fresh read is a new
+sample from a non-deterministic model: each field's floor is 1pp, so one flipped field on 25
+receipts fails the gate. Treat that as a reason to inspect the receipt, not as proof of a
+regression ([D50](../../DECISIONS.md)). The gate only watches `eval_extraction.py`, deliberately:
+the matrix shares its reads.
+
 **When the set grows or a real improvement lands:** refresh `metrics.json` (a full run),
 then update `baseline.json` to the new floors **deliberately** (commit them together),
-and bump the static `extraction accuracy` badge in the top-level `README.md`. A changed
-sample size is surfaced as a non-fatal NOTE by the gate, not a failure.
+and run `python scripts/make_badges.py` so the README badges follow; a test fails if they
+don't. A changed sample size is surfaced as a non-fatal NOTE by the gate, not a failure.
 
 ## Model matrix (`eval_models.py`)
 

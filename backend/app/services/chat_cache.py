@@ -3,7 +3,8 @@
 A repeated question over an UNCHANGED ledger recomputes nothing — the whole model
 round-trip (latency + tokens) is skipped. The cache key includes a fingerprint of
 the user's ledger data, so it **self-invalidates** the moment any expense / bank
-row / subscription changes: a stale answer is impossible by construction.
+row / subscription changes. The key doesn't include the date, so a question like
+"this month" can repeat an earlier answer until the ledger changes or the process restarts.
 
 This is a deliberately simple, process-global cache (an OrderedDict LRU) — right for
 a single-instance app. A multi-instance deployment would swap this for Redis keyed on

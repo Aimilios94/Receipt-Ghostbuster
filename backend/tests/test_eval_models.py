@@ -119,3 +119,27 @@ def test_limit_run_writes_nothing(monkeypatch, tmp_path):
                                       "--labels", str(labels), "--receipts", str(tmp_path)])
     assert em.main() == 0
     assert not md.exists() and not js.exists()
+
+
+def test_both_harnesses_score_the_same_read(monkeypatch, tmp_path):
+    """RESULTS.md and the matrix once disagreed because each made its own read of a
+    non-deterministic model. One read must now serve both."""
+    calls = []
+    result = em.ev.ExtractionResult(vendor="Shop", total=1.0, confidence=0.9)
+
+    def fake_extract(image_bytes, name, settings):
+        calls.append(name)
+        return result, b"oriented", {"latency_ms": 5, "est_cost_usd": 0.01}
+
+    monkeypatch.setattr(em.ev, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(em.ev.extraction, "extract_receipt", fake_extract)
+    image = tmp_path / "r.jpg"
+    image.write_bytes(b"x")
+    settings = em.Settings(_env_file=None, llm_provider="openai", openai_model="m")
+
+    from_matrix, trace = em._extract_with_trace(image, settings, TODAY, use_cache=True)
+    from_results = em.ev._extract(image, settings, TODAY, use_cache=True)
+
+    assert calls == ["r.jpg"]
+    assert from_results.vendor == from_matrix.vendor == "Shop"
+    assert trace["read_date"] == TODAY.isoformat()

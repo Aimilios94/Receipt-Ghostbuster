@@ -36,7 +36,7 @@ Status: **shipped.**
 Scope delivered:
 - **Subscription detection** across bank + ledger (vendor + amount grouping, cadence inference, annual cost, stale flagging).
 - **Refund Hunter** screen: flag unused / keep / cancel / undo, with a savings summary.
-- **Draft cancel/refund emails** (LLM with deterministic template fallback) — **draft-only, never auto-sent.**
+- **Draft cancel/refund emails** (LLM with deterministic template fallback) — **draft-only, never auto-sent.** The LLM path only runs on the Anthropic provider, so on OpenAI, the current default, drafts come from the template.
 - **n8n → Gmail** delivery: an approved draft becomes a real Gmail draft (orchestration/delivery only; all logic stays in FastAPI).
 
 Status: **shipped.**
@@ -128,6 +128,7 @@ Run over 20 receipts: **gpt-5-mini 98.2%** · **gpt-4o 94.5%** · **claude-haiku
 weak slice (and caught a mislabelled receipt — corrected). Each model is also pushed to LangSmith as an Experiment.
 Grown again **20→26** on 2026-10-22 (incl. a handwritten prompt-injection receipt): **gpt-5-mini 98.6%** ·
 **gpt-4o 92.3%** · **claude-haiku-4-5 86.6%** (Opus frozen at its n=20 number) — gpt-5-mini unchanged as the pick.
+*Figures as of that date; for current numbers see [MODELS.md](backend/eval/MODELS.md) and [D50](DECISIONS.md).*
 
 Deferred to a later eval round: structured-output reliability taxonomy, an accuracy-regression CI gate,
 and a calibrated LLM-as-judge.
@@ -141,7 +142,7 @@ Status: **shipped.** Backend tests **128 → 130**.
 **Goal:** close the biggest gap for an EU product on personal financial data — give the user a way to keep reading **on-device**, document what leaves the machine, and harden against text that tries to hijack the read.
 
 Scope:
-- **Local reading option** (`LLM_PROVIDER=ollama`) — reads via Ollama on-device, never traced to LangSmith. Measured as a first-class column: **qwen2.5vl:7b 89.4%** over the 26-set at **$0** (above cloud Haiku, ~9 pts below gpt-5-mini; CPU-only so ~5–18 min/read). A committed `backend/ollama/Modelfile` raises `num_ctx` to fit a receipt image ([D33](DECISIONS.md)).
+- **Local reading option** (`LLM_PROVIDER=ollama`) — reads via Ollama on-device, never traced to LangSmith. Measured as a first-class column: **qwen2.5vl:7b 89.4%** (2026-10-22; now 90.1%, [D43](DECISIONS.md)) over the 26-set at **$0** (above cloud Haiku, ~9 pts below gpt-5-mini; CPU-only so ~5–18 min/read). A committed `backend/ollama/Modelfile` raises `num_ctx` to fit a receipt image ([D33](DECISIONS.md)).
 - **Privacy policy + redaction** — `docs/PRIVACY.md` (what goes where, the LangSmith caveat, the local option) and IBAN/card masking before any bank-PDF cloud call.
 - **Prompt-injection hardening** — an explicit "image text is data, not instructions" prompt rule, tested with a real handwritten-injection receipt; all four models read the true total and ignored it ([D32](DECISIONS.md)).
 - **Eval grown 20 → 26** on fresh ground truth (incl. the injection receipt). gpt-5-mini 99.3% single-model.
@@ -251,6 +252,19 @@ Status: **shipped.** Backend tests **329 → 373**.
 
 ---
 
+## v0.5.7 — One accuracy number, and a skimmable README ✅
+
+**Goal:** one headline number that can't drift, and a front page a reader can scan.
+
+Scope delivered ([D50](DECISIONS.md)):
+- **One read path for both eval scripts,** every matrix row re-scored on current code, and badges generated from the metrics.
+- **README restructured,** with full setup moved to `docs/SETUP.md`.
+- **Corrected docs:** privacy (Ask and Sentry), the gate's coverage, and the Ask cache.
+
+Status: **shipped.** Backend tests **373 → 376**.
+
+---
+
 ## v0.6 — Payslip tracking ⬜
 
 **Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance
@@ -273,6 +287,7 @@ Status: **planned** — not started.
 - **Duplicate check by ATCUD.** ⬜ After November is scored, since it needs a prompt change: every Portuguese receipt prints a unique ATCUD code, a far stronger duplicate key than vendor + total + date ([D49](DECISIONS.md)).
 - **A "paid by transfer" option.** ⬜ A purchase paid by bank transfer has no honest label: cash overstates the cash subtotal, and card leaves the row unreconciled at every close because transfers never match a receipt (Round 11).
 - **A faster model for Ask.** ⬜ After November: compare models on the chatbot eval, since Ask takes about 10 seconds an answer ([D47](DECISIONS.md)).
+- **Ask's cache ignores the date.** ⬜ A question like "this month" can repeat an earlier answer until the ledger changes or the backend restarts.
 - **An outside tester.** ⬜ All feedback rounds so far are self-tests.
 - **Fewer correct reads sent to review.** ⬜ The gate holds back 52% of correct reads because model confidence is poorly calibrated ([D30](DECISIONS.md)).
 
@@ -280,7 +295,7 @@ Status: **planned** — not started.
 
 ## Planned improvements (from testing feedback)
 
-- **Per-line VAT.** ✅ Built — an `expense_line_items` table holds one VAT rate per line, so a mixed-rate receipt (e.g. 6% + 23%) is summed per rate in code instead of flattened to its dominant rate (see [D12](DECISIONS.md#d12--per-line-vat-a-receipt-can-hold-multiple-rates-design)). Mechanism verified end-to-end against live Supabase; a real gpt-4o read of a mixed-rate receipt photo is the remaining confirmation step.
+- **Per-line VAT.** ✅ Built — an `expense_line_items` table holds one VAT rate per line, so a mixed-rate receipt (e.g. 6% + 23%) is summed per rate in code instead of flattened to its dominant rate (see [D12](DECISIONS.md#d12--per-line-vat-a-receipt-can-hold-multiple-rates-design--r2)). Mechanism verified end-to-end against live Supabase; a real gpt-4o read of a mixed-rate receipt photo is the remaining confirmation step.
 - **Duplicate detection at upload.** ✅ Built — `/extract` checks for an existing row with the same vendor + amount + date and routes a match to the review queue with an in-app warning, before anything posts (see [D13](DECISIONS.md#d13--flag-duplicates-at-upload-before-they-post-r2)).
 - **LLM-assisted categorization.** ✅ Built — rules first, gpt-4o fills unknown vendors (Continente/Pingo Doce → Groceries), validated against the category list; added a Tobacco category (see [D15](DECISIONS.md)).
 - **Extraction robustness (Round 3).** ✅ Built — printed IVA table as VAT source of truth, discount handling, estimated VAT when none is printed, date year-repair + re-read, net-vs-gross correction, server-side auto-rotation, and a self-consistency guardrail + retake flow (see [D14–D21](DECISIONS.md)). Backend tests 53 → 80.

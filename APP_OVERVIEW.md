@@ -35,9 +35,9 @@ Detect recurring charges → flag unused/forgotten subscriptions → draft cance
 emails for approval (draft-only, never auto-send) → track money saved.
 
 ## Phase 3 — Advice ✅ shipped (v0.4)
-Deterministic, rule-based (the AI stays out of the math): overspend nudges → flag
-unnecessary expenses → budget vs actual (variance) → surface paid-but-unused
-subscriptions, each nudge deep-linking to the fix.
+Deterministic, rule-based (the AI stays out of the math): budget vs actual (variance),
+over-budget and spending-up nudges, and paid-but-unused subscriptions, each nudge
+deep-linking to the fix.
 
 ## Observability & evaluation ✅ (v0.3)
 The LLM layer is **measured, not asserted**: validated structured outputs (Instructor),
@@ -63,7 +63,7 @@ monthly close summary · budget-vs-actual variance.
 React + Vite (frontend) · Python/FastAPI (extraction, reconciliation, analytics logic) ·
 n8n (orchestration, refund emails) · Supabase (Postgres + auth + storage) ·
 vision LLM (OpenAI `gpt-5-mini`, provider-swappable incl. a local on-device option) for
-receipt extraction and the Ask chatbot · bank data via CSV import.
+receipt extraction and the Ask chatbot · bank data via CSV or PDF import.
 
 ## Out of scope
 Multi-currency/FX · full double-entry bookkeeping · tax-return generation · multi-user ·

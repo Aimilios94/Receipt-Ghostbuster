@@ -3,6 +3,26 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.7] — 2026-11-06
+
+**One accuracy number, and a README you can skim.** Engineering and docs only (`[eng]`, [D50](DECISIONS.md)); `feedback-notes.md` untouched. No new model calls. Backend tests **373 → 376**.
+
+### Changed
+- **`RESULTS.md` and `MODELS.md` now score the same reads.** Both eval scripts share one read path, so they can't report different numbers for one model. Results also state when the reads were made, separately from when they were scored.
+- **Every matrix row re-scored on current code,** from its existing reads. Each model's earlier headline stays in `MODELS.md`.
+- **One label widened:** a payment slip that prints both `viva.com` and the merchant's name now accepts either.
+- **Accuracy badges are generated from the metrics files** (`scripts/make_badges.py`), and a test fails if one goes stale.
+- **README restructured:** three proof points up top, capabilities instead of version history, one line per measurement system, a Limitations section, and macOS/Linux commands. Full setup moved to `docs/SETUP.md`.
+- **Model & Evals** shows when the eval's reads were made.
+
+### Fixed
+- **`gpt-5-mini` was quoted at both 99.3% and 98.6%.** One vendor read differed between two separate passes, not because of a code change. It is now **99.3% (141/142)** in both reports.
+- **"Opus ties gpt-5-mini" no longer holds:** on the same 20 receipts Opus scores 110/110 and `gpt-5-mini` 109/110, at about 38.5× the cost. Haiku moves to 88.0%.
+- **`PRIVACY.md` left out Ask and Sentry.** Ask sends calculation results to OpenAI, including vendor names, amounts and the names of people in transfers, which contradicted "Bank CSV: nowhere external".
+- **A real name in a test fixture** is replaced.
+- **Docs that overstated:** the Ask cache's "a stale answer is impossible", the regression gate's coverage, `APP_OVERVIEW.md`'s "flag unnecessary expenses", and the roadmap's model-written refund emails.
+- **`package-lock.json`** now carries the app version.
+
 ## [0.5.6] — 2026-11-05
 
 **Ask answers as a summary plus cards.** From real use in [Round 11](feedback-notes.md) ([D46](DECISIONS.md), [D47](DECISIONS.md), [D48](DECISIONS.md), [D49](DECISIONS.md)). Backend tests **329 → 373**.

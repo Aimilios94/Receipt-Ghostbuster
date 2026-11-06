@@ -1,7 +1,9 @@
 {
   "provider": "openai",
   "model": "gpt-5-mini",
-  "run_date": "2026-10-22",
+  "run_date": "2026-11-06",
+  "reads_from": "2026-10-21",
+  "reads_to": "2026-10-22",
   "n_receipts": 26,
   "fields": {
     "vendor": {
@@ -59,23 +61,23 @@
   "calibration": [
     {
       "range": "0.0-0.6",
-      "n": 2,
+      "n": 1,
       "accuracy": 1.0
     },
     {
       "range": "0.6-0.7",
-      "n": 3,
+      "n": 4,
       "accuracy": 1.0
     },
     {
       "range": "0.7-0.8",
-      "n": 7,
+      "n": 8,
       "accuracy": 1.0
     },
     {
       "range": "0.8-0.9",
-      "n": 14,
-      "accuracy": 0.9286
+      "n": 13,
+      "accuracy": 0.9231
     },
     {
       "range": "0.9-1.0",
