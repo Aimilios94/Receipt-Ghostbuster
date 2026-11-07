@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..models import BankNoReceiptRequest, ExpenseNoBankMatchRequest, ManualMatchRequest
-from ..services import reconciliation
+from ..models import AcceptDifferenceRequest, BankNoReceiptRequest, ExpenseNoBankMatchRequest, ManualMatchRequest
+from ..services import exceptions as exc_rules, reconciliation
 from .. import repository as repo
 
 router = APIRouter(prefix="/reconcile", tags=["reconcile"])
@@ -38,11 +38,13 @@ def _build_state(user_id: str) -> dict:
         tid = e.get("matched_transaction_id")
         if tid and tid in bank_by_id:
             t = bank_by_id[tid]
+            diff = round(abs(abs(float(t["amount"])) - abs(float(e["amount"]))), 2)
             pairs.append(
                 {
                     "expense": e,
                     "transaction": t,
-                    "amount_diff": round(abs(abs(float(t["amount"])) - abs(float(e["amount"]))), 2),
+                    "amount_diff": diff,
+                    "accepted": diff > 0 and exc_rules.accepted(e, diff),
                     "day_diff": _day_diff(t.get("txn_date"), e.get("expense_date")),
                 }
             )
@@ -134,8 +136,9 @@ def manual_match(
     repo.update_expense(
         user_id,
         body.expense_id,
-        # Matching clears any prior "no bank line" acknowledgement.
-        {"reconciled": True, "matched_transaction_id": body.transaction_id, "no_bank_match": False},
+        # Matching clears any prior "no bank line" acknowledgement and accepted difference.
+        {"reconciled": True, "matched_transaction_id": body.transaction_id, "no_bank_match": False,
+         "accepted_diff": None},
     )
     repo.update_bank_transaction(
         user_id, body.transaction_id, {"matched_expense_id": body.expense_id}
@@ -172,8 +175,24 @@ def manual_unmatch(
     exp = _owned_expense(user_id, body.expense_id)
     tid = body.transaction_id or exp.get("matched_transaction_id")
     repo.update_expense(
-        user_id, body.expense_id, {"reconciled": False, "matched_transaction_id": None}
+        user_id, body.expense_id, {"reconciled": False, "matched_transaction_id": None, "accepted_diff": None}
     )
     if tid:
         repo.update_bank_transaction(user_id, tid, {"matched_expense_id": None})
+    return _build_state(user_id)
+
+
+@router.post("/accept-difference")
+def accept_difference(
+    body: AcceptDifferenceRequest, user_id: str = Depends(get_current_user_id)
+) -> dict:
+    """Accept (or un-accept) the amount difference on a matched pair, e.g. a bank fee.
+    The exact amount is stored, so a later change to either side shows it again."""
+    exp = _owned_expense(user_id, body.expense_id)
+    tid = exp.get("matched_transaction_id")
+    txn = next((t for t in repo.list_bank_transactions(user_id) if t["id"] == tid), None) if tid else None
+    if not txn:
+        raise HTTPException(status_code=400, detail="Only a matched pair can have its difference accepted.")
+    diff = round(abs(abs(float(txn["amount"])) - abs(float(exp["amount"]))), 2)
+    repo.update_expense(user_id, body.expense_id, {"accepted_diff": diff if body.accept else None})
     return _build_state(user_id)

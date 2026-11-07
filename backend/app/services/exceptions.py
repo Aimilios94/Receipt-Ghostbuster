@@ -59,6 +59,12 @@ def duplicates(expenses: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     return [grp for grp in groups.values() if len(grp) > 1]
 
 
+def accepted(expense: dict[str, Any], diff: float) -> bool:
+    """True when the user accepted this pair's difference and it hasn't moved since."""
+    acc = expense.get("accepted_diff")
+    return acc is not None and abs(float(acc) - round(diff, 2)) < 0.005
+
+
 def amount_mismatch(
     expenses: list[dict[str, Any]],
     bank_txns: list[dict[str, Any]],
@@ -72,6 +78,8 @@ def amount_mismatch(
         if not tid or tid not in by_id:
             continue
         diff = abs(abs(float(by_id[tid]["amount"])) - abs(float(e["amount"])))
+        if accepted(e, diff):
+            continue  # the user accepted this exact difference
         if diff > amount_tolerance:
             out.append({"expense": e, "transaction": by_id[tid], "difference": round(diff, 2)})
     return out

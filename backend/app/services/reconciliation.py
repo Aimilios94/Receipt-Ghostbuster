@@ -160,13 +160,13 @@ def find_amount_discrepancies(
     out: list[dict[str, Any]] = []
     used_txn_ids: set = set()
     for exp in expenses:
-        if exp.get("source") == "cash" or exp.get("reconciled"):
-            continue
+        if exp.get("source") == "cash" or exp.get("reconciled") or exp.get("no_bank_match"):
+            continue  # cash and other cards never match the statement
         exp_amount = abs(float(exp["amount"]))
         exp_date = _as_date(exp["expense_date"])
         best = None
         for txn in bank_txns:
-            if txn.get("matched_expense_id") or txn["id"] in used_txn_ids:
+            if txn.get("matched_expense_id") or txn["id"] in used_txn_ids or txn.get("no_receipt"):
                 continue
             score = vendor_score(exp.get("vendor"), txn.get("description"))
             if score < vendor_min_score:

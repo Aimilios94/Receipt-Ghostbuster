@@ -174,6 +174,11 @@ class BankNoReceiptRequest(BaseModel):
     no_receipt: bool = True
 
 
+class AcceptDifferenceRequest(BaseModel):
+    expense_id: str
+    accept: bool = True
+
+
 class ExpenseRestore(BaseModel):
     """A deleted expense's snapshot, as DELETE /expenses/{id} returned it."""
     expense: dict

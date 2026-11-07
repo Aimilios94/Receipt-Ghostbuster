@@ -2707,3 +2707,20 @@ button.ask-rank-row:hover .ask-rank-label {
   margin-left: auto;
   min-width: 220px;
 }
+
+/* Accepted difference, and a closed month that changed since */
+.recon-diff-ok {
+  color: var(--green);
+}
+.close-changed {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--amber-soft);
+  color: var(--text);
+  font-size: 13px;
+}
+.close-changed ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}

@@ -73,11 +73,17 @@ export function paidWithLabel(e) {
 
 // Details a user still has to fill in, each phrased as what to do in Edit. Shown as
 // a (!) whose hover text lists them.
-export function missingDetails(e) {
+// bankMonths: a Set of "YYYY-MM" with an imported statement (see lib/bank.js).
+export function missingDetails(e, bankMonths) {
   const out = [];
   if (e.status === "pending_review") return out;
-  if (paidWithValue(e) === "card" && !(e.reconciled || e.matched_transaction_id))
-    out.push("Not matched to your bank statement yet. If you paid in cash or with another card, open Edit and change Paid with.");
+  const month = (e.expense_date || "").slice(0, 7);
+  if (paidWithValue(e) === "card" && !(e.reconciled || e.matched_transaction_id)) {
+    if (bankMonths && month && !bankMonths.has(month))
+      out.push(`Waiting for the ${monthLabel(month)} bank statement. Import it and run reconciliation to match this.`);
+    else
+      out.push("Not matched to your bank statement yet. If you paid in cash or with another card, open Edit and change Paid with.");
+  }
   if (e.input_method === "receipt" && e.vat_amount == null && e.vat_rate == null)
     out.push("VAT not known. If the receipt shows the VAT, open Edit and set the rate.");
   return out;

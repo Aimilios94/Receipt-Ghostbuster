@@ -7,6 +7,7 @@ import { Icon } from "./icons.jsx";
 import { Button, Badge, StatusBadge, Card, Empty, MissingFlag } from "./ui.jsx";
 import { api } from "../lib/api.js";
 import { money, shortDate, pct, sourceLabel, confPct, CATEGORY_COLORS, vatByRateLines, paidWithLabel, paidWithValue, missingDetails } from "../lib/format.js";
+import { useBankMonths } from "../lib/bank.js";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 /* ---------- Spending by category ---------- */
@@ -575,6 +576,7 @@ const STATUS_CHOICES = [
 
 export function LedgerTable({ expenses, onDelete, busyId, duplicateIds, onRowClick, onStatusChange, onCategoryChange, categories }) {
   const [lightbox, setLightbox] = useState(null);
+  const bankMonths = useBankMonths();
   if (!expenses?.length) return <div className="empty">No entries yet. Add an expense to get started.</div>;
   const clickable = typeof onRowClick === "function";
   return (
@@ -619,7 +621,7 @@ export function LedgerTable({ expenses, onDelete, busyId, duplicateIds, onRowCli
             >
               <td className="cell-date">{shortDate(e.expense_date)}</td>
               <td className="cell-vendor">
-                {e.vendor || "—"} <MissingFlag items={missingDetails(e)} />
+                {e.vendor || "—"} <MissingFlag items={missingDetails(e, bankMonths)} />
               </td>
               <td className="cell-muted">
                 {onCategoryChange ? (

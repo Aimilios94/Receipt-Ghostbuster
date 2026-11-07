@@ -297,6 +297,11 @@ export default function Dashboard() {
           <div className="page-sub">
             {close?.expense_count ?? ledger.length} expenses
             {close?.bank_out ? " · bank statement imported" : ""}
+            {close?.saved_close
+              ? ` · closed ${new Date(close.saved_close.closed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}${
+                  close.changed_since_close?.length ? ", changed since" : ""
+                }`
+              : ""}
             {attention ? ` · ${attention} item${attention > 1 ? "s" : ""} need your attention` : " · all clear"}
           </div>
         </div>

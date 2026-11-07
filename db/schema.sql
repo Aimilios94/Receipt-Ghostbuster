@@ -351,3 +351,31 @@ create policy insights_owner on public.insights
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+
+-- ============================================================================
+-- v0.5.16 — accepted amount differences and saved monthly closes
+-- An accepted difference stores the amount the user accepted, so it stops being
+-- an exception only while the receipt and bank line still differ by exactly that.
+-- A saved close records the month's figures; it doesn't lock the month, and the
+-- close page shows anything that changed after it.
+-- ============================================================================
+alter table public.expenses
+  add column if not exists accepted_diff numeric(12,2);
+
+create table if not exists public.monthly_closes (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  month      text not null,                     -- 'YYYY-MM'
+  closed_at  timestamptz not null default now(),
+  summary    jsonb not null,                    -- the figures when it was closed
+  unique (user_id, month)
+);
+
+alter table public.monthly_closes enable row level security;
+
+drop policy if exists monthly_closes_owner on public.monthly_closes;
+create policy monthly_closes_owner on public.monthly_closes
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

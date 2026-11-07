@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
 import { money, monthLabel } from "../lib/format.js";
 import { MonthPicker, useMonth } from "../lib/month.jsx";
@@ -10,6 +11,8 @@ import { useToast } from "../components/toast.jsx";
 export default function MonthlyClose() {
   const { month } = useMonth();
   const toast = useToast();
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
 
   const { data: close, isLoading, error } = useQuery({
     queryKey: ["close", month],
@@ -17,6 +20,32 @@ export default function MonthlyClose() {
   });
 
   const ready = close && close.unreconciled_count === 0;
+  const saved = close?.saved_close;
+  const changed = close?.changed_since_close || [];
+  const fmtValue = (c, v) =>
+    v == null ? "—" : /count/.test(c.field) ? String(v) : money(v);
+  const closedOn = saved
+    ? new Date(saved.closed_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "";
+
+  const run = async (fn, okText) => {
+    setBusy(true);
+    try {
+      await fn();
+      qc.invalidateQueries({ queryKey: ["close"] });
+      toast(okText);
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saveClose = () =>
+    run(() => api.saveClose(month), `${monthLabel(month)} closed · ${money(close.total_out)} out, VAT ${money(close.vat_owed)}`);
+  const reopen = () => {
+    if (!window.confirm(`Reopen ${monthLabel(month)}? Its close record is removed; no expense changes.`)) return;
+    run(() => api.reopenClose(month), `${monthLabel(month)} reopened`);
+  };
   const matched = close?.reconciled_count ?? 0;
   const marked = close?.no_bank_line_count ?? 0;
   const plural = (n, word) => `${n} card expense${n === 1 ? "" : "s"} ${word}`;
@@ -94,28 +123,55 @@ export default function MonthlyClose() {
           <Card className="card-pad" style={{ maxWidth: 560 }}>
             <div className="card-head">
               <div>
-                <div className="card-title">Close {monthLabel(month)}</div>
+                <div className="card-title">
+                  {saved ? `${monthLabel(month)} is closed` : `Close ${monthLabel(month)}`}
+                </div>
                 <div className="card-desc">
-                  {ready
+                  {saved
+                    ? `Closed on ${closedOn} with ${money(saved.summary.total_out)} out and VAT ${money(saved.summary.vat_owed)}.`
+                    : ready
                     ? readyText
                     : `${close.unreconciled_count} card expense${close.unreconciled_count > 1 ? "s" : ""} still unreconciled — resolve them first for a clean close.`}
                 </div>
               </div>
             </div>
-            <Button
-              variant={ready ? "primary" : ""}
-              style={{ width: "100%", justifyContent: "center" }}
-              onClick={() =>
-                toast(
-                  ready
-                    ? `${monthLabel(month)}: ${matched} matched${marked ? `, ${marked} paid with another card` : ""} · ${money(close.total_out)} out. Close records aren't saved yet.`
-                    : "Resolve open exceptions before closing",
-                  ready ? "ok" : "err"
-                )
-              }
-            >
-              <Icon.check size={14} /> {ready ? `Check ${monthLabel(month)}` : "Not ready to close"}
-            </Button>
+            {saved && changed.length ? (
+              <div className="close-changed" role="status">
+                <b>Changed since you closed it:</b>
+                <ul>
+                  {changed.map((c) => (
+                    <li key={c.field}>
+                      {c.label}: <span className="num">{fmtValue(c, c.saved)}</span> →{" "}
+                      <span className="num">{fmtValue(c, c.now)}</span>
+                    </li>
+                  ))}
+                </ul>
+                Close it again to record the new figures, or undo the change.
+              </div>
+            ) : saved ? (
+              <p className="card-desc" style={{ marginBottom: 10 }}>Nothing has changed since then.</p>
+            ) : null}
+            {saved ? (
+              <div style={{ display: "flex", gap: 8 }}>
+                {changed.length ? (
+                  <Button variant="primary" disabled={busy || !ready} onClick={saveClose} style={{ flex: 1, justifyContent: "center" }}>
+                    <Icon.check size={14} /> Close again
+                  </Button>
+                ) : null}
+                <Button disabled={busy} onClick={reopen} style={{ flex: 1, justifyContent: "center" }}>
+                  Reopen {monthLabel(month)}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant={ready ? "primary" : ""}
+                style={{ width: "100%", justifyContent: "center" }}
+                disabled={busy}
+                onClick={() => (ready ? saveClose() : toast("Resolve open exceptions before closing", "err"))}
+              >
+                <Icon.check size={14} /> {ready ? `Close ${monthLabel(month)}` : "Not ready to close"}
+              </Button>
+            )}
           </Card>
         </>
       )}

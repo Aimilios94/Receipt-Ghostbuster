@@ -303,6 +303,27 @@ def insert_bank_statement(user_id: str, row: dict[str, Any]) -> dict[str, Any]:
     return data[0] if data else {}
 
 
+def get_monthly_close(user_id: str, month: str) -> dict[str, Any] | None:
+    data = (
+        get_supabase().table("monthly_closes").select("*").eq("user_id", user_id).eq("month", month)
+        .execute().data
+    )
+    return data[0] if data else None
+
+
+def save_monthly_close(user_id: str, month: str, summary: dict[str, Any], closed_at: str) -> dict[str, Any]:
+    row = {"user_id": user_id, "month": month, "summary": summary, "closed_at": closed_at}
+    return get_supabase().table("monthly_closes").upsert(row, on_conflict="user_id,month").execute().data[0]
+
+
+def delete_monthly_close(user_id: str, month: str) -> bool:
+    data = (
+        get_supabase().table("monthly_closes").delete().eq("user_id", user_id).eq("month", month)
+        .execute().data
+    )
+    return bool(data)
+
+
 def list_bank_statements(user_id: str) -> list[dict[str, Any]]:
     return (
         get_supabase()

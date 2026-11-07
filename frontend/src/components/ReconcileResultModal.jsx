@@ -8,6 +8,7 @@ import { useToast } from "./toast.jsx";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
 import ReplacePhotoButton from "./ReplacePhotoButton.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
+import { useBankMonths } from "../lib/bank.js";
 
 function dayDiff(a, b) {
   const da = Date.parse(a), db = Date.parse(b);
@@ -64,6 +65,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   const [dismissed, setDismissed] = useState(new Set()); // "expId::txnId" suggestions rejected as "not a match"
   const [history, setHistory] = useState([]); // actions taken in this popup, newest last, for Undo
   const toast = useToast();
+  const bankMonths = useBankMonths();
 
   const record = (entry) =>
     setHistory((h) => [...h, { ...entry, key: Math.random().toString(36).slice(2) }]);
@@ -142,6 +144,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     if (h.kind === "match") return isMatched(h.exp.id, h.txn.id);
     if (h.kind === "noreceipt") return !txnOpen(h.txn.id) && !pairs.some((p) => p.transaction.id === h.txn.id);
     if (h.kind === "dismiss") return dismissed.has(`${h.exp.id}::${h.txn.id}`);
+    if (h.kind === "accept") return pairs.some((p) => p.expense.id === h.exp.id && p.accepted);
     return false;
   };
   const last = [...history].reverse().find(canUndo);
@@ -153,6 +156,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
       if (h.kind === "unmatch") apply(await api.matchExpense(h.exp.id, h.txn.id));
       else if (h.kind === "match") apply(await api.unmatchExpense(h.exp.id, h.txn.id));
       else if (h.kind === "noreceipt") apply(await api.markNoReceipt(h.txn.id, false));
+      else if (h.kind === "accept") apply(await api.acceptDifference(h.exp.id, false));
       else if (h.kind === "dismiss")
         setDismissed((prev) => {
           const next = new Set(prev);
@@ -183,7 +187,23 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     if (h.kind === "unmatch") return <>Unmatched {ev} from {tv}</>;
     if (h.kind === "match") return <>Matched {ev} to {tv}</>;
     if (h.kind === "noreceipt") return <>Marked {tv} as No receipt</>;
+    if (h.kind === "accept") return <>Accepted the {money(h.diff)} difference on {ev}</>;
     return <>Hid {tv} as not a match for {ev}</>;
+  };
+
+  // Accept the amount difference on a matched pair (e.g. a bank fee), so it stops
+  // being an exception. Stored as the exact amount, so a later change shows again.
+  const acceptDiff = async (pair) => {
+    setBusy(pair.expense.id);
+    try {
+      apply(await api.acceptDifference(pair.expense.id, true));
+      record({ kind: "accept", exp: pair.expense, txn: pair.transaction, diff: pair.amount_diff });
+      toast(`Accepted the ${money(pair.amount_diff)} difference`);
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      setBusy(null);
+    }
   };
 
   // Acknowledge a bank payment that will never have a receipt (an online payment) —
@@ -304,7 +324,25 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                     </div>
                     <div className="recon-arrow">
                       <Icon.reconcile size={16} />
-                      {p.amount_diff > 0 ? <span className="recon-diff">Δ {money(p.amount_diff)}</span> : null}
+                      {p.amount_diff > 0 ? (
+                        p.accepted ? (
+                          <span className="recon-diff recon-diff-ok" title="You accepted this difference">
+                            Δ {money(p.amount_diff)} accepted
+                          </span>
+                        ) : (
+                          <>
+                            <span className="recon-diff">Δ {money(p.amount_diff)}</span>
+                            <button
+                              className="btn btn-sm btn-ghost"
+                              disabled={busy === p.expense.id}
+                              title="The amounts differ but it's the same payment, e.g. a bank fee. Stop showing it as an exception."
+                              onClick={() => acceptDiff(p)}
+                            >
+                              Accept difference
+                            </button>
+                          </>
+                        )
+                      ) : null}
                     </div>
                     <div className="recon-side recon-side-bank">
                       <div className="recon-vendor">{p.transaction.description || "Bank payment"}</div>
@@ -358,7 +396,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                           )}
                           <div className="recon-meta">
                             {shortDate(e.expense_date)} · {e.category || "—"} · {paidWithLabel(e)}{" "}
-                            <MissingFlag items={missingDetails(e)} />
+                            <MissingFlag items={missingDetails(e, bankMonths)} />
                           </div>
                           <div className="recon-amt num">{money(e.amount)}</div>
                           <div className="recon-receipt-actions">

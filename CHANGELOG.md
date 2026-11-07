@@ -3,6 +3,20 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.16] — 2026-11-07
+
+**A saved close, accepted differences, and a (!) that knows when a statement is missing.** One new column and one new table (`db/schema.sql`). No prompt, model or scored figure changed.
+
+### Added
+- **A saved monthly close.** Closing a month with nothing left to reconcile records its figures (`POST /close/{month}/save`). The close page then shows anything that changed afterwards, figure by figure, with Close again and Reopen. The month isn't locked against edits. The dashboard says when its month is closed.
+- **Accept difference** on a matched pair whose amounts differ, such as a bank fee. The exact amount is stored on the expense (`accepted_diff`), so the pair stops being an exception only while it still differs by that amount. Undo reverses it.
+
+### Changed
+- **A card payment in a month with no bank statement** gets a (!) saying it's waiting for that month's statement, instead of reading as a missing detail.
+
+### Fixed
+- **An expense paid with another card, or a bank line marked No receipt,** was still paired up as an "amount differs" exception. Neither is waiting for a match, so they're left out.
+
 ## [0.5.15] — 2026-11-07
 
 ### Added

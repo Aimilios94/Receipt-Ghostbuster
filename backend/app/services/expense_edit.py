@@ -46,7 +46,7 @@ _EXPENSE_COLS = (
     "id", "source", "input_method", "vendor", "amount", "currency", "expense_date",
     "category", "vat_amount", "vat_rate", "note", "receipt_image_url", "confidence",
     "status", "reconciled", "matched_transaction_id", "raw_extraction", "created_at",
-    "no_bank_match",
+    "no_bank_match", "accepted_diff",
 )
 _LINE_COLS = ("description", "quantity", "unit_price", "amount", "vat_rate", "vat_amount", "position")
 

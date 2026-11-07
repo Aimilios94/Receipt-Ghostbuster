@@ -126,10 +126,16 @@ export const api = {
     request("/reconcile/unmatch", { method: "POST", body: { expense_id: expenseId, transaction_id: transactionId } }),
   markNoReceipt: (transactionId, noReceipt = true) =>
     request("/reconcile/no-receipt", { method: "POST", body: { transaction_id: transactionId, no_receipt: noReceipt } }),
+  // Accept the amount difference on a matched pair (e.g. a bank fee), or undo that.
+  acceptDifference: (expenseId, accept = true) =>
+    request("/reconcile/accept-difference", { method: "POST", body: { expense_id: expenseId, accept } }),
   markNoBankMatch: (expenseId, noBankMatch = true) =>
     request("/reconcile/no-bank-match", { method: "POST", body: { expense_id: expenseId, no_bank_match: noBankMatch } }),
   exceptions: (month) => request(`/exceptions${month ? `?month=${month}` : ""}`),
   close: (month) => request(`/close${month ? `?month=${month}` : ""}`),
+  // Record a month as closed with its figures, or reopen it.
+  saveClose: (month) => request(`/close/${month}/save`, { method: "POST" }),
+  reopenClose: (month) => request(`/close/${month}/save`, { method: "DELETE" }),
 
   // Spending breakdown — expenses by vendor + third-party transfers (sent/received).
   breakdown: () => request("/breakdown"),
