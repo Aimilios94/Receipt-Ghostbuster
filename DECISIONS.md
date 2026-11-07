@@ -407,7 +407,7 @@ Legend for Evidence source: `[design]` = decided up front from the problem; `[R1
 ## D53 — Nine models on both sets, and `gpt-5-mini` stays until a fair test `[eng]`
 
 - **Problem:** The matrix dated from October, newer models had appeared, and OpenAI now lists `gpt-5-mini` and `gpt-4o` as deprecated, with no shutdown date found as of 2026-11-06. The local model's score also needed a fresh read.
-- **Evidence (eng):** Same pipeline and prompts. Reads from 2026-11-06, the local model from 2026-11-07, about $3.14 estimated for the cloud run:
+- **Evidence (eng):** Same pipeline and prompts. Reads from 2026-11-06, the local model from 2026-11-07, about $3.20 estimated for all the cloud reads in this table:
 
 | Model | Development (n=26) | Test (n=9) | VAT per rate (test) | $/read | Wrong reads auto-posted (n=26) | Correct reads sent to review (n=26) |
 |---|---:|---:|---:|---:|---:|---:|
@@ -420,7 +420,7 @@ Legend for Evidence source: `[design]` = decided up front from the problem; `[R1
 | Mistral Small 4 | 89.4% | 88.5% | 17/22 | $0.0018 | 4 | 47% |
 
   A second read of the 26 with Haiku 5.5 (2026-11-06) scored 142/142 again, with 9 of 26 correct reads sent to review. All eight models that read the injection receipt read its real total.
-- **Decision:** Keep `gpt-5-mini` for now. Choosing a model because it won on these sets means they can't confirm the choice, and these reads are all from one shopper's receipts, so the switch to Haiku 5.5 waits for unseen November receipts, scored before any prompt change. Ask, the bank PDF import and the refund emails share one provider setting, so a switch also has to separate them. Newer Claude models read through the API's own structured output with no fallback to another model, and Terra through Instructor's JSON mode, so each row measures the model it names. Publish the local model as a range.
+- **Decision:** Keep `gpt-5-mini` for now. Haiku 5.5 is one field ahead of `gpt-5-mini` on the 26 and tied on the 9, at a lower cost. Choosing a model because of its scores on these sets means they can't confirm the choice, and these reads are all from one shopper's receipts, so the switch to Haiku 5.5 waits for unseen November receipts, scored before any prompt change. Ask, the bank PDF import and the refund emails share one provider setting, so a switch also has to separate them. Newer Claude models read through the API's own structured output with no fallback to another model, and Terra through Instructor's JSON mode, so each row measures the model it names. Publish the local model as a range.
 - **Result:** The local model went **90.1% → 97.2%** on the same 26 with the same prompt. 25 of the 26 reads changed, with 12 fields better and 2 worse. 25 of the earlier reads used Ollama 0.40.11 and all the new ones 0.40.14, so the rise could be the version, chance, or both, and it isn't called an improvement. The Ask eval on the same day, with invented names in its data, scored 22/22, 22/22, 5/5, and 21/22 on faithfulness: the judge flagged "shown in the list below" because it can't see the cards, while the app does attach that list. It looks like a false alarm, but the figure stays as measured, with no change to the judge. `tests/test_published_numbers.py` now fails if the README or a model page stops matching these results. **Honest limits:** Opus 4.8 and Haiku 4.5 keep their October reads and weren't run on the test set, and every comparison here is small enough that a few points mean little.
 
 ## Planned (decided, not yet built)

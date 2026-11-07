@@ -59,12 +59,12 @@ class Settings(BaseSettings):
     dev_user_id: str = ""
 
     # --- Vision LLM ---
-    llm_provider: str = "openai"             # openai | anthropic | ollama | mock
+    llm_provider: str = "openai"             # openai | anthropic | mistral | ollama | mock
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-4-8"
     openai_api_key: str = ""
     # gpt-5-mini (a reasoning model) reads dense multi-rate VAT tables far more
-    # reliably than gpt-4o (93% vs 84% on the eval set) — see eval/RESULTS.md. The
+    # reliably than gpt-4o — see eval/MODELS.md for the current figures. The
     # OpenAI call path handles its max_completion_tokens requirement automatically.
     openai_model: str = "gpt-5-mini"
     # Output-token ceiling for Anthropic (Claude) reads. A dense multi-rate

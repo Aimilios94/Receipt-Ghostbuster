@@ -235,7 +235,7 @@
         "avg": 5435
       },
       "cost_usd": {
-        "total": 0.471793,
+        "total": 0.471786,
         "avg_per_read": 0.018146
       },
       "fell_back": 0,
@@ -1098,7 +1098,7 @@
         "avg": 7376
       },
       "cost_usd": {
-        "total": 0.060054,
+        "total": 0.060051,
         "avg_per_read": 0.00231
       },
       "fell_back": 0,

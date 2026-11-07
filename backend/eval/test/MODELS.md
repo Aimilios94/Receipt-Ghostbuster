@@ -8,7 +8,7 @@ The same shipped pipeline (`extraction.extract_receipt` + the deterministic `rec
 - **A narrow set.** 8 of the 9 are groceries, 6 come from one supermarket chain, and all come from one shopper and one phone. 9/9 receipts correct is still consistent with a true rate as low as about 72% (one-sided 95%).
 - **Two blank vendors.** On two receipts the name at the top couldn't be read from the paper, so the true value was left blank and vendor isn't scored there. Models read a correct name from the bottom of the receipt. The label stays blank, because editing it after seeing the reads is what the lock prevents.
 - **The gate is only tested on wrong reads.** `gpt-5-mini`, Sonnet 5.5, Haiku 5.5 and Terra made none here, so their false auto-posts show `n/a` rather than a pass.
-- **Comparing models here costs independence.** A model picked because it won on this set can't be confirmed by this set, so any switch waits for new receipts (D53).
+- **Comparing models here costs independence.** A model picked because of its score on this set can't be confirmed by this set, so any switch waits for new receipts (D53).
 - Costs are estimates: recorded tokens times each provider's list price, checked on 2026-11-06. They aren't billed amounts.
 
 ## Accuracy

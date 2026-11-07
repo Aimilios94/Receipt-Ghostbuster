@@ -9,7 +9,7 @@
 
 - **99.3% field accuracy** on 26 real Portuguese receipts, including mixed VAT rates and rotated photos (141/142 fields, `gpt-5-mini`, read 2026-11-06, a development set: see [Limitations](#limitations)).
 - **100.0% on 9 new receipts held out from all tuning** (52/52 fields, and all 22 VAT rates, read 2026-11-06, true values locked first). A small, narrow set: see [Limitations](#limitations).
-- **Models are compared on evidence:** nine measured on accuracy, latency and cost, including a free on-device model at 89.4–97.2% across three runs. A cheaper model beat the one in use on both sets, and it gets its fair test on unseen November receipts.
+- **Models are compared on evidence:** nine measured on accuracy, latency and cost, including a free on-device model at 89.4–97.2% across three runs. A cheaper, faster model is one field ahead of the one in use on the 26 and tied on the 9, and it gets its fair test on unseen November receipts.
 - **The safety net is measured too:** the review gate's misses are published, not just its catches.
 
 ![Dashboard](docs/screenshots/dashboard.png)
