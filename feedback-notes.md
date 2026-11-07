@@ -401,3 +401,53 @@ the app, including the scored test photos, ahead of a timed close. The photos ar
 - **The vendor read as the street.** One receipt's store name, printed under the logo, was read as the vendor. The tester fixed it
   by hand; left as read, it wouldn't have matched its bank line automatically. The eval label accepts that name, so it wouldn't
   catch this. The prompt and the label stay as they are until after the fair test in [D53](DECISIONS.md).
+
+---
+
+## Round 13 — 2026-11-07 (self-testing, developer) — closing October, timed as a rehearsal
+
+**Setup:** local build (backend `:8000`, frontend `:5173`), live Supabase. October's receipts and three bank statements were
+already in the app. The tester reconciled and closed the month, and the last pass was timed once, as a rehearsal. The
+receipts and statements are PII and are kept **out of the repo**.
+
+**What was exercised:** Reconciliation results, editing how expenses were paid, the exceptions list, and the close page.
+
+**Observations & fixes:**
+
+- **A card expense marked "No bank line" still counted as unreconciled,** so the close page could never say a month was
+  ready while one existed. Found while preparing the close. → **FIXED ([D55](DECISIONS.md)).**
+- **"Put cash or card in the Edit version."** Editing couldn't change how an expense was paid. → **BUILT
+  ([D55](DECISIONS.md)):** Paid with in every Edit form.
+- **"When I press card, the app keeps waiting to match it."** Some expenses were paid with another card that isn't on the
+  imported statement. → **BUILT ([D55](DECISIONS.md)):** Other card, which never waits for a bank line.
+- **"Put the No bank line out, it's confusing."** → **REMOVED ([D55](DECISIONS.md)):** Edit does the same job, with Undo,
+  and a (!) whose hover text says what's missing replaces it.
+- **"A search bar to find receipts by photo name or vendor."** → **BUILT:** on the dashboard, in the Ledger, and in
+  Reconciliation results.
+- **"Undo in reconciliation results and every other pop-up."** → **BUILT:** after every reconciliation action, after an
+  edit, and after a delete.
+- **A made-up card number** ("card ending 4821") showed on every card payment. → **FIXED:** it reads "Card payment".
+- **A suggestion offered a same-vendor bank line six days away,** across months. → **FIXED:** suggestions only within the
+  3-day window the matcher uses.
+- **The close page said "Everything reconciles"** when some rows were only marked as paid elsewhere. → **FIXED
+  ([D56](DECISIONS.md)):** it says how many were matched and how many were paid another way.
+- **Two decided differences stayed listed forever.** → **BUILT ([D56](DECISIONS.md)):** Accept difference, and an
+  other-card expense or a No receipt bank line is no longer paired up as an amount difference.
+- **"A saved close."** The close button only confirmed on screen. → **BUILT ([D56](DECISIONS.md)).**
+- **A card payment in a month with no statement yet** looked like a missing detail. → **FIXED:** the (!) says it's waiting
+  for that month's statement.
+- **A card slip with no VAT stayed flagged,** although the tester knew it prints none. → **BUILT ([D55](DECISIONS.md)):**
+  "VAT not shown on the receipt".
+- **Two meals paid by bank transfer** sat as cash, so the cash subtotal was overstated. → **BUILT ([D55](DECISIONS.md)):**
+  Bank transfer.
+- **The delivery-app bank line of €16.14** had been paired with a €18.39 delivery receipt as a loyalty discount
+  ([D25](DECISIONS.md)). The tester's call is that it matches neither that receipt nor a second order of €15.60 with a
+  checkout screen showing €16.14. All three stay separate. → **Recorded in [D55](DECISIONS.md).**
+- **The timed pass took 3 min 10 s** (n=1): 21 decisions, how 5 expenses were paid and 16 bank lines with no receipt,
+  about 9 s each (calculated). Uploading 31 receipts, matching 21 of them (11 by hand), three expenses set to cash and
+  every decision above came before the clock and weren't timed.
+
+**Round 13 outcome:** October closed in the app on 2026-11-07 with 0 unreconciled expenses and 0 exceptions: 31 expenses,
+21 matched to the bank, 4 paid with another card, 4 in cash and 2 by bank transfer. Backend tests **502 → 525**. The
+frontend has no test suite, so each change was checked by clicking through the running app with temporary rows, then
+removing them.

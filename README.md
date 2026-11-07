@@ -28,8 +28,8 @@ People don't really know where their money goes. Receipts get lost, cash spend i
 - **Capture:** snap a receipt or type a cash expense. Sideways photos are straightened automatically.
 - **Read and check:** a vision model reads it. Code-level guardrails decide whether it posts or goes to a review queue, with reasons.
 - **Categorize and split VAT:** rules first, with the printed VAT table as the source of truth, per rate.
-- **Reconcile:** import a bank CSV or Revolut PDF, match it to expenses, and work through the exceptions by hand.
-- **Month-end summary:** money in and out, VAT, and what's still unreconciled.
+- **Reconcile:** import a bank CSV or Revolut PDF, match it to expenses, and work through the exceptions by hand. Each expense says how it was paid: card, another card, cash or bank transfer, and only your card waits for a bank line.
+- **Month-end close:** money in and out, VAT, and what's still unreconciled. Closing saves the month's figures and shows anything that changes afterwards.
 - **Refund Hunter:** finds recurring charges and drafts cancellation emails, from a template on the default OpenAI setup. Drafts only: nothing sends itself.
 - **Advice:** budgets and three rule-based nudges, with no model involved.
 - **Ask:** plain-language questions answered with a short summary and cards. Every total opens to its rows.
@@ -125,8 +125,8 @@ The design accepts extra review so uncertain reads reach a person, but the thres
 - **A small, narrow test set:** the 9 held-out receipts had their true values locked before any model read them, and no prompt changed afterwards. But 8 are groceries, 6 come from one supermarket chain, and all come from one shopper and one phone. 9/9 receipts correct is still consistent with a true rate as low as about 72%. Two have no scored vendor, because the name couldn't be read at the top of the paper. See [the notes](backend/eval/test/MODELS.md).
 - **Models vary between runs:** two reads of one slip returned different vendor names, and a label widened after seeing that result moved one row by one field ([D50](DECISIONS.md)). Fresh `gpt-5-mini` reads on 2026-11-06 repeated October's 141/142 with the same single miss, but Haiku 5.5's review share went from 19% to 35% between two reads, and the local model's score moved as above.
 - **Not multi-user:** there's no login or multi-tenancy. Any request without a token acts as `DEV_USER_ID`, so keep the backend on localhost.
-- **Self-tested:** all 11 testing rounds were run by me. No outside user has tested it.
-- **Impact not measured:** the goal is a month-end in minutes, but none has been timed. A closed month is saved with its figures, and the close page shows anything that changes afterwards, but the month isn't locked against edits.
+- **Self-tested:** all 13 testing rounds were run by me. No outside user has tested it.
+- **Impact, measured once as a rehearsal:** the last pass of the October close, 21 decisions, took 3 min 10 s (n=1, 2026-11-07). Uploading and matching the month's receipts came earlier and wasn't timed, so the full month-end isn't measured yet. November's close will be timed from first upload to closed. A closed month is saved with its figures, and the close page shows anything that changes afterwards, but the month isn't locked against edits.
 - **Speed:** a `gpt-5-mini` read takes 23.9s at p50. Ask takes about 10s and $0.0022 an answer, from its first 23 questions on 2026-11-05, most of them test questions. Those two figures come from the app's private trace table, so no file in this repo backs them.
 - **The judge is lightly tested:** it passed its own bar on 14 examples (2026-11-06), with labels I wrote, planted errors in the 7 unfaithful ones, and the same model as Ask. It also can't see the cards on screen, which caused the false alarm above. See [its limits](backend/eval/chatbot/README.md).
 - **The duplicate check is broad:** the same vendor and total within ±30 days goes to review ([D29](DECISIONS.md)), so a normal repeat purchase can be flagged. That adds a review step, nothing more.
@@ -172,7 +172,7 @@ Built in small releases: ship, test for real, record the feedback, decide, itera
 
 ## Future work and out of scope
 
-**Next:** a timed month-end, a fair test of Haiku 5.5 on unseen November receipts, and **payslip tracking** ([design](docs/design/payslip.md)). Later: more banks, more locales, a mobile app. See [roadmap.md](roadmap.md).
+**Next:** a full timed month-end in November, a fair test of Haiku 5.5 on unseen November receipts, and **payslip tracking** ([design](docs/design/payslip.md)). Later: more banks, more locales, a mobile app. See [roadmap.md](roadmap.md).
 
 **Out of scope:** multi-currency, full double-entry bookkeeping, tax-return generation, multi-user accounts, live open banking.
 

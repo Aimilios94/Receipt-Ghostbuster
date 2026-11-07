@@ -299,6 +299,20 @@ Status: **shipped.** Backend tests **493 → 502**.
 
 ---
 
+## v0.5.11 to v0.5.17 — The first close ✅
+
+**Goal:** close a real month in the app, timed, and fix what got in the way.
+
+Scope delivered ([D55](DECISIONS.md), [D56](DECISIONS.md)), from the tester's first close:
+- **How it was paid:** Card, Other card, Cash or Bank transfer in every Edit form. Only Card waits for a bank line, and the confusing "No bank line" button is gone.
+- **Finding and fixing rows:** search by vendor or photo name on the dashboard, in the Ledger and in Reconciliation results; Undo after edits, deletes and every reconciliation action; a (!) that says what's missing; "VAT not shown on the receipt".
+- **A saved close:** closing records the month's figures and shows anything that changes afterwards. Accepted amount differences stop being exceptions.
+- **The first timed close,** as a rehearsal: 3 min 10 s for the last pass, 21 decisions (n=1, 2026-11-07).
+
+Status: **shipped.** Backend tests **502 → 525**.
+
+---
+
 ## v0.6 — Payslip tracking ⬜
 
 **Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance
@@ -315,8 +329,8 @@ Status: **planned** — not started.
 
 ## Open gaps (found 2026-11-05, not yet scheduled)
 
-- **A saved monthly close.** ⬜ `GET /close` computes the summary and the Close button only confirms it on screen: no close record is stored and the month isn't locked, so later edits change a "closed" month. Build it or keep the summary wording, decided after a real timed close.
-- **A timed month-end.** ⬜ The "minutes, not hours" target has no measurement yet (`problem-statement.md`).
+- **A saved monthly close.** ✅ Built in v0.5.16 ([D56](DECISIONS.md)): closing records the month's figures and the close page lists anything that changes afterwards. It isn't locked; decide on locking after November's close.
+- **A timed month-end.** 🚧 Measured once as a rehearsal: 3 min 10 s for the last pass of the October close, 21 decisions (n=1, 2026-11-07), not a full month-end ([D56](DECISIONS.md)). Time November's close from first upload to closed.
 - **A held-out accuracy number.** ✅ `eval/test/` holds 9 new receipts, frozen before any model read them and scored with the supermarket rules in place ([D51](DECISIONS.md)). It's small and narrow, so it should grow.
 - **A fair test of Haiku 5.5 on unseen November receipts.** ⬜ It's one field ahead of `gpt-5-mini` on the 26, tied on the 9, and cheaper and faster, but those sets helped pick it, so they can't confirm it ([D53](DECISIONS.md)). Score November's receipts before any prompt change, then decide.
 - **Separate provider settings for receipts and Ask.** ⬜ Ask, the bank PDF import and the refund emails all branch on one `LLM_PROVIDER`, so receipts can't move to Haiku without this.
@@ -327,7 +341,7 @@ Status: **planned** — not started.
 - **Plan for `gpt-5-mini`'s deprecation.** ⬜ OpenAI lists `gpt-5-mini` and `gpt-4o` as deprecated and recommends GPT-5.6 Terra, with no shutdown date found as of 2026-11-06. Ask uses `gpt-5-mini` too, so it needs its own comparison on the chatbot eval.
 - **Why the local model's score moved.** ⬜ 90.1% to 97.2% between two runs, across two Ollama versions ([D53](DECISIONS.md)). A repeat on one version would separate the version from chance: free, about 5 hours.
 - **Duplicate check by ATCUD.** ⬜ After November is scored, since it needs a prompt change: every Portuguese receipt prints a unique ATCUD code, a far stronger duplicate key than vendor + total + date ([D49](DECISIONS.md)).
-- **A "paid by transfer" option.** ⬜ A purchase paid by bank transfer has no honest label: cash overstates the cash subtotal, and card leaves the row unreconciled at every close because transfers never match a receipt (Round 11).
+- **A "paid by transfer" option.** ✅ Built in v0.5.17 ([D55](DECISIONS.md)): Bank transfer in Paid with. It isn't linked to its transfer line yet.
 - **A faster model for Ask.** ⬜ After November: compare models on the chatbot eval, since Ask takes about 10 seconds an answer ([D47](DECISIONS.md)).
 - **Ask's cache ignores the date.** ⬜ A question like "this month" can repeat an earlier answer until the ledger changes or the backend restarts.
 - **An outside tester.** ⬜ All feedback rounds so far are self-tests.

@@ -51,7 +51,7 @@ Receipt Ghostbuster automates the messy manual process end-to-end:
 |---|---|---|
 | Adding an expense takes seconds | **Not met** for a snapped receipt; manual entry `NO_DATA` (not timed) | A `gpt-5-mini` read takes 23.9s at p50 and 79.1s at p95 (n=26, 2026-11-06, [MODELS.md](backend/eval/MODELS.md)). Accuracy was chosen over speed ([D27](DECISIONS.md)). |
 | The AI never does the money math and is never trusted blindly | Built and tested | [D1](DECISIONS.md), [D40](DECISIONS.md); the numbers are unit-tested, and the gate is measured ([D30](DECISIONS.md)). |
-| A month-end takes minutes, not ~1–2 hours | `NO_DATA` | No month-end has been timed, and the 1–2 hours is an estimate. A close is also a summary today: it isn't saved or locked. |
+| A month-end takes minutes, not ~1–2 hours | Measured once, as a rehearsal: **3 min 10 s for the last pass** (n=1, 2026-11-07) | 21 decisions (how 5 expenses were paid, and 16 bank lines with no receipt), about 9 s each (calculated). Uploading 31 receipts and matching 21 of them came earlier and wasn't timed, so this isn't a full month-end and isn't comparable with the 1–2 hours, which is an estimate. November's close will be timed from first upload to closed. A closed month is now saved with its figures, but not locked ([D56](DECISIONS.md)). |
 | Every number traces back to one ledger | Built | [D10](DECISIONS.md) |
 | Nothing financial is sent or charged automatically | Built | [D4](DECISIONS.md) |
 

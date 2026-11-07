@@ -91,7 +91,7 @@ The sample dataset is shaped so every reconciliation path shows up.
 2. **Add → Snap a receipt:** a confident read auto-posts, and a shaky one lands in the **Review queue** with reasons.
 3. **Add → Manual / cash:** cash counts in totals but is never a reconciliation exception.
 4. **Reconciliation:** run it and walk the exceptions. **Resolve** on the duplicate filters the Ledger to the flagged pair.
-5. **Monthly close:** money in and out, VAT, and a check that stays blocked while card items are unreconciled. It's a summary: closing doesn't save or lock the month yet.
+5. **Monthly close:** money in and out, VAT, and a check that stays blocked while card items are unreconciled. Closing saves the month's figures, and the page lists anything that changes afterwards; the month isn't locked.
 6. **Refund Hunter:** subscriptions by annual cost. Draft a cancellation, then **Save to Gmail drafts**.
 7. **Advice:** budget vs actual and rule-based nudges, each linking to the fix.
 8. **Ask:** try *"my top 3 days in October"* and click a row. Out-of-scope questions are declined.

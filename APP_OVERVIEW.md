@@ -18,8 +18,8 @@ A single user managing their own money. Not multi-user, not for clients.
 
 ## Core concepts
 - **Two ways to add an expense:** snap a receipt, or manual/cash entry with a note.
-- **Every expense has a SOURCE:** card/bank (reconciled against statement) or cash
-  (counted in totals, excluded from reconciliation — nothing in the bank to match).
+- **Every expense says how it was paid:** your card (reconciled against the statement), another
+  card, cash, or a bank transfer. The last three count in totals but don't wait for a bank line.
 - **Confidence gate:** high-confidence extractions auto-post; low-confidence go to a
   review queue. Nothing financial is trusted blindly to the AI.
 - **One clean ledger** is the single source of truth the dashboard and reports read from.
@@ -28,7 +28,7 @@ A single user managing their own money. Not multi-user, not for clients.
 Add via receipt snap or cash/manual entry → extract vendor/amount/date/VAT →
 auto-categorize → confidence gate → reconcile card/bank items against uploaded bank CSV
 → exceptions queue (unmatched, duplicate, amount-mismatch, missing VAT) → dashboard
-(spend by category, VAT paid, cash vs card, cash-flow) → monthly close summary.
+(spend by category, VAT paid, cash vs card, cash-flow) → monthly close, saved with its figures.
 
 ## Phase 2 — Refund Hunter
 Detect recurring charges → flag unused/forgotten subscriptions → draft cancel/refund
