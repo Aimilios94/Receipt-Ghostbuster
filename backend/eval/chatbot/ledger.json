@@ -51,8 +51,8 @@
   "bank": [
     {"id": "b1", "txn_date": "2026-10-07", "amount": -0.83, "description": "fal.ai", "balance": 85.00, "raw": {"Type": "Card Payment"}},
     {"id": "b2", "txn_date": "2026-10-06", "amount": -30.00, "description": "Continente", "balance": 85.83, "raw": {"Type": "Card Payment"}},
-    {"id": "b3", "txn_date": "2026-10-08", "amount": -500.00, "description": "Transfer to Piero", "raw": {"Type": "Transfer"}},
-    {"id": "b4", "txn_date": "2026-10-20", "amount": 100.00, "description": "Transfer from Christina", "raw": {"Type": "Transfer"}},
+    {"id": "b3", "txn_date": "2026-10-08", "amount": -500.00, "description": "Transfer to Alex", "raw": {"Type": "Transfer"}},
+    {"id": "b4", "txn_date": "2026-10-20", "amount": 100.00, "description": "Transfer from Sam", "raw": {"Type": "Transfer"}},
     {"id": "b5", "txn_date": "2026-10-17", "amount": -10.00, "description": "Revolut Bank UAB", "raw": {"Type": "Transfer"}},
     {"id": "b6", "txn_date": "2026-10-02", "amount": 1000.00, "description": "Salary", "raw": {"Type": "Topup"}}
   ],

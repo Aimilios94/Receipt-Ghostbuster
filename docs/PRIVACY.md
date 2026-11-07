@@ -20,7 +20,7 @@ built; it is not legal advice.
 
 | Data | Destination | Notes |
 |---|---|---|
-| Receipt image | The configured vision model | **Cloud** (OpenAI or Anthropic) **or local** (Ollama, on-device) — your choice, see below. |
+| Receipt image | The configured vision model | **Cloud** (OpenAI, Anthropic or Mistral) **or local** (Ollama, on-device) — your choice, see below. |
 | Bank-PDF text | Nowhere for a Revolut PDF that matches its printed totals; otherwise the configured LLM, **only if cloud** | Text is extracted locally (`pdfplumber`). A Revolut PDF is then read in code. For anything sent to an LLM, IBAN/card numbers are **redacted before sending** (see below). |
 | Bank CSV | Nowhere external on import | Parsed entirely in code — **no LLM, no network**. Its rows can reach OpenAI later if you ask Ask about them (see below). |
 | Ask: your question and the calculation results | OpenAI, when you use Ask | Can include vendor names, amounts, dates, products, bank descriptions and the names of people in your transfers. Ask needs OpenAI: on other providers it returns 503. |
@@ -34,14 +34,17 @@ built; it is not legal advice.
 The reading model is pluggable. With `LLM_PROVIDER=ollama` the receipt is read by a
 **local vision model** (e.g. `qwen2.5vl:7b`) through [Ollama](https://ollama.com) — the
 image and prompt **never leave your computer**. This is the privacy-maximising choice
-for financial documents. It trades speed and some accuracy for locality; that trade-off
-is **measured**, not asserted — see the local column in
+for financial documents. It trades speed, and accuracy that moves more between runs, for
+locality; that trade-off is **measured**, not asserted — see the local column in
 [`backend/eval/MODELS.md`](../backend/eval/MODELS.md). This covers reading receipts only: there
 is no local option for Ask, so don't use Ask if nothing should leave the machine.
 
-Cloud providers (OpenAI/Anthropic) are faster and currently more accurate, and under
+OpenAI and Anthropic are far faster, their best models scored higher on the same receipts, and under
 their API terms do not train on inputs by default — but the data does leave the machine.
 Choose per your risk tolerance.
+
+Mistral is different: its help pages say API inputs and outputs can be used for training unless
+you opt out, under Admin > Privacy. Do that before sending it a real receipt.
 
 ## Redaction
 
@@ -61,7 +64,7 @@ Receipt **images** cannot be text-redacted. The honest mitigation there is the
   Supabase project.
 - Nothing is sold or shared. There is no third-party analytics beyond the **opt-in**
   LangSmith tracer and **opt-in** Sentry error reports. Cloud model providers may retain API inputs per their own data-usage
-  policies — review OpenAI's / Anthropic's terms if you use the cloud path.
+  policies — review OpenAI's / Anthropic's / Mistral's terms if you use the cloud path.
 
 ## Roles (plain-language)
 

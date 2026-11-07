@@ -1,7 +1,7 @@
 {
   "mode": "live",
   "model": "gpt-5-mini",
-  "run_date": "2026-11-05",
+  "run_date": "2026-11-06",
   "eval_today": "2026-10-31",
   "n_questions": 27,
   "n_receipts": 22,
@@ -24,8 +24,8 @@
       "scored": 5
     },
     "faithfulness": {
-      "accuracy": 1.0,
-      "correct": 22,
+      "accuracy": 0.9545454545454546,
+      "correct": 21,
       "scored": 22
     }
   },

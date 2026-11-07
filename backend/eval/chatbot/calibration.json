@@ -70,15 +70,15 @@
     {
       "id": "c14f", "source_qid": "q14", "origin": "original", "label": "faithful", "human_confirmed": true,
       "question": "Who did I send money to or receive money from?",
-      "tool_results": [{"third_parties": {"total_sent": 500.0, "total_received": 100.0, "sent": [{"name": "Piero", "total": 500.0}], "received": [{"name": "Christina", "total": 100.0}]}, "own_movements": {"total_sent": 10.0, "total_received": 0}}],
-      "answer": "You sent €500 to Piero and received €100 from Christina. Separately, your own-account transfers were €10 sent."
+      "tool_results": [{"third_parties": {"total_sent": 500.0, "total_received": 100.0, "sent": [{"name": "Alex", "total": 500.0}], "received": [{"name": "Sam", "total": 100.0}]}, "own_movements": {"total_sent": 10.0, "total_received": 0}}],
+      "answer": "You sent €500 to Alex and received €100 from Sam. Separately, your own-account transfers were €10 sent."
     },
     {
       "id": "c14u", "source_qid": "q14", "origin": "corrupted", "label": "unfaithful", "human_confirmed": true,
       "note": "received amount changed 100 -> 250 (contradicts the tool)",
       "question": "Who did I send money to or receive money from?",
-      "tool_results": [{"third_parties": {"total_sent": 500.0, "total_received": 100.0, "sent": [{"name": "Piero", "total": 500.0}], "received": [{"name": "Christina", "total": 100.0}]}, "own_movements": {"total_sent": 10.0, "total_received": 0}}],
-      "answer": "You sent €500 to Piero and received €250 from Christina."
+      "tool_results": [{"third_parties": {"total_sent": 500.0, "total_received": 100.0, "sent": [{"name": "Alex", "total": 500.0}], "received": [{"name": "Sam", "total": 100.0}]}, "own_movements": {"total_sent": 10.0, "total_received": 0}}],
+      "answer": "You sent €500 to Alex and received €250 from Sam."
     },
     {
       "id": "c07f", "source_qid": "q07", "origin": "original", "label": "faithful", "human_confirmed": true,

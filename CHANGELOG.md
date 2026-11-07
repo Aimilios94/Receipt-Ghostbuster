@@ -3,6 +3,36 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.8] — 2026-11-07
+
+**A locked test set, nine models compared, and published numbers a test now checks.** Engineering and docs only (`[eng]`, [D51](DECISIONS.md), [D52](DECISIONS.md), [D53](DECISIONS.md)); `feedback-notes.md` untouched. Backend tests **376 → 486**.
+
+### Measured
+- **Held-out test set (n=9, read 2026-11-06):** `gpt-5-mini` 100.0% (52/52 fields), VAT per rate 22/22, 3 of 9 correct reads sent to review, with no wrong reads to test the gate on.
+- **Development set re-read (n=26, 2026-11-06):** `gpt-5-mini` 99.3% (141/142), the same single miss as October.
+- **Nine models in the matrix.** New on both sets: Haiku 5.5, Sonnet 5.5, GPT-5.6 Terra and Mistral Small 4. `gpt-4o` moved to 91.5% on new reads. Opus 4.8 and Haiku 4.5 keep their October reads and weren't run on the test set.
+- **The local model on new reads (2026-11-07):** 97.2% on the 26 and 98.1% on the 9, published as a range of 89.4–97.2% across three runs, because the cause of the rise isn't known.
+- **Ask re-run (2026-11-06):** tools 22/22, answers 22/22, refusals 5/5, faithfulness **21/22**, with the judge's calibration at 14/14. The flagged answer looks like a false alarm, and the figure stays as measured.
+
+### Added
+- **A held-out test set** in `backend/eval/test/`, kept apart from the 26 development receipts. `scripts/prepare_test_set.py` turns a sheet of hand-written true values into frozen labels, and refuses a photo the eval has already read. Scoring refuses a set that isn't frozen or changed since, and a later label correction is published with its reason.
+- **VAT per rate, as a separate score on the held-out set.** The six scored fields only see the VAT total and the main rate, so money on the wrong rate could still pass. Labels can now carry every row of the printed VAT table, and the check refuses rows that don't add up. The main accuracy is unchanged and stays comparable with the development set.
+- **Mistral as a receipt-reading provider** (`LLM_PROVIDER=mistral`), so it can be compared in the eval matrix on the same pipeline, with the prompts unchanged. It only reads receipts: Ask stays on OpenAI, and the bank PDF import uses its built-in parser on this provider.
+- **Claude Sonnet 5.5 and Haiku 5.5 can read receipts,** through the API's own structured output, because newer Claude models think by default and some reject the forced tool call Instructor uses. Older Claude models keep their existing path, and the prompts are unchanged.
+- **GPT-5.6 Terra can read receipts,** through Instructor's JSON mode, because it rejects the tool mode on chat completions. Other OpenAI models keep their existing path.
+- **`tests/test_published_numbers.py`:** the README's matrix, headlines, gate, Ask and speed figures, the test count, and both `MODELS.md` pages must match the results they came from.
+
+### Changed
+- **Model & Evals** labels its eval set as the development set.
+
+### Fixed
+- **Wrong prices in the cost estimates.** The price table had Opus 4.8 at $15 / $75 and Haiku 4.5 at $0.80 / $4, against Anthropic's $5 / $25 and $1 / $5. That made Opus look about 38.5× the cost of `gpt-5-mini` on the same 20 receipts, when it's about 13×. Costs are recalculated from the tokens already recorded, with no new model calls, and a model with no listed price now costs 0.0 instead of borrowing a family's price. Accuracy is unaffected. The older figures in this file and in `DECISIONS.md` stay as written, and [D52](DECISIONS.md) records the correction.
+- **False "Earlier run" lines in `MODELS.md`.** Scoring the same reads again was listed as a new run, and entries didn't say when their reads were made. It now adds no history, entries carry their read dates, and the two duplicates already published are merged.
+- **Stale notes in `MODELS.md`,** including "all four re-run models" on the injection receipt. All eight models that read it read the real total.
+- **A wrong reproduce command on the test set's rows,** which left out `--test-set`.
+- **Two real first names in the synthetic Ask data** are replaced with invented ones. They stay in the git history.
+- **`eval_extraction.py` declares failed reads.** They count against the receipt total as well as the fields, so a failure can't shrink a denominator, and `RESULTS.md` and `metrics.json` state the gap.
+
 ## [0.5.7] — 2026-11-06
 
 **One accuracy number, and a README you can skim.** Engineering and docs only (`[eng]`, [D50](DECISIONS.md)); `feedback-notes.md` untouched. No new model calls. Backend tests **373 → 376**.

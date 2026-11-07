@@ -4,7 +4,7 @@ Quality of the NL Q&A chatbot (`/ask`, [D40]) over a **committed synthetic** fix
 
 - **Mode:** live (real model, cached)
 - **Model:** `gpt-5-mini`
-- **Run date:** 2026-11-05 · eval date 2026-10-31
+- **Run date:** 2026-11-06 · eval date 2026-10-31
 - **Questions:** 22 answerable, 5 refusal
 
 | Metric | Accuracy | Correct / scored |
@@ -12,7 +12,7 @@ Quality of the NL Q&A chatbot (`/ask`, [D40]) over a **committed synthetic** fix
 | Tool-selection (right tool + args) | 100.0% | 22/22 |
 | Answer correctness (figure from the tool) | 100.0% | 22/22 |
 | Refusal (out-of-scope declined) | 100.0% | 5/5 |
-| Prose faithfulness (judge; calibrated — see CALIBRATION.md) | 100.0% | 22/22 |
+| Prose faithfulness (judge; calibrated — see CALIBRATION.md) | 95.5% | 21/22 |
 | **Overall** | **100.0%** | 49/49 |
 
 > `answer_correctness` is graded in **code** — the tool is dispatched over the fixed ledger and its structured result is compared to the expected figure (no LLM judge). `tool_selection` is the model's real job: did it call the right analytics tool with the right arguments. Prose faithfulness (does the sentence follow from the numbers) is a separate calibrated judge — see docs/design/chatbot.md, Slice 3.

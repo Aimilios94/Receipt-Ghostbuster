@@ -1,0 +1,142 @@
+{
+  "provider": "openai",
+  "model": "gpt-5-mini",
+  "run_date": "2026-11-06",
+  "reads_from": "2026-11-06",
+  "reads_to": "2026-11-06",
+  "set": "held_out_test",
+  "n_receipts": 9,
+  "n_labelled": 9,
+  "n_errored": 0,
+  "n_missing": 0,
+  "error_types": {},
+  "fields": {
+    "vendor": {
+      "accuracy": 1.0,
+      "correct": 7,
+      "scored": 7
+    },
+    "date": {
+      "accuracy": 1.0,
+      "correct": 9,
+      "scored": 9
+    },
+    "total": {
+      "accuracy": 1.0,
+      "correct": 9,
+      "scored": 9
+    },
+    "vat_amount": {
+      "accuracy": 1.0,
+      "correct": 9,
+      "scored": 9
+    },
+    "vat_rate": {
+      "accuracy": 1.0,
+      "correct": 9,
+      "scored": 9
+    },
+    "category": {
+      "accuracy": 1.0,
+      "correct": 9,
+      "scored": 9
+    }
+  },
+  "overall": {
+    "accuracy": 1.0,
+    "correct": 52,
+    "scored": 52
+  },
+  "receipts_fully_correct": {
+    "count": 9,
+    "n": 9
+  },
+  "per_rate_vat": {
+    "accuracy": 1.0,
+    "correct": 22,
+    "scored": 22,
+    "receipts_fully_correct": {
+      "count": 9,
+      "n": 9
+    },
+    "extra_rates": 0
+  },
+  "guardrails": {
+    "n": 9,
+    "wrong_reads": 0,
+    "false_auto_posts": 0,
+    "false_auto_post_rate": null,
+    "guardrail_recall_on_wrong": null,
+    "correct_reads": 9,
+    "over_reviewed": 3,
+    "over_review_rate": 0.3333,
+    "n_labelled": 0,
+    "gate_accuracy": null
+  },
+  "calibration": [
+    {
+      "range": "0.0-0.6",
+      "n": 0,
+      "accuracy": null
+    },
+    {
+      "range": "0.6-0.7",
+      "n": 0,
+      "accuracy": null
+    },
+    {
+      "range": "0.7-0.8",
+      "n": 3,
+      "accuracy": 1.0
+    },
+    {
+      "range": "0.8-0.9",
+      "n": 6,
+      "accuracy": 1.0
+    },
+    {
+      "range": "0.9-1.0",
+      "n": 0,
+      "accuracy": null
+    }
+  ],
+  "confusion": null,
+  "slices": {
+    "bad_light": {
+      "correct": 6,
+      "scored": 6,
+      "n_receipts": 1,
+      "accuracy": 1.0
+    },
+    "crumpled": {
+      "correct": 5,
+      "scored": 5,
+      "n_receipts": 1,
+      "accuracy": 1.0
+    },
+    "multi_rate": {
+      "correct": 46,
+      "scored": 46,
+      "n_receipts": 8,
+      "accuracy": 1.0
+    },
+    "rotated": {
+      "correct": 30,
+      "scored": 30,
+      "n_receipts": 5,
+      "accuracy": 1.0
+    },
+    "single_rate": {
+      "correct": 6,
+      "scored": 6,
+      "n_receipts": 1,
+      "accuracy": 1.0
+    },
+    "upright": {
+      "correct": 6,
+      "scored": 6,
+      "n_receipts": 1,
+      "accuracy": 1.0
+    }
+  }
+}

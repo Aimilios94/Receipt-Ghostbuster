@@ -212,7 +212,7 @@ export default function ModelEvals() {
               value={fpct(rfc?.n ? rfc.count / rfc.n : null)}
               foot={<>{rfc?.count}/{rfc?.n} receipts, every field right</>}
             />
-            <Stat label="Eval set" value={ev.n_receipts} foot={`hand-labelled real receipts · read ${ev.reads_to || ev.run_date}`} />
+            <Stat label="Eval set" value={ev.n_receipts} foot={`development set, hand-labelled real receipts · read ${ev.reads_to || ev.run_date}`} />
           </div>
 
           <Section title="Accuracy by field">

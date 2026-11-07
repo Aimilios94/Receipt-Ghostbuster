@@ -73,6 +73,16 @@ class Settings(BaseSettings):
     # models aren't reasoning models (no hidden-reasoning budget), so a single raised
     # ceiling is enough — unlike the gpt-5*/o* path which needs max_completion_tokens.
     anthropic_max_tokens: int = 4096
+    # Newer Claude models think by default, and thinking counts against this ceiling, so
+    # the same 4096 could cut the JSON off. Only what's used is billed.
+    anthropic_thinking_max_tokens: int = 16000
+
+    # --- Mistral (cloud vision model, compared in the eval matrix) ---
+    # A dated model name, not "latest", so a matrix row can't silently change model.
+    mistral_api_key: str = ""
+    mistral_model: str = "mistral-small-2603"
+    mistral_base_url: str = "https://api.mistral.ai/v1"
+    mistral_max_tokens: int = 4096
 
     # --- Ollama (local, privacy-first vision model) ---
     # Ollama exposes an OpenAI-compatible endpoint, so the OpenAI call path is reused
@@ -152,6 +162,8 @@ class Settings(BaseSettings):
             return bool(self.anthropic_api_key)
         if self.llm_provider == "openai":
             return bool(self.openai_api_key)
+        if self.llm_provider == "mistral":
+            return bool(self.mistral_api_key)
         return False
 
     @property

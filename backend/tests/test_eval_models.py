@@ -46,6 +46,24 @@ def test_replaced_row_moves_to_history():
     assert merged[0]["history"][-1]["n_errored"] == 1
 
 
+def test_scoring_the_same_reads_again_is_not_a_new_run():
+    reads = {"run_date": "2026-11-06", "reads_from": "2026-11-06", "reads_to": "2026-11-06"}
+    old = _row("openai", "a", correct=9, provenance=reads)
+    merged = em.merge_results([old], [_row("openai", "a", correct=9, provenance=reads)])
+    assert "history" not in merged[0]
+
+
+def test_new_reads_or_a_changed_score_do_stay_in_the_history():
+    october = {"run_date": "2026-10-22", "reads_from": "2026-10-21", "reads_to": "2026-10-22"}
+    fresh = {"run_date": "2026-11-06", "reads_from": "2026-11-06", "reads_to": "2026-11-06"}
+    new_reads = em.merge_results([_row("openai", "a", correct=9, provenance=october)],
+                                 [_row("openai", "a", correct=9, provenance=fresh)])
+    assert new_reads[0]["history"][0]["reads_to"] == "2026-10-22"
+    rescored = em.merge_results([_row("openai", "a", correct=8, provenance=october)],
+                                [_row("openai", "a", correct=9, provenance=october)])
+    assert rescored[0]["history"][0]["correct"] == 8
+
+
 def test_new_model_is_appended():
     merged = em.merge_results([_row("openai", "a")], [_row("openai", "z")])
     assert [r["model"] for r in merged] == ["a", "z"]
@@ -69,7 +87,7 @@ def test_report_declares_errors_gaps_and_history(tmp_path):
     text = out.read_text(encoding="utf-8")
     assert "ValidationError ×1" in text and "count as misses" in text
     assert "MEASURED, partial" in text
-    assert "Earlier run of `c` on 2026-10-22" in text
+    assert "Earlier result for `c`, scored 2026-10-22" in text
     assert "a kept note" in text and "a kept footnote" in text
     assert "NO_DATA (not recorded)" in text
 

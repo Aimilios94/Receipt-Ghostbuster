@@ -6,7 +6,7 @@ Everything beyond the README's [Quickstart](../README.md#quickstart).
 
 - **Python 3.12+** (CI runs 3.12; developed on 3.14) and **Node 18+**
 - A **Supabase** project
-- An **OpenAI API key.** The default model is `gpt-5-mini`, and the Ask chatbot needs OpenAI. Receipts can also be read with Anthropic or a local Ollama model.
+- An **OpenAI API key.** The default model is `gpt-5-mini`, and the Ask chatbot needs OpenAI. Receipts can also be read with Anthropic, Mistral or a local Ollama model.
 
 ## Configure
 

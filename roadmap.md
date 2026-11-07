@@ -265,6 +265,20 @@ Status: **shipped.** Backend tests **373 → 376**.
 
 ---
 
+## v0.5.8 — A locked test set, and published numbers a test checks ✅
+
+**Goal:** a score on receipts the pipeline has never seen, and public figures that can't quietly drift from their results.
+
+Scope delivered ([D51](DECISIONS.md), [D52](DECISIONS.md), [D53](DECISIONS.md)):
+- **A held-out test set** of 9 new receipts, plus a separate VAT-per-rate score.
+- **Nine models compared** on both sets, with the prompts unchanged and every row dated.
+- **Corrected costs:** the price table now matches the providers' lists, so Opus is about 13× `gpt-5-mini`, not 38.5×.
+- **A test that fails** when the README or a model page stops matching its results.
+
+Status: **shipped.** Backend tests **376 → 486**.
+
+---
+
 ## v0.6 — Payslip tracking ⬜
 
 **Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance
@@ -283,7 +297,11 @@ Status: **planned** — not started.
 
 - **A saved monthly close.** ⬜ `GET /close` computes the summary and the Close button only confirms it on screen: no close record is stored and the month isn't locked, so later edits change a "closed" month. Build it or keep the summary wording, decided after a real timed close.
 - **A timed month-end.** ⬜ The "minutes, not hours" target has no measurement yet (`problem-statement.md`).
-- **A held-out accuracy number.** ⬜ Some of the 26 eval receipts were also used to tune the prompts. November's receipts are the next batch: score them before any prompt change for an untouched number, stating that they ran with the supermarket rules.
+- **A held-out accuracy number.** ✅ `eval/test/` holds 9 new receipts, frozen before any model read them and scored with the supermarket rules in place ([D51](DECISIONS.md)). It's small and narrow, so it should grow.
+- **A fair test of Haiku 5.5 on unseen November receipts.** ⬜ It beat `gpt-5-mini` on both sets, but those sets helped pick it, so they can't confirm it ([D53](DECISIONS.md)). Score November's receipts before any prompt change, then decide.
+- **Separate provider settings for receipts and Ask.** ⬜ Ask, the bank PDF import and the refund emails all branch on one `LLM_PROVIDER`, so receipts can't move to Haiku without this.
+- **Plan for `gpt-5-mini`'s deprecation.** ⬜ OpenAI lists `gpt-5-mini` and `gpt-4o` as deprecated and recommends GPT-5.6 Terra, with no shutdown date found as of 2026-11-06. Ask uses `gpt-5-mini` too, so it needs its own comparison on the chatbot eval.
+- **Why the local model's score moved.** ⬜ 90.1% to 97.2% between two runs, across two Ollama versions ([D53](DECISIONS.md)). A repeat on one version would separate the version from chance: free, about 5 hours.
 - **Duplicate check by ATCUD.** ⬜ After November is scored, since it needs a prompt change: every Portuguese receipt prints a unique ATCUD code, a far stronger duplicate key than vendor + total + date ([D49](DECISIONS.md)).
 - **A "paid by transfer" option.** ⬜ A purchase paid by bank transfer has no honest label: cash overstates the cash subtotal, and card leaves the row unreconciled at every close because transfers never match a receipt (Round 11).
 - **A faster model for Ask.** ⬜ After November: compare models on the chatbot eval, since Ask takes about 10 seconds an answer ([D47](DECISIONS.md)).
@@ -305,7 +323,7 @@ Status: **planned** — not started.
 - **Idempotent bank re-upload + spending breakdown (Round 9).** ✅ Built — re-importing a statement that overlaps a previous one now adds only the genuinely-new rows (count-aware fingerprint on date + amount + description + balance) and preserves existing reconciliation, instead of duplicating the overlap. A new **Spending breakdown** (by vendor, and bank transfers split into third parties sent/received vs own-Revolut movements) is reachable from Reconciliation and the Ledger and drills to each transaction, plus a **"View CSV"** of a statement's raw source rows. See [D38](DECISIONS.md)/[D39](DECISIONS.md), [feedback-notes.md](feedback-notes.md).
 - **Read-twice-and-compare** consensus mode. ⬜ Deferred option for maximum reliability on the hardest (crumpled + rotated) receipts.
 - **`claude-opus-4-8` eval comparison.** ✅ Built — a column in `backend/eval/MODELS.md`, frozen at n=20 (see [D31](DECISIONS.md)).
-- **Full measurement-receipt provenance on eval numbers.** 🚧 Partly done: `MODELS.md` now carries a per-model measurement record ([D43](DECISIONS.md)). `RESULTS.md`, the chatbot results and the README badges don't yet, and `eval_extraction.py` still needs the same failed-read reporting. The goal: give every published eval figure an explicit state label (*measured* / *declared* / *no-data-with-a-cause*) and a complete measurement receipt (command · machine · date · commit · artifact hash), extending the provenance `RESULTS.md`/`MODELS.md` already carry (command + run date + model, and informal "frozen n=20" / "—" gaps). The *pipeline* already refuses to silently drop a receipt ([0.5.3] / [CHANGELOG](CHANGELOG.md)); this makes the *reporting* layer equally explicit, so an unmeasured number is a declared gap with a cause, never a silent omission. Low risk, not urgent.
+- **Full measurement-receipt provenance on eval numbers.** 🚧 Partly done: `MODELS.md` now carries a per-model measurement record ([D43](DECISIONS.md)). `RESULTS.md`, the chatbot results and the README badges don't carry the full record yet. `eval_extraction.py` now reports failed reads the same way. The goal: give every published eval figure an explicit state label (*measured* / *declared* / *no-data-with-a-cause*) and a complete measurement receipt (command · machine · date · commit · artifact hash), extending the provenance `RESULTS.md`/`MODELS.md` already carry (command + run date + model, and informal "frozen n=20" / "—" gaps). The *pipeline* already refuses to silently drop a receipt ([0.5.3] / [CHANGELOG](CHANGELOG.md)); this makes the *reporting* layer equally explicit, so an unmeasured number is a declared gap with a cause, never a silent omission. Low risk, not urgent.
 
 ## Future work
 

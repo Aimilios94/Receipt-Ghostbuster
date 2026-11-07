@@ -35,6 +35,11 @@ The faithfulness judge (`app/services/chat_judge.py`) is **eval-time, not a per-
 (D1 already guarantees the numbers are tool-derived). It is only trusted if it clears a bar on
 the calibration set (accuracy ≥ 90% **and** 100% recall on catching the unfaithful answers).
 
+**The latest run (2026-11-06) scored 21/22 on faithfulness,** against 22/22 on 2026-11-05. The flagged
+answer says a day's expenses "are shown in the list below". The judge only sees calculation results,
+not the cards, and the app does attach that day's expenses in a card below the answer, so this looks
+like a false alarm. The figure stays as measured, and the judge wasn't changed.
+
 ## Run it
 
 From `backend/`:

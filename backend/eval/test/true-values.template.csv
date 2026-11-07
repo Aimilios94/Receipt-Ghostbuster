@@ -1,0 +1,4 @@
+sep=;
+file;vendor;also_accept;date;total;vat_amount;vat_rate;vat_lines;category;tags;note
+example-supermarket.jpg;Example Market;;13/03/2026;23,13;2,13;13;6%: 10,00 / 0,60 / 10,60 | 13%: 10,00 / 1,30 / 11,30 | 23%: 1,00 / 0,23 / 1,23;Groceries;upright, multi_rate;
+example-card-slip.jpg;viva.com;Example Cafe;14/03/2026;8,50;;;;;payment_only, no_vat;prints two names, no VAT

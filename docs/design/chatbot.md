@@ -80,7 +80,7 @@ The chatbot is highly evaluable, and in a way that mostly avoids an LLM judge:
    **calibrated against human labels** on a sample before it's trusted — an uncalibrated judge is just vibes
    with extra cost. *(Shipped: `services/chat_judge.py`; `eval_chatbot.py --judge` calibrates it against
    `calibration.json` → `CALIBRATION.md` (100% agreement, 100% recall on catching unfaithful → TRUSTED) and
-   `--live --judge` grades the prose of each real answer: 18/18 faithful when built; now 22/22. The first run over-flagged on the
+   `--live --judge` grades the prose of each real answer: 18/18 faithful when built; 22/22 on 2026-11-05 and 21/22 on 2026-11-06, see `eval/chatbot/README.md`. The first run over-flagged on the
    `€` symbol and was fixed — the calibration earning its keep.)* **Plus** a response cache
    (`services/chat_cache.py`) keyed on the ledger fingerprint, so a repeated question on unchanged data skips
    the model and self-invalidates on any change.

@@ -4,6 +4,8 @@ receipts/
 labels.json
 .cache/
 results.detail.json
+# The held-out set's hand-written true values, before they become labels.json.
+true-values.csv
 
 # Throwaway outputs from a mock/CI harness run (--provider mock → *.mock.json).
 # The committed metrics.json / RESULTS.md stay the real numbers. labels.mock.json

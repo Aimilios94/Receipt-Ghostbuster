@@ -9,9 +9,11 @@ backend/eval/
   labels.json          ground truth for each photo  (git-ignored — personal data)
   labels.example.json  the label format, synthetic  (committed)
   RESULTS.md           aggregate accuracy + guardrail table   (committed — safe to publish)
+  MODELS.md            the model comparison, generated from models.json (committed)
   metrics.json         machine-readable aggregates  (committed — served by /metrics/eval)
   badges/              README badges, generated from the metrics (committed)
   results.detail.json  per-receipt breakdown        (git-ignored)
+  test/                the held-out test set: same layout, its own results (photos + labels git-ignored)
   .cache/              cached LLM reads per image    (git-ignored)
 ```
 
@@ -52,6 +54,8 @@ fields that actually land on the ledger, not just the raw LLM JSON.
 | `vat_amount` | within €0.02 |
 | `vat_rate` | dominant rate, integer match |
 | `category` | exact against the category list |
+
+The held-out set adds one separate score, **VAT per rate**: each printed rate's net, VAT and total against what the app would store. It's reported next to the accuracy above and never added to it, because the development labels have no per-rate figures.
 
 ## Guardrail effectiveness & calibration (v0.3.0)
 
@@ -118,11 +122,33 @@ A run updates only the models it names. Every other row keeps its numbers and it
 measurement record, and the replaced headline moves to that model's history, so repeat
 runs stay visible. `--replace-all` starts a new matrix. The prose in `MODELS.md` lives
 under `notes` / `footnotes` in `models.json`; edit it there, because `MODELS.md` is
-generated.
+generated. `tests/test_published_numbers.py` fails if a page or the top-level README stops
+matching these results, so refresh the README in the same change as a new run.
+
+A cost is an estimate: the tokens recorded with a read, times the price table in
+`app/services/llm_trace.py`. It's worked out again each time, so a price correction reaches saved
+reads, and a model that isn't in the table costs 0.0 rather than borrowing a family's price.
 
 A read that fails is declared: its fields count as misses, and the row records how many
 reads errored and why. A labelled image missing from disk is declared `NO_DATA` and left
-out of that row's denominators.
+out of that row's denominators. `eval_extraction.py` reports the same way.
+
+## Held-out test set
+
+The 26 receipts above are a development set: some were used to tune the prompts. The test set
+in `test/` holds new receipts only, labelled and frozen before any model reads them, and its
+results are reported separately. See [test/README.md](test/README.md).
+
+```bash
+python scripts/prepare_test_set.py check    # problems with the sheet or the photos
+python scripts/prepare_test_set.py freeze   # labels.json + freeze.json
+python scripts/eval_extraction.py --test-set
+python scripts/eval_models.py --models openai:gpt-4o --test-set
+```
+
+Scoring refuses to run if the set isn't frozen, or changed after freezing. `--refresh` doesn't
+apply, because the set is read once. A label corrected later needs
+`freeze --correction "reason"`, and that reason is printed in the published results.
 
 ## LangSmith (optional)
 

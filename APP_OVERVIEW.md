@@ -42,7 +42,7 @@ deep-linking to the fix.
 ## Observability & evaluation ✅ (v0.3)
 The LLM layer is **measured, not asserted**: validated structured outputs (Instructor),
 per-call tracing (latency/tokens/cost), a reproducible extraction-accuracy eval harness
-with an accuracy-regression gate in CI, an in-app Model & Evals dashboard, and opt-in
+with a held-out test set and an accuracy-regression gate in CI, an in-app Model & Evals dashboard, and opt-in
 LangSmith tracing + Sentry error tracking.
 
 ## Ask chatbot ✅ shipped (v0.5)

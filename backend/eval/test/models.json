@@ -1,0 +1,870 @@
+{
+  "run_date": "2026-11-07",
+  "n_receipts": 9,
+  "notes": [
+    "**Read once, true values first.** The true values were frozen on 2026-11-06, before any model read the photos, and no prompt changed afterwards. Cloud reads are from 2026-11-06 and the local read from 2026-11-07. Haiku 4.5 and Opus 4.8 weren't run on this set.",
+    "**A narrow set.** 8 of the 9 are groceries, 6 come from one supermarket chain, and all come from one shopper and one phone. 9/9 receipts correct is still consistent with a true rate as low as about 72% (one-sided 95%).",
+    "**Two blank vendors.** On two receipts the name at the top couldn't be read from the paper, so the true value was left blank and vendor isn't scored there. Models read a correct name from the bottom of the receipt. The label stays blank, because editing it after seeing the reads is what the lock prevents.",
+    "**The gate is only tested on wrong reads.** `gpt-5-mini`, Sonnet 5.5, Haiku 5.5 and Terra made none here, so their false auto-posts show `n/a` rather than a pass.",
+    "**Comparing models here costs independence.** A model picked because it won on this set can't be confirmed by this set, so any switch waits for new receipts (D53).",
+    "Costs are estimates: recorded tokens times each provider's list price, checked on 2026-11-06. They aren't billed amounts."
+  ],
+  "footnotes": [],
+  "models": [
+    {
+      "provider": "openai",
+      "model": "gpt-5-mini",
+      "n_receipts": 9,
+      "n_labelled": 9,
+      "n_errored": 0,
+      "n_missing": 0,
+      "error_types": {},
+      "provenance": {
+        "run_date": "2026-11-06",
+        "reads_from": "2026-11-06",
+        "reads_to": "2026-11-06",
+        "commit": "dedb262+uncommitted",
+        "command": "python backend/scripts/eval_models.py --models openai:gpt-5-mini --test-set",
+        "machine": "Windows-10-10.0.19045-SP0 \u00b7 16 logical CPUs",
+        "runtime": "Python 3.14.4"
+      },
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "scored": 7
+        },
+        "date": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_amount": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        }
+      },
+      "overall": {
+        "accuracy": 1.0,
+        "correct": 52,
+        "scored": 52
+      },
+      "receipts_fully_correct": {
+        "count": 9,
+        "n": 9
+      },
+      "per_rate_vat": {
+        "accuracy": 1.0,
+        "correct": 22,
+        "scored": 22,
+        "receipts_fully_correct": {
+          "count": 9,
+          "n": 9
+        },
+        "extra_rates": 0
+      },
+      "latency_ms": {
+        "p50": 16233,
+        "p95": 24622,
+        "avg": 17404
+      },
+      "cost_usd": {
+        "total": 0.044815,
+        "avg_per_read": 0.004979
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 0,
+        "false_auto_post_rate": null,
+        "over_review_rate": 0.3333
+      },
+      "slices": {
+        "bad_light": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "crumpled": {
+          "correct": 5,
+          "scored": 5,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "multi_rate": {
+          "correct": 46,
+          "scored": 46,
+          "n_receipts": 8,
+          "accuracy": 1.0
+        },
+        "rotated": {
+          "correct": 30,
+          "scored": 30,
+          "n_receipts": 5,
+          "accuracy": 1.0
+        },
+        "single_rate": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "upright": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        }
+      }
+    },
+    {
+      "provider": "mistral",
+      "model": "mistral-small-2603",
+      "n_receipts": 9,
+      "n_labelled": 9,
+      "n_errored": 0,
+      "n_missing": 0,
+      "error_types": {},
+      "provenance": {
+        "run_date": "2026-11-06",
+        "reads_from": "2026-11-06",
+        "reads_to": "2026-11-06",
+        "commit": "dedb262+uncommitted",
+        "command": "python backend/scripts/eval_models.py --models mistral:mistral-small-2603 --test-set",
+        "machine": "Windows-10-10.0.19045-SP0 \u00b7 16 logical CPUs",
+        "runtime": "Python 3.14.4"
+      },
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "scored": 7
+        },
+        "date": {
+          "accuracy": 0.7777777777777778,
+          "correct": 7,
+          "scored": 9
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_amount": {
+          "accuracy": 0.7777777777777778,
+          "correct": 7,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 0.7777777777777778,
+          "correct": 7,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        }
+      },
+      "overall": {
+        "accuracy": 0.8846153846153846,
+        "correct": 46,
+        "scored": 52
+      },
+      "receipts_fully_correct": {
+        "count": 6,
+        "n": 9
+      },
+      "per_rate_vat": {
+        "accuracy": 0.7727272727272727,
+        "correct": 17,
+        "scored": 22,
+        "receipts_fully_correct": {
+          "count": 7,
+          "n": 9
+        },
+        "extra_rates": 1
+      },
+      "latency_ms": {
+        "p50": 4405,
+        "p95": 6788,
+        "avg": 4749
+      },
+      "cost_usd": {
+        "total": 0.011437,
+        "avg_per_read": 0.001271
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 0,
+        "false_auto_post_rate": 0.0,
+        "over_review_rate": 0.3333
+      },
+      "slices": {
+        "bad_light": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "crumpled": {
+          "correct": 2,
+          "scored": 5,
+          "n_receipts": 1,
+          "accuracy": 0.4
+        },
+        "multi_rate": {
+          "correct": 40,
+          "scored": 46,
+          "n_receipts": 8,
+          "accuracy": 0.8696
+        },
+        "rotated": {
+          "correct": 27,
+          "scored": 30,
+          "n_receipts": 5,
+          "accuracy": 0.9
+        },
+        "single_rate": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "upright": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        }
+      }
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "n_receipts": 9,
+      "n_labelled": 9,
+      "n_errored": 0,
+      "n_missing": 0,
+      "error_types": {},
+      "provenance": {
+        "run_date": "2026-11-06",
+        "reads_from": "2026-11-06",
+        "reads_to": "2026-11-06",
+        "commit": "dedb262+uncommitted",
+        "command": "python backend/scripts/eval_models.py --models openai:gpt-4o --test-set",
+        "machine": "Windows-10-10.0.19045-SP0 \u00b7 16 logical CPUs",
+        "runtime": "Python 3.14.4"
+      },
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "scored": 7
+        },
+        "date": {
+          "accuracy": 0.8888888888888888,
+          "correct": 8,
+          "scored": 9
+        },
+        "total": {
+          "accuracy": 0.8888888888888888,
+          "correct": 8,
+          "scored": 9
+        },
+        "vat_amount": {
+          "accuracy": 0.4444444444444444,
+          "correct": 4,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 0.7777777777777778,
+          "correct": 7,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        }
+      },
+      "overall": {
+        "accuracy": 0.8269230769230769,
+        "correct": 43,
+        "scored": 52
+      },
+      "receipts_fully_correct": {
+        "count": 4,
+        "n": 9
+      },
+      "per_rate_vat": {
+        "accuracy": 0.4090909090909091,
+        "correct": 9,
+        "scored": 22,
+        "receipts_fully_correct": {
+          "count": 4,
+          "n": 9
+        },
+        "extra_rates": 1
+      },
+      "latency_ms": {
+        "p50": 4559,
+        "p95": 6049,
+        "avg": 4696
+      },
+      "cost_usd": {
+        "total": 0.118312,
+        "avg_per_read": 0.013146
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 0,
+        "false_auto_post_rate": 0.0,
+        "over_review_rate": 0.5
+      },
+      "slices": {
+        "bad_light": {
+          "correct": 5,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 0.8333
+        },
+        "crumpled": {
+          "correct": 5,
+          "scored": 5,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "multi_rate": {
+          "correct": 37,
+          "scored": 46,
+          "n_receipts": 8,
+          "accuracy": 0.8043
+        },
+        "rotated": {
+          "correct": 22,
+          "scored": 30,
+          "n_receipts": 5,
+          "accuracy": 0.7333
+        },
+        "single_rate": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "upright": {
+          "correct": 5,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 0.8333
+        }
+      }
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "n_receipts": 9,
+      "n_labelled": 9,
+      "n_errored": 0,
+      "n_missing": 0,
+      "error_types": {},
+      "provenance": {
+        "run_date": "2026-11-06",
+        "reads_from": "2026-11-06",
+        "reads_to": "2026-11-06",
+        "commit": "dedb262+uncommitted",
+        "command": "python backend/scripts/eval_models.py --models anthropic:claude-sonnet-5-5 --test-set",
+        "machine": "Windows-10-10.0.19045-SP0 \u00b7 16 logical CPUs",
+        "runtime": "Python 3.14.4"
+      },
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "scored": 7
+        },
+        "date": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_amount": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        }
+      },
+      "overall": {
+        "accuracy": 1.0,
+        "correct": 52,
+        "scored": 52
+      },
+      "receipts_fully_correct": {
+        "count": 9,
+        "n": 9
+      },
+      "per_rate_vat": {
+        "accuracy": 1.0,
+        "correct": 22,
+        "scored": 22,
+        "receipts_fully_correct": {
+          "count": 9,
+          "n": 9
+        },
+        "extra_rates": 0
+      },
+      "latency_ms": {
+        "p50": 4801,
+        "p95": 5142,
+        "avg": 4510
+      },
+      "cost_usd": {
+        "total": 0.238548,
+        "avg_per_read": 0.026505
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 0,
+        "false_auto_post_rate": null,
+        "over_review_rate": 0.1111
+      },
+      "slices": {
+        "bad_light": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "crumpled": {
+          "correct": 5,
+          "scored": 5,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "multi_rate": {
+          "correct": 46,
+          "scored": 46,
+          "n_receipts": 8,
+          "accuracy": 1.0
+        },
+        "rotated": {
+          "correct": 30,
+          "scored": 30,
+          "n_receipts": 5,
+          "accuracy": 1.0
+        },
+        "single_rate": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "upright": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        }
+      }
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-haiku-5-5",
+      "n_receipts": 9,
+      "n_labelled": 9,
+      "n_errored": 0,
+      "n_missing": 0,
+      "error_types": {},
+      "provenance": {
+        "run_date": "2026-11-06",
+        "reads_from": "2026-11-06",
+        "reads_to": "2026-11-06",
+        "commit": "dedb262+uncommitted",
+        "command": "python backend/scripts/eval_models.py --models anthropic:claude-haiku-5-5 --test-set",
+        "machine": "Windows-10-10.0.19045-SP0 \u00b7 16 logical CPUs",
+        "runtime": "Python 3.14.4"
+      },
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "scored": 7
+        },
+        "date": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_amount": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        }
+      },
+      "overall": {
+        "accuracy": 1.0,
+        "correct": 52,
+        "scored": 52
+      },
+      "receipts_fully_correct": {
+        "count": 9,
+        "n": 9
+      },
+      "per_rate_vat": {
+        "accuracy": 1.0,
+        "correct": 22,
+        "scored": 22,
+        "receipts_fully_correct": {
+          "count": 9,
+          "n": 9
+        },
+        "extra_rates": 0
+      },
+      "latency_ms": {
+        "p50": 5010,
+        "p95": 9858,
+        "avg": 5560
+      },
+      "cost_usd": {
+        "total": 0.015064,
+        "avg_per_read": 0.001674
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 0,
+        "false_auto_post_rate": null,
+        "over_review_rate": 0.2222
+      },
+      "slices": {
+        "bad_light": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "crumpled": {
+          "correct": 5,
+          "scored": 5,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "multi_rate": {
+          "correct": 46,
+          "scored": 46,
+          "n_receipts": 8,
+          "accuracy": 1.0
+        },
+        "rotated": {
+          "correct": 30,
+          "scored": 30,
+          "n_receipts": 5,
+          "accuracy": 1.0
+        },
+        "single_rate": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "upright": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        }
+      }
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-5.6-terra",
+      "n_receipts": 9,
+      "n_labelled": 9,
+      "n_errored": 0,
+      "n_missing": 0,
+      "error_types": {},
+      "provenance": {
+        "run_date": "2026-11-06",
+        "reads_from": "2026-11-06",
+        "reads_to": "2026-11-06",
+        "commit": "dedb262+uncommitted",
+        "command": "python backend/scripts/eval_models.py --models openai:gpt-5.6-terra --test-set",
+        "machine": "Windows-10-10.0.19045-SP0 \u00b7 16 logical CPUs",
+        "runtime": "Python 3.14.4"
+      },
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "scored": 7
+        },
+        "date": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_amount": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        }
+      },
+      "overall": {
+        "accuracy": 1.0,
+        "correct": 52,
+        "scored": 52
+      },
+      "receipts_fully_correct": {
+        "count": 9,
+        "n": 9
+      },
+      "per_rate_vat": {
+        "accuracy": 1.0,
+        "correct": 22,
+        "scored": 22,
+        "receipts_fully_correct": {
+          "count": 9,
+          "n": 9
+        },
+        "extra_rates": 0
+      },
+      "latency_ms": {
+        "p50": 7210,
+        "p95": 10303,
+        "avg": 7318
+      },
+      "cost_usd": {
+        "total": 0.196842,
+        "avg_per_read": 0.021871
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 0,
+        "false_auto_post_rate": null,
+        "over_review_rate": 0.1111
+      },
+      "slices": {
+        "bad_light": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "crumpled": {
+          "correct": 5,
+          "scored": 5,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "multi_rate": {
+          "correct": 46,
+          "scored": 46,
+          "n_receipts": 8,
+          "accuracy": 1.0
+        },
+        "rotated": {
+          "correct": 30,
+          "scored": 30,
+          "n_receipts": 5,
+          "accuracy": 1.0
+        },
+        "single_rate": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "upright": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        }
+      }
+    },
+    {
+      "provider": "ollama",
+      "model": "qwen2.5vl-receipt",
+      "n_receipts": 9,
+      "n_labelled": 9,
+      "n_errored": 0,
+      "n_missing": 0,
+      "error_types": {},
+      "provenance": {
+        "run_date": "2026-11-07",
+        "reads_from": "2026-11-07",
+        "reads_to": "2026-11-07",
+        "commit": "dedb262+uncommitted",
+        "command": "python backend/scripts/eval_models.py --models ollama:qwen2.5vl-receipt --test-set",
+        "machine": "Windows-10-10.0.19045-SP0 \u00b7 16 logical CPUs",
+        "runtime": "Python 3.14.4 \u00b7 Ollama 0.40.14"
+      },
+      "fields": {
+        "vendor": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "scored": 7
+        },
+        "date": {
+          "accuracy": 0.8888888888888888,
+          "correct": 8,
+          "scored": 9
+        },
+        "total": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_amount": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "vat_rate": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        },
+        "category": {
+          "accuracy": 1.0,
+          "correct": 9,
+          "scored": 9
+        }
+      },
+      "overall": {
+        "accuracy": 0.9807692307692307,
+        "correct": 51,
+        "scored": 52
+      },
+      "receipts_fully_correct": {
+        "count": 8,
+        "n": 9
+      },
+      "per_rate_vat": {
+        "accuracy": 1.0,
+        "correct": 22,
+        "scored": 22,
+        "receipts_fully_correct": {
+          "count": 9,
+          "n": 9
+        },
+        "extra_rates": 0
+      },
+      "latency_ms": {
+        "p50": 383819,
+        "p95": 438716,
+        "avg": 384699
+      },
+      "cost_usd": {
+        "total": 0.0,
+        "avg_per_read": 0.0
+      },
+      "fell_back": 0,
+      "guardrails": {
+        "false_auto_posts": 0,
+        "false_auto_post_rate": 0.0,
+        "over_review_rate": 0.25
+      },
+      "slices": {
+        "bad_light": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "crumpled": {
+          "correct": 4,
+          "scored": 5,
+          "n_receipts": 1,
+          "accuracy": 0.8
+        },
+        "multi_rate": {
+          "correct": 45,
+          "scored": 46,
+          "n_receipts": 8,
+          "accuracy": 0.9783
+        },
+        "rotated": {
+          "correct": 30,
+          "scored": 30,
+          "n_receipts": 5,
+          "accuracy": 1.0
+        },
+        "single_rate": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        },
+        "upright": {
+          "correct": 6,
+          "scored": 6,
+          "n_receipts": 1,
+          "accuracy": 1.0
+        }
+      }
+    }
+  ],
+  "set_description": "**9** new receipts held out from the development set, labelled and frozen before any model read them"
+}

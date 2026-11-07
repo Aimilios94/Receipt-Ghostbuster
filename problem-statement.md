@@ -45,11 +45,11 @@ Receipt Ghostbuster automates the messy manual process end-to-end:
 - Every number on every screen traces back to **one ledger** — no double-entry, no disagreeing totals.
 - Nothing financial is ever sent or charged automatically; the human approves.
 
-### Status against those criteria (checked 2026-11-05)
+### Status against those criteria (checked 2026-11-07)
 
 | Criterion | State | Evidence |
 |---|---|---|
-| Adding an expense takes seconds | **Not met** for a snapped receipt; manual entry `NO_DATA` (not timed) | A `gpt-5-mini` read takes 24.7s at p50 and 76.7s at p95 ([MODELS.md](backend/eval/MODELS.md)). Accuracy was chosen over speed ([D27](DECISIONS.md)). |
+| Adding an expense takes seconds | **Not met** for a snapped receipt; manual entry `NO_DATA` (not timed) | A `gpt-5-mini` read takes 23.9s at p50 and 79.1s at p95 (n=26, 2026-11-06, [MODELS.md](backend/eval/MODELS.md)). Accuracy was chosen over speed ([D27](DECISIONS.md)). |
 | The AI never does the money math and is never trusted blindly | Built and tested | [D1](DECISIONS.md), [D40](DECISIONS.md); the numbers are unit-tested, and the gate is measured ([D30](DECISIONS.md)). |
 | A month-end takes minutes, not ~1–2 hours | `NO_DATA` | No month-end has been timed, and the 1–2 hours is an estimate. A close is also a summary today: it isn't saved or locked. |
 | Every number traces back to one ledger | Built | [D10](DECISIONS.md) |

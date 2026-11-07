@@ -18,19 +18,24 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-# Approximate public list prices (USD per 1M tokens) as (input, output). These
-# give the dashboard a rough cost signal; they are estimates, not billing-exact,
-# and prefix-matched so "gpt-5-mini-2025-..." still resolves.
+# Public list prices (USD per 1M tokens) as (input, output). A cost here is tokens times
+# this price: an estimate, not a billed amount. Prefix-matched so "gpt-5-mini-2025-..."
+# still resolves, so a longer name goes before a shorter one. A model that isn't listed
+# costs 0.0 rather than borrowing a family's price, which is how a wrong Opus price once
+# reached the docs. The models the eval compares were checked against each provider's
+# own page on 2026-11-06.
 _PRICING: dict[str, tuple[float, float]] = {
     "gpt-5-mini": (0.25, 2.00),
+    "gpt-5.6-terra": (2.00, 12.00),
     "gpt-5": (1.25, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4o": (2.50, 10.00),
     "o4-mini": (1.10, 4.40),
-    "claude-opus-4-8": (15.00, 75.00),
-    "claude-opus": (15.00, 75.00),
-    "claude-sonnet": (3.00, 15.00),
-    "claude-haiku": (0.80, 4.00),
+    "claude-opus-4-8": (5.00, 25.00),
+    "claude-sonnet-5-5": (2.00, 10.00),
+    "claude-haiku-5-5": (0.10, 0.50),
+    "claude-haiku-4-5": (1.00, 5.00),
+    "mistral-small": (0.15, 0.60),
 }
 
 

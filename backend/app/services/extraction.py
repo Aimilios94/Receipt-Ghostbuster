@@ -3,7 +3,7 @@
 Provider-agnostic. The LLM returns ONLY what it read plus a self-reported
 confidence — it does not decide posting status and does not do reconciliation or
 VAT math (that is all done in code downstream). Supported providers: anthropic,
-openai, mock. 'mock' lets the whole pipeline run before an API key is supplied.
+openai, mistral, ollama, mock. 'mock' lets the whole pipeline run before an API key is supplied.
 """
 from __future__ import annotations
 
@@ -245,6 +245,8 @@ def reread_date(
             payload, _ = _extract_anthropic(image_bytes, media_type, settings, prompt, kind="date_reread")
         elif provider == "ollama":
             payload, _ = _extract_ollama(image_bytes, media_type, settings, prompt, kind="date_reread")
+        elif provider == "mistral":
+            payload, _ = _extract_mistral(image_bytes, media_type, settings, prompt, kind="date_reread")
         else:
             return None
     except Exception as exc:  # noqa: BLE001 - re-read is best-effort
@@ -369,6 +371,12 @@ def _parse_json_payload(text: str) -> dict[str, Any]:
     return json.loads(text)
 
 
+def _anthropic_thinks_by_default(model: str) -> bool:
+    """Newer Claude models think unless told otherwise, and some reject the forced tool call
+    Instructor uses for structured output, so they use the API's own structured output."""
+    return model.lower().startswith(("claude-sonnet-5", "claude-haiku-5", "claude-opus-5", "claude-fable"))
+
+
 def _extract_anthropic(
     image_bytes: bytes, media_type: str, settings: Settings, prompt: str, kind: str = "receipt_extract"
 ) -> tuple[dict[str, Any], LlmCall]:
@@ -389,9 +397,28 @@ def _extract_anthropic(
         }
     ]
 
-    # Structured output first (see _extract_openai); raw parse is the fallback.
+    thinks = _anthropic_thinks_by_default(settings.anthropic_model)
+    max_tokens = settings.anthropic_thinking_max_tokens if thinks else settings.anthropic_max_tokens
+
+    # Structured output first (see _extract_openai); raw parse is the fallback. No fallback
+    # to another model on a refusal: the eval must measure the model it names, so a refused
+    # read fails and counts as a miss.
     started = time.perf_counter()
     try:
+        if thinks:
+            parsed = client.messages.parse(
+                model=settings.anthropic_model,
+                max_tokens=max_tokens,
+                output_format=ExtractionResult,
+                messages=messages,
+            )
+            if parsed.parsed_output is None:
+                raise ValueError(f"no structured output (stop_reason={parsed.stop_reason})")
+            call = LlmCall.timed(
+                provider="anthropic", model=settings.anthropic_model, kind=kind, started=started, resp=parsed
+            )
+            return parsed.parsed_output.model_dump(mode="json"), call
+
         import instructor
 
         ic = instructor.from_anthropic(client)
@@ -415,7 +442,7 @@ def _extract_anthropic(
 
     started = time.perf_counter()
     resp = client.messages.create(
-        model=settings.anthropic_model, max_tokens=settings.anthropic_max_tokens, messages=messages
+        model=settings.anthropic_model, max_tokens=max_tokens, messages=messages
     )
     call = LlmCall.timed(
         provider="anthropic", model=settings.anthropic_model, kind=kind, started=started, resp=resp, fell_back=True
@@ -430,6 +457,16 @@ def _is_reasoning_model(model: str) -> bool:
     dense/fiddly VAT table far more reliably than gpt-4o, so we give them room."""
     m = model.lower()
     return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+def _openai_structured_kwargs(model: str) -> dict[str, Any]:
+    """GPT-5.6 rejects Instructor's default tool call on this endpoint, so it uses JSON mode.
+    Every other model keeps the default."""
+    if model.lower().startswith("gpt-5.6"):
+        import instructor
+
+        return {"mode": instructor.Mode.JSON}
+    return {}
 
 
 def _extract_openai(
@@ -471,7 +508,7 @@ def _extract_openai(
     try:
         import instructor
 
-        ic = instructor.from_openai(client)
+        ic = instructor.from_openai(client, **_openai_structured_kwargs(settings.openai_model))
         obj, raw = ic.chat.completions.create_with_completion(
             model=settings.openai_model,
             response_model=ExtractionResult,
@@ -541,6 +578,60 @@ def _extract_ollama(
     return _parse_json_payload(resp.choices[0].message.content or "{}"), call
 
 
+def _extract_mistral(
+    image_bytes: bytes, media_type: str, settings: Settings, prompt: str, kind: str = "receipt_extract"
+) -> tuple[dict[str, Any], LlmCall]:
+    """A cloud read through Mistral's OpenAI-style endpoint, with the same chain as the OpenAI
+    path so a matrix comparison is fair: validated structured output first, then a plain call
+    with the tolerant parser, flagged as fell_back. JSON mode, because that's what Mistral's
+    endpoint offers for a schema without a tool call."""
+    from openai import OpenAI
+
+    client = wrap_openai_if_enabled(OpenAI(base_url=settings.mistral_base_url, api_key=settings.mistral_api_key))
+    b64 = base64.standard_b64encode(image_bytes).decode("ascii")
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}},
+            ],
+        }
+    ]
+
+    started = time.perf_counter()
+    try:
+        import instructor
+
+        ic = instructor.from_openai(client, mode=instructor.Mode.JSON)
+        obj, raw = ic.chat.completions.create_with_completion(
+            model=settings.mistral_model,
+            response_model=ExtractionResult,
+            max_retries=settings.instructor_max_retries,
+            max_tokens=settings.mistral_max_tokens,
+            messages=messages,
+        )
+        call = LlmCall.timed(
+            provider="mistral", model=settings.mistral_model, kind=kind, started=started, resp=raw
+        )
+        return obj.model_dump(mode="json"), call
+    except Exception as exc:  # noqa: BLE001 - structured mode unavailable/failed -> raw fallback
+        monitoring.capture_message(
+            "Instructor structured output fell back to raw parse (mistral)",
+            level="warning", surface="extraction.instructor_fallback",
+        )
+        monitoring.capture(exc, surface="extraction.instructor_fallback")
+
+    started = time.perf_counter()
+    resp = client.chat.completions.create(
+        model=settings.mistral_model, max_tokens=settings.mistral_max_tokens, messages=messages
+    )
+    call = LlmCall.timed(
+        provider="mistral", model=settings.mistral_model, kind=kind, started=started, resp=resp, fell_back=True
+    )
+    return _parse_json_payload(resp.choices[0].message.content or "{}"), call
+
+
 def _extract_mock(image_bytes: bytes, filename: str | None) -> dict[str, Any]:
     """Deterministic stand-in so the pipeline works without an API key.
     Confidence is intentionally mid so it lands in the review queue by default."""
@@ -593,6 +684,8 @@ def _extract_once(
         return _extract_openai(image_bytes, media_type, settings, prompt)
     if provider == "ollama":
         return _extract_ollama(image_bytes, media_type, settings, prompt)
+    if provider == "mistral":
+        return _extract_mistral(image_bytes, media_type, settings, prompt)
     raise ValueError(f"Unknown LLM_PROVIDER: {settings.llm_provider!r}")
 
 
@@ -622,6 +715,8 @@ def extract_receipt(
         model = settings.anthropic_model
     elif provider == "ollama":
         model = settings.ollama_model
+    elif provider == "mistral":
+        model = settings.mistral_model
     else:
         model = settings.openai_model
     prompt = _build_prompt(note=note)
