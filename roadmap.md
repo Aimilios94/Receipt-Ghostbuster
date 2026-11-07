@@ -271,7 +271,7 @@ Status: **shipped.** Backend tests **373 → 376**.
 
 Scope delivered ([D51](DECISIONS.md), [D52](DECISIONS.md), [D53](DECISIONS.md)):
 - **A held-out test set** of 9 new receipts, plus a separate VAT-per-rate score.
-- **Nine models compared** on both sets, with the prompts unchanged and every row dated.
+- **Nine models compared** on the development set and seven on the test set, with the prompts unchanged and every row dated.
 - **Corrected costs:** the price table now matches the providers' lists, so Opus is about 13× `gpt-5-mini`, not 38.5×.
 - **A test that fails** when the README or a model page stops matching its results.
 
