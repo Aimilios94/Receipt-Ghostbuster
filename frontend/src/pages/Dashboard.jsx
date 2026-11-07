@@ -174,7 +174,7 @@ export default function Dashboard() {
   // Card/bank expenses that are expected to reconcile. Cash is excluded by design, and
   // a row paid with another card isn't on the statement (D28).
   const reconcilable = useMemo(
-    () => ledger.filter((e) => e.source !== "cash" && !e.no_bank_match),
+    () => ledger.filter((e) => e.source !== "cash" && e.source !== "bank" && !e.no_bank_match),
     [ledger]
   );
 
@@ -191,6 +191,7 @@ export default function Dashboard() {
       eligible: reconcilable.length,
       reconciled: reconciled.length,
       noBankLine,
+      transfers: ledger.filter((e) => e.source === "bank").length,
       rates,
     };
   }, [ledger, reconcilable]);
@@ -221,7 +222,7 @@ export default function Dashboard() {
     reconciled: () =>
       setDrill({
         title: `Reconciliation · ${ml}`,
-        subtitle: "Card expenses matched against your bank statement. Cash and other cards are left out.",
+        subtitle: "Card expenses matched against your bank statement. Cash, bank transfers and other cards are left out.",
         expenses: reconcilable,
         mode: "reconciled",
       }),
@@ -348,9 +349,11 @@ export default function Dashboard() {
             <span style={{ width: `${pct(stats.reconciled, stats.eligible) || 0}%` }} />
           </div>
           <div className="stat-foot">
-            Card expenses matched to your bank. Cash
+            Card expenses matched to your bank. Cash{stats.transfers ? ", bank transfers" : ""}
             {stats.noBankLine
               ? ` and ${stats.noBankLine} paid with another card are left out.`
+              : stats.transfers
+              ? " are left out."
               : " is left out."}
           </div>
         </Card>
@@ -501,6 +504,7 @@ function CardSplit({ close, onClick }) {
       <div className="splitbar">
         <span style={{ width: `${(card / total) * 100}%`, background: "var(--primary)" }} />
         <span style={{ width: `${(cash / total) * 100}%`, background: "var(--text-dim)" }} />
+        <span style={{ width: `${(bank / total) * 100}%`, background: "var(--amber)" }} />
       </div>
       <div className="legend" style={{ flexDirection: "column", gap: 7 }}>
         <span className="row">
@@ -509,6 +513,11 @@ function CardSplit({ close, onClick }) {
         <span className="row">
           <span className="dot" style={{ background: "var(--text-dim)" }} /> Cash <b className="num">{money(cash)}</b>
         </span>
+        {bank ? (
+          <span className="row">
+            <span className="dot" style={{ background: "var(--amber)" }} /> Bank transfer <b className="num">{money(bank)}</b>
+          </span>
+        ) : null}
       </div>
     </Card>
   );

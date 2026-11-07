@@ -383,6 +383,7 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
             <option value="card">Card</option>
             <option value="other_card">Other card</option>
             <option value="cash">Cash</option>
+            <option value="bank_transfer">Bank transfer</option>
           </select>
         </div>
       </div>

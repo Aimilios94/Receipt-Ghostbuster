@@ -379,3 +379,8 @@ create policy monthly_closes_owner on public.monthly_closes
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+-- v0.5.17 — a receipt that prints no VAT. The VAT stays unknown (null), never 0%,
+-- and the missing-VAT exception is cleared because the gap is on record.
+alter table public.expenses
+  add column if not exists vat_not_shown boolean not null default false;

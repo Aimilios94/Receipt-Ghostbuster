@@ -64,11 +64,15 @@ export function normText(s) {
 // isn't on the imported bank statement, so it never waits for a bank line.
 export function paidWithValue(e) {
   if (e.source === "cash") return "cash";
+  if (e.source === "bank") return "bank_transfer";
   if (e.source === "card" && e.no_bank_match) return "other_card";
   return e.source === "card" ? "card" : e.source || "card";
 }
 export function paidWithLabel(e) {
-  return { cash: "Cash", other_card: "Other card", card: "Card payment" }[paidWithValue(e)] || sourceLabel(e.source);
+  return (
+    { cash: "Cash", other_card: "Other card", card: "Card payment", bank_transfer: "Bank transfer" }[paidWithValue(e)] ||
+    sourceLabel(e.source)
+  );
 }
 
 // Details a user still has to fill in, each phrased as what to do in Edit. Shown as
@@ -84,7 +88,7 @@ export function missingDetails(e, bankMonths) {
     else
       out.push("Not matched to your bank statement yet. If you paid in cash or with another card, open Edit and change Paid with.");
   }
-  if (e.input_method === "receipt" && e.vat_amount == null && e.vat_rate == null)
+  if (e.input_method === "receipt" && e.vat_amount == null && e.vat_rate == null && !e.vat_not_shown)
     out.push("VAT not known. If the receipt shows the VAT, open Edit and set the rate.");
   return out;
 }

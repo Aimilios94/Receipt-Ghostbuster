@@ -3,6 +3,14 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.17] — 2026-11-07
+
+**Paid by bank transfer, and VAT that the receipt doesn't show.** One new column (`db/schema.sql`). No prompt, model or scored figure changed.
+
+### Added
+- **Paid with: Bank transfer.** Stored as source `bank`, which the schema already allowed. A transfer shows on the statement as a transfer, not a purchase, so like cash it never waits for a card line, and the dashboard's split shows it apart from cash.
+- **"VAT not shown on the receipt"** in Edit. The VAT stays unknown, never 0%, and the missing-VAT exception clears because the gap is on record (`expenses.vat_not_shown`). Entering a VAT rate later turns it off.
+
 ## [0.5.16] — 2026-11-07
 
 **A saved close, accepted differences, and a (!) that knows when a statement is missing.** One new column and one new table (`db/schema.sql`). No prompt, model or scored figure changed.

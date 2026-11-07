@@ -2724,3 +2724,17 @@ button.ask-rank-row:hover .ask-rank-label {
   margin: 6px 0;
   padding-left: 18px;
 }
+
+/* A one-line checkbox with its explanation, e.g. "VAT not shown on the receipt". */
+.check-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.check-line input {
+  margin-top: 2px;
+}

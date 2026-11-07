@@ -27,6 +27,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
     expense_date: (expense.expense_date || "").slice(0, 10),
     category: expense.category || "",
     paid: paidWithValue(expense),
+    vatNotShown: !!expense.vat_not_shown,
   });
   const refresh = useRefreshLedger();
   const estimated = !!expense.raw_extraction?.vat_estimated;
@@ -58,6 +59,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
   const amountNum = Math.round((Number(form.amount) || 0) * 100) / 100;
   const vatMismatch = validLines.length > 0 && Math.abs(linesTotal - amountNum) > 0.01;
   const sourceChanged = form.paid !== paidWithValue(expense);
+  const vatFlagChanged = form.vatNotShown !== !!expense.vat_not_shown;
 
   const toApiLines = (ls) =>
     ls
@@ -77,6 +79,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
       if (expense.vendor) back.vendor = expense.vendor;
       if (expense.category) back.category = expense.category;
       if (sourceChanged) back.paid_with = paidWithValue(expense);
+      if (vatFlagChanged) back.vat_not_shown = !!expense.vat_not_shown;
       if (linesChanged) back.line_items = toApiLines(initialLines);
       await api.updateExpense(expense.id, back);
       let relinked = true;
@@ -105,6 +108,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
       if (form.vendor) patch.vendor = form.vendor;
       if (form.category) patch.category = form.category;
       if (sourceChanged) patch.paid_with = form.paid;
+      if (vatFlagChanged) patch.vat_not_shown = form.vatNotShown;
       // Send the lines only if they changed: saving them recalculates the VAT, which
       // a vendor or date edit must not do.
       const linesChanged = linesKey(lines) !== savedLinesKey;
@@ -166,6 +170,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
               <option value="card">Card</option>
               <option value="other_card">Other card</option>
               <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank transfer</option>
             </select>
           </div>
         </div>
@@ -173,12 +178,22 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
           <p className="vat-lines-hint">
             {form.paid === "card"
               ? "Paid with your bank card, so it waits for its line on your bank statement."
-              : `${form.paid === "cash" ? "Cash" : "Another card"} isn't on your bank statement, so it won't be matched.` +
+              : ({ cash: "Cash isn't on your bank statement", other_card: "Another card isn't on your bank statement",
+                   bank_transfer: "A bank transfer shows on the statement as a transfer, not a purchase" }[form.paid]) +
+                ", so it won't be matched." +
                 (expense.matched_transaction_id ? " Its bank match will be removed. Undo puts it back." : "")}
           </p>
         ) : null}
 
         <VatLinesEditor lines={lines} setLines={setLines} busy={busy} />
+        <label className="check-line">
+          <input
+            type="checkbox"
+            checked={form.vatNotShown}
+            onChange={(e) => setForm((f) => ({ ...f, vatNotShown: e.target.checked }))}
+          />
+          VAT not shown on the receipt. It stays unknown, not 0%, and isn't flagged as missing.
+        </label>
         {vatMismatch ? (
           <p className="vat-lines-hint" style={{ color: "var(--amber, #b26b00)" }}>
             The VAT lines add up to {money(linesTotal)} but the amount paid is {money(amountNum)} —

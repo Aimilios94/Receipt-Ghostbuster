@@ -19,6 +19,11 @@ from typing import Any
 from rapidfuzz import fuzz
 
 
+# Expenses paid in ways that never appear as a card line on the statement: cash
+# (D3) and a bank transfer, which the statement shows as a transfer, not a purchase.
+NOT_MATCHED_SOURCES = ("cash", "bank")
+
+
 def _as_date(value: Any) -> date:
     if isinstance(value, date):
         return value
@@ -88,7 +93,7 @@ def reconcile(
     candidates: list[dict[str, Any]] = []
 
     for exp in expenses:
-        if exp.get("source") == "cash":
+        if exp.get("source") in NOT_MATCHED_SOURCES:
             continue
         if exp.get("reconciled"):
             continue
@@ -160,7 +165,7 @@ def find_amount_discrepancies(
     out: list[dict[str, Any]] = []
     used_txn_ids: set = set()
     for exp in expenses:
-        if exp.get("source") == "cash" or exp.get("reconciled") or exp.get("no_bank_match"):
+        if exp.get("source") in NOT_MATCHED_SOURCES or exp.get("reconciled") or exp.get("no_bank_match"):
             continue  # cash and other cards never match the statement
         exp_amount = abs(float(exp["amount"]))
         exp_date = _as_date(exp["expense_date"])

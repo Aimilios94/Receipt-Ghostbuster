@@ -79,3 +79,12 @@ def test_photo_names_prefer_the_saved_name_then_the_newest_trace():
         {"meta": {"filename": "no-expense.jpg"}},
     ]
     assert expense_edit.photo_names(expenses, traces) == {"a": "saved.jpg", "b": "new.jpg"}
+
+
+def test_bank_transfer_is_stored_as_bank_and_drops_a_match():
+    patch, free = expense_edit.payment_change({"source": "cash"}, "bank_transfer")
+    assert patch == {"source": "bank", "reconciled": False, "matched_transaction_id": None, "no_bank_match": False}
+    assert free is None
+    patch, free = expense_edit.payment_change({"source": "card", "matched_transaction_id": "t1"}, "bank_transfer")
+    assert patch["source"] == "bank" and free == "t1"
+    assert expense_edit.paid_with({"source": "bank"}) == "bank_transfer"

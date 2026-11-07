@@ -84,7 +84,7 @@ export default function Ledger() {
       if (status === "reconciled" && !(e.reconciled || e.matched_transaction_id)) return false;
       // Unmatched = payments on your bank card still waiting for a bank line. Cash and
       // other cards never match the statement, so they're left out.
-      if (status === "unmatched" && (e.reconciled || e.matched_transaction_id || e.source === "cash" || e.no_bank_match))
+      if (status === "unmatched" && (e.reconciled || e.matched_transaction_id || e.source === "cash" || e.source === "bank" || e.no_bank_match))
         return false;
       if (status === "pending_review" && e.status !== "pending_review") return false;
       if (status === "duplicates" && !duplicateIds.has(e.id)) return false;

@@ -31,7 +31,7 @@ def _build_state(user_id: str) -> dict:
     expenses = repo.list_expenses(user_id)
     bank = repo.list_bank_transactions(user_id)
     bank_by_id = {t["id"]: t for t in bank}
-    non_cash = [e for e in expenses if e.get("source") != "cash"]
+    non_cash = [e for e in expenses if e.get("source") not in reconciliation.NOT_MATCHED_SOURCES]
 
     pairs = []
     for e in non_cash:
@@ -126,8 +126,8 @@ def manual_match(
     if not body.transaction_id:
         raise HTTPException(status_code=400, detail="transaction_id is required.")
     exp = _owned_expense(user_id, body.expense_id)
-    if exp.get("source") == "cash":
-        raise HTTPException(status_code=400, detail="Cash expenses aren't reconciled.")
+    if exp.get("source") in reconciliation.NOT_MATCHED_SOURCES:
+        raise HTTPException(status_code=400, detail="Cash and bank transfers aren't matched to card lines.")
     # Free the transaction from any prior expense, and the expense from any prior txn.
     if exp.get("matched_transaction_id") and exp["matched_transaction_id"] != body.transaction_id:
         repo.update_bank_transaction(

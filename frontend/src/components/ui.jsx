@@ -70,11 +70,12 @@ export function StatusBadge({ expense }) {
     return <Badge tone="amber" icon={<Icon.warn size={12} />}>Needs review</Badge>;
   if (source === "cash")
     return <Badge tone="muted" icon={<Icon.receipt size={12} />}>Cash, not matched</Badge>;
+  if (source === "bank") return <Badge tone="muted">Bank transfer, not matched</Badge>;
   if (expense.no_bank_match && !(reconciled || matched_transaction_id))
     return <Badge tone="muted">Other card, not matched</Badge>;
   if (reconciled || matched_transaction_id)
     return <Badge tone="green" icon={<Icon.check size={12} />}>Reconciled</Badge>;
-  if (vat_amount == null)
+  if (vat_amount == null && !expense.vat_not_shown)
     return <Badge tone="amber" icon={<Icon.warn size={12} />}>VAT missing</Badge>;
   return <Badge tone="muted">Unmatched</Badge>;
 }

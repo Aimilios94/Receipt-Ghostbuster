@@ -187,6 +187,8 @@ def _edit_patch(user_id: str, expense_id: str, body: ExpenseCreate) -> dict:
         # wins; the VAT lines only supply the VAT split. They should reconcile, but a
         # reliable total must not be overwritten by a line-sum that missed a rate.
         patch["amount"] = body.amount or breakdown["gross"]
+        if vat_known:
+            patch["vat_not_shown"] = False  # a rate is known now
         if not vat_known:
             patch["vat_amount"] = None
             patch["vat_rate"] = None
@@ -208,6 +210,9 @@ def _edit_patch(user_id: str, expense_id: str, body: ExpenseCreate) -> dict:
             vat_info = vat.resolve_vat(amount, body.vat_rate, body.vat_amount)
             patch["vat_amount"] = vat_info["vat_amount"]
             patch["vat_rate"] = vat_info["vat_rate"]
+    # "VAT not shown on the receipt": recorded only while no VAT is known.
+    if body.vat_not_shown is not None and patch.get("vat_not_shown") is not False:
+        patch["vat_not_shown"] = bool(body.vat_not_shown)
     return patch
 
 

@@ -23,7 +23,7 @@ def unmatched_expenses(
     return [
         e
         for e in expenses
-        if e.get("source") != "cash"
+        if e.get("source") not in reconciliation.NOT_MATCHED_SOURCES
         and not e.get("reconciled")
         and not e.get("no_bank_match")
         and e.get("id") not in exclude_ids
@@ -98,6 +98,7 @@ def missing_vat(expenses: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if e.get("input_method") == "receipt"
         and e.get("vat_amount") is None
         and e.get("vat_rate") is None
+        and not e.get("vat_not_shown")  # the user recorded that the receipt prints none
     ]
 
 

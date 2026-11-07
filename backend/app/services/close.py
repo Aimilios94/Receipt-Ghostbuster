@@ -68,7 +68,7 @@ def monthly_close(
 
         # Cash is never expected to reconcile, and a "No bank line" row has left the
         # reconciliation cycle (D28), so neither counts as unreconciled.
-        if e.get("source") != "cash":
+        if e.get("source") not in ("cash", "bank"):  # cash and transfers never match a card line
             if e.get("reconciled"):
                 reconciled_count += 1
             elif e.get("no_bank_match"):

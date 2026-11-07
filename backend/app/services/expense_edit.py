@@ -10,12 +10,14 @@ from typing import Any
 # How an expense was paid, as the Edit form offers it. "other_card" is a card that
 # isn't on the imported bank statement: stored as source "card" with the D28
 # no_bank_match flag, so it never waits for a bank line.
-PAID_WITH = ("card", "other_card", "cash")
+PAID_WITH = ("card", "other_card", "cash", "bank_transfer")
 
 
 def paid_with(expense: dict[str, Any]) -> str:
     if expense.get("source") == "cash":
         return "cash"
+    if expense.get("source") == "bank":
+        return "bank_transfer"
     return "other_card" if expense.get("no_bank_match") else "card"
 
 
@@ -33,7 +35,7 @@ def payment_change(current: dict[str, Any], new: str) -> tuple[dict[str, Any], s
     if new == "card":
         return {"source": "card", "no_bank_match": False}, None
     patch = {
-        "source": "cash" if new == "cash" else "card",
+        "source": {"cash": "cash", "bank_transfer": "bank"}.get(new, "card"),
         "reconciled": False,
         "matched_transaction_id": None,
         "no_bank_match": new == "other_card",
@@ -46,7 +48,7 @@ _EXPENSE_COLS = (
     "id", "source", "input_method", "vendor", "amount", "currency", "expense_date",
     "category", "vat_amount", "vat_rate", "note", "receipt_image_url", "confidence",
     "status", "reconciled", "matched_transaction_id", "raw_extraction", "created_at",
-    "no_bank_match", "accepted_diff",
+    "no_bank_match", "accepted_diff", "vat_not_shown",
 )
 _LINE_COLS = ("description", "quantity", "unit_price", "amount", "vat_rate", "vat_amount", "position")
 

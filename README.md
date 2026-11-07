@@ -78,7 +78,7 @@ Five separate systems, each answering a different question. Figures are as of 20
 2. **Model matrix: which model should read?** The same pipeline and scoring across models: nine on the development set, seven on the test set. [Development](backend/eval/MODELS.md), [test](backend/eval/test/MODELS.md)
 3. **Guardrail metrics: does the gate catch bad reads?** Over-review and false auto-posts, reported below. [RESULTS.md](backend/eval/RESULTS.md#guardrail-effectiveness)
 4. **Ask eval: does the chatbot pick the right calculation?** Tool choice 22/22, answers 22/22, refusals 5/5, on a committed synthetic ledger (2026-11-06). A calibrated judge scored the wording 21/22 faithful. It flagged an answer saying the expenses are "shown in the list below", because it sees calculation results and not the cards on screen. The app does attach that list, so this looks like a false alarm, and the figure stays as measured. [RESULTS.md](backend/eval/chatbot/RESULTS.md), [CALIBRATION.md](backend/eval/chatbot/CALIBRATION.md)
-5. **Regression gate and tests: did a change break it?** CI runs 521 backend tests plus offline eval checks, and the frontend build. A test also fails if this README's figures stop matching the results files. [What the gate can't see](backend/eval/README.md#accuracy-regression-gate-ci--local)
+5. **Regression gate and tests: did a change break it?** CI runs 525 backend tests plus offline eval checks, and the frontend build. A test also fails if this README's figures stop matching the results files. [What the gate can't see](backend/eval/README.md#accuracy-regression-gate-ci--local)
 
 ![Model & Evals page](docs/screenshots/model-evals.png)
 *The in-app Model & Evals page, from an earlier build.*
