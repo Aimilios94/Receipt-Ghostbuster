@@ -64,8 +64,9 @@ def monthly_close(
             if e.get("vat_amount"):
                 vat_owed += Decimal(str(e["vat_amount"]))
 
-        # Cash is never expected to reconcile; don't count it as unreconciled.
-        if e.get("source") != "cash" and not e.get("reconciled"):
+        # Cash is never expected to reconcile, and a "No bank line" row has left the
+        # reconciliation cycle (D28), so neither counts as unreconciled.
+        if e.get("source") != "cash" and not e.get("reconciled") and not e.get("no_bank_match"):
             unreconciled += 1
 
     # Cash-flow view from the bank statement.

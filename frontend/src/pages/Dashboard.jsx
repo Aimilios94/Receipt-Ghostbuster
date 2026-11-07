@@ -173,9 +173,10 @@ export default function Dashboard() {
     [expenses, month]
   );
 
-  // Card/bank expenses that are expected to reconcile (cash is excluded by design).
+  // Card/bank expenses that are expected to reconcile. Cash is excluded by design, and
+  // a "No bank line" row has left the reconciliation cycle (D28).
   const reconcilable = useMemo(
-    () => ledger.filter((e) => e.source !== "cash"),
+    () => ledger.filter((e) => e.source !== "cash" && !e.no_bank_match),
     [ledger]
   );
 
@@ -218,7 +219,7 @@ export default function Dashboard() {
     reconciled: () =>
       setDrill({
         title: `Reconciliation · ${ml}`,
-        subtitle: "Card expenses matched against your bank statement. Cash is left out.",
+        subtitle: "Card expenses matched against your bank statement. Cash and \"No bank line\" rows are left out.",
         expenses: reconcilable,
         mode: "reconciled",
       }),

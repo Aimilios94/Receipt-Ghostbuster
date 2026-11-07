@@ -39,6 +39,18 @@ def test_cash_not_counted_unreconciled():
     assert out["unreconciled_count"] == 1
 
 
+def test_no_bank_line_not_counted_unreconciled():
+    # D28: a card row marked "No bank line" has left the reconciliation cycle.
+    rows = [
+        {"amount": 24.00, "category": "Dining & Cafes", "source": "card", "expense_date": "2026-09-10", "reconciled": False, "no_bank_match": True},
+        {"amount": 12.00, "category": "Dining & Cafes", "source": "card", "expense_date": "2026-09-11", "reconciled": False, "no_bank_match": False},
+    ]
+    out = close.monthly_close(rows, "2026-09")
+    assert out["unreconciled_count"] == 1          # only the row still expected to match
+    assert out["total_out"] == 36.00               # it still counts as money spent
+    assert out["expense_count"] == 2
+
+
 BANK = [
     {"txn_date": "2026-09-01", "amount": 2500.00},   # salary in
     {"txn_date": "2026-09-02", "amount": -43.20},     # spend out

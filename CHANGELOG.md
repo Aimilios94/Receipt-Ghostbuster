@@ -3,6 +3,14 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.11] — 2026-11-07
+
+**A "No bank line" row no longer holds a month back.** Found while preparing the first timed close ([D28](DECISIONS.md)). No prompt, model or scored figure changed.
+
+### Fixed
+- **Monthly close** counted a card expense marked "No bank line" as unreconciled, so the month could never read as ready while one existed. The exceptions list already left these rows out.
+- **The dashboard's "Reconciled X of Y" tile and its drill-down** counted those rows too. They now leave them out, and the rows still count in spending and VAT.
+
 ## [0.5.10] — 2026-11-07
 
 **The month stays where you put it, and Edit edits.** From the first real upload of a month's receipts (`[R12]`, [D54](DECISIONS.md)). No prompt, model or scored figure changed.
