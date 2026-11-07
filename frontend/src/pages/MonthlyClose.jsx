@@ -17,6 +17,18 @@ export default function MonthlyClose() {
   });
 
   const ready = close && close.unreconciled_count === 0;
+  const matched = close?.reconciled_count ?? 0;
+  const marked = close?.no_bank_line_count ?? 0;
+  const plural = (n, word) => `${n} card expense${n === 1 ? "" : "s"} ${word}`;
+  // "Ready" means nothing is left to reconcile. When some rows are only marked
+  // "No bank line", say so instead of claiming everything matched the bank.
+  const readyText = !close
+    ? ""
+    : matched + marked === 0
+    ? "No card expenses to reconcile. This month is ready to close."
+    : marked
+    ? `${plural(matched, "matched to the bank")} and ${marked} marked "No bank line", so nothing is left to reconcile. Ready to close.`
+    : "Every card expense is matched to the bank. This month is ready to close.";
 
   return (
     <div className="rise">
@@ -85,7 +97,7 @@ export default function MonthlyClose() {
                 <div className="card-title">Close {monthLabel(month)}</div>
                 <div className="card-desc">
                   {ready
-                    ? "Everything reconciles. This month is ready to close."
+                    ? readyText
                     : `${close.unreconciled_count} card expense${close.unreconciled_count > 1 ? "s" : ""} still unreconciled — resolve them first for a clean close.`}
                 </div>
               </div>
@@ -96,7 +108,7 @@ export default function MonthlyClose() {
               onClick={() =>
                 toast(
                   ready
-                    ? `${monthLabel(month)} reconciles · ${money(close.total_out)} out. Close records aren't saved yet.`
+                    ? `${monthLabel(month)}: ${matched} matched${marked ? `, ${marked} marked No bank line` : ""} · ${money(close.total_out)} out. Close records aren't saved yet.`
                     : "Resolve open exceptions before closing",
                   ready ? "ok" : "err"
                 )

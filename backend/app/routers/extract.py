@@ -84,7 +84,8 @@ async def rescan_receipt(
         "vat_amount": fields["vat_amount"],
         "vat_rate": fields["vat_rate"],
         "confidence": round(result.confidence, 3),
-        "raw_extraction": result.model_dump(mode="json"),
+        # The photo's file name, so the expense can be found by it later.
+        "raw_extraction": {**result.model_dump(mode="json"), "source_filename": file.filename},
     }
     if image_url:
         row["receipt_image_url"] = image_url
@@ -94,7 +95,7 @@ async def rescan_receipt(
     except Exception:  # noqa: BLE001 - line items are additive, never fatal
         pass
 
-    _record_trace(user_id, trace, source="rescan", expense_id=expense_id,
+    _record_trace(user_id, trace, source="rescan", expense_id=expense_id, filename=file.filename,
                   gated_to="rescan", readable=True, confidence=round(result.confidence, 3))
     return {"expense": updated, "readable": True}
 
@@ -343,7 +344,8 @@ async def extract(
         "status": status,
         "reconciled": False,
         "receipt_image_url": image_url,
-        "raw_extraction": result.model_dump(mode="json"),
+        # The photo's file name, so the expense can be found by it later.
+        "raw_extraction": {**result.model_dump(mode="json"), "source_filename": file.filename},
     }
     created = repo.insert_expense(user_id, row)
 

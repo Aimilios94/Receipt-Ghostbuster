@@ -2611,3 +2611,76 @@ button.ask-rank-row:hover .ask-rank-label {
   padding: 4px 8px;
   text-align: right;
 }
+
+/* ===================== Expense search (dashboard) ===================== */
+.exp-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 240px;
+  color: var(--text-dim);
+}
+.exp-search > svg {
+  position: absolute;
+  left: 11px;
+  pointer-events: none;
+}
+.exp-search-input {
+  padding-left: 32px;
+}
+.exp-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: min(440px, calc(100vw - 32px));
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.exp-search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.exp-search-row:hover,
+.exp-search-row:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+.exp-search-vendor {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exp-search-row .num {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+}
+.exp-search-meta {
+  grid-column: 1;
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exp-search-empty {
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}

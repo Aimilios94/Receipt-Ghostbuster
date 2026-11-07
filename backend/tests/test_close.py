@@ -47,6 +47,8 @@ def test_no_bank_line_not_counted_unreconciled():
     ]
     out = close.monthly_close(rows, "2026-09")
     assert out["unreconciled_count"] == 1          # only the row still expected to match
+    assert out["no_bank_line_count"] == 1
+    assert out["reconciled_count"] == 0
     assert out["total_out"] == 36.00               # it still counts as money spent
     assert out["expense_count"] == 2
 

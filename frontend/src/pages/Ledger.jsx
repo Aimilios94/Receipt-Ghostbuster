@@ -11,6 +11,7 @@ import DrillModal from "../components/DrillModal.jsx";
 import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
 import BreakdownModal from "../components/BreakdownModal.jsx";
 import { useToast } from "../components/toast.jsx";
+import { useDeleteWithUndo } from "../lib/undo.jsx";
 
 const SOURCE_FILTERS = [
   { key: "all", label: "All" },
@@ -43,6 +44,7 @@ export default function Ledger() {
   const [busyId, setBusyId] = useState(null);
   const qc = useQueryClient();
   const toast = useToast();
+  const removeWithUndo = useDeleteWithUndo();
 
   const { data, isLoading, error } = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
@@ -124,15 +126,10 @@ export default function Ledger() {
   };
 
   const deleteOne = async (exp) => {
-    if (!window.confirm(`Delete "${exp.vendor || "this entry"}" (${money(exp.amount)})? This can't be undone.`))
-      return;
+    if (!window.confirm(`Delete "${exp.vendor || "this entry"}" (${money(exp.amount)})?`)) return;
     setBusyId(exp.id);
     try {
-      await api.deleteExpense(exp.id);
-      ["expenses", "exceptions", "close", "review-queue", "line-items"].forEach((k) =>
-        qc.invalidateQueries({ queryKey: [k] })
-      );
-      toast("Entry deleted");
+      await removeWithUndo(exp);
     } catch (e) {
       toast(e.message, "err");
     } finally {

@@ -22,8 +22,10 @@ import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import ImportBankModal from "../components/ImportBankModal.jsx";
 import DrillModal from "../components/DrillModal.jsx";
 import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
+import ExpenseSearch from "../components/ExpenseSearch.jsx";
 import StatementDetailModal from "../components/StatementDetailModal.jsx";
 import { useToast } from "../components/toast.jsx";
+import { useDeleteWithUndo } from "../lib/undo.jsx";
 
 // Recency of the expense (or bank txn) behind an exception — newest first.
 function excRecency(x) {
@@ -44,6 +46,7 @@ export default function Dashboard() {
   const [busyId, setBusyId] = useState(null);
   const qc = useQueryClient();
   const toast = useToast();
+  const removeWithUndo = useDeleteWithUndo();
   const expenseToast = useExpenseToast();
   const navigate = useNavigate();
 
@@ -138,14 +141,9 @@ export default function Dashboard() {
     markSeen(exp?.id);
   };
   const deleteExc = async (exp) => {
-    if (!window.confirm(`Delete "${exp.vendor || "this entry"}" (${money(exp.amount)})? This can't be undone.`))
-      return;
+    if (!window.confirm(`Delete "${exp.vendor || "this entry"}" (${money(exp.amount)})?`)) return;
     try {
-      await api.deleteExpense(exp.id);
-      ["expenses", "exceptions", "close", "review-queue", "line-items"].forEach((k) =>
-        qc.invalidateQueries({ queryKey: [k] })
-      );
-      toast("Entry deleted");
+      await removeWithUndo(exp);
     } catch (e) {
       toast(e.message, "err");
     }
@@ -184,11 +182,15 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     const cashCount = ledger.filter((e) => e.source === "cash").length;
     const reconciled = reconcilable.filter((e) => e.reconciled || e.matched_transaction_id);
+    const noBankLine = ledger.filter(
+      (e) => e.source !== "cash" && e.no_bank_match && !(e.reconciled || e.matched_transaction_id)
+    ).length;
     const rates = [...new Set(ledger.map((e) => e.vat_rate).filter(Boolean))].sort((a, b) => b - a);
     return {
       cashCount,
       eligible: reconcilable.length,
       reconciled: reconciled.length,
+      noBankLine,
       rates,
     };
   }, [ledger, reconcilable]);
@@ -260,11 +262,7 @@ export default function Dashboard() {
   const discardReview = async (exp) => {
     setBusyId(exp.id);
     try {
-      await api.deleteExpense(exp.id);
-      ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
-        qc.invalidateQueries({ queryKey: [k] })
-      );
-      toast("Discarded");
+      await removeWithUndo(exp, { message: `Discarded ${exp.vendor || "receipt"} ${money(exp.amount)}` });
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -273,14 +271,10 @@ export default function Dashboard() {
   };
 
   const removeExpense = async (exp) => {
-    if (!window.confirm(`Delete ${exp.vendor || "this expense"}? This can't be undone.`)) return;
+    if (!window.confirm(`Delete ${exp.vendor || "this expense"}?`)) return;
     setBusyId(exp.id);
     try {
-      await api.deleteExpense(exp.id);
-      ["review-queue", "expenses", "exceptions", "close", "subscriptions"].forEach((k) =>
-        qc.invalidateQueries({ queryKey: [k] })
-      );
-      toast(`Deleted ${exp.vendor || "expense"}`);
+      await removeWithUndo(exp);
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -307,6 +301,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="head-actions">
+          <ExpenseSearch expenses={expenses} onOpen={setExcDetail} />
           <MonthPicker />
           <Button icon={<Icon.upload size={15} />} onClick={() => setModal("import")}>
             Import bank statement
@@ -347,7 +342,12 @@ export default function Dashboard() {
           <div className="progress">
             <span style={{ width: `${pct(stats.reconciled, stats.eligible) || 0}%` }} />
           </div>
-          <div className="stat-foot">Card expenses matched to your bank. Cash is left out.</div>
+          <div className="stat-foot">
+            Card expenses matched to your bank. Cash
+            {stats.noBankLine
+              ? ` and ${stats.noBankLine} marked "No bank line" are left out.`
+              : " is left out."}
+          </div>
         </Card>
       </div>
 

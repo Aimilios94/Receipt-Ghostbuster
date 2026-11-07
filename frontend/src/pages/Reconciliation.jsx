@@ -13,6 +13,7 @@ import StatementDetailModal from "../components/StatementDetailModal.jsx";
 import ReconcileResultModal from "../components/ReconcileResultModal.jsx";
 import BreakdownModal from "../components/BreakdownModal.jsx";
 import { useToast } from "../components/toast.jsx";
+import { useDeleteWithUndo } from "../lib/undo.jsx";
 import { useSeen } from "../lib/useSeen.js";
 
 // unmatched_bank is intentionally not here — those are collapsed into one row per
@@ -27,6 +28,7 @@ const GROUPS = [
 export default function Reconciliation() {
   const qc = useQueryClient();
   const toast = useToast();
+  const removeWithUndo = useDeleteWithUndo();
   const navigate = useNavigate();
   const [running, setRunning] = useState(false);
   const [reconResult, setReconResult] = useState(null);
@@ -69,13 +71,9 @@ export default function Reconciliation() {
   const total = all.length + alertStatements.length;
 
   const deleteExc = async (exp) => {
-    if (!window.confirm(`Delete "${exp.vendor || "this entry"}"? This can't be undone.`)) return;
+    if (!window.confirm(`Delete "${exp.vendor || "this entry"}"?`)) return;
     try {
-      await api.deleteExpense(exp.id);
-      ["exceptions", "expenses", "close", "review-queue", "line-items"].forEach((k) =>
-        qc.invalidateQueries({ queryKey: [k] })
-      );
-      toast("Entry deleted");
+      await removeWithUndo(exp);
     } catch (e) {
       toast(e.message, "err");
     }

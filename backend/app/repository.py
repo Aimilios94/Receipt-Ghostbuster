@@ -104,6 +104,22 @@ def list_expenses(user_id: str, *, status: str | None = None) -> list[dict[str, 
     return q.order("expense_date", desc=True).execute().data or []
 
 
+def get_expense(user_id: str, expense_id: str) -> dict[str, Any] | None:
+    data = (
+        get_supabase().table("expenses").select("*").eq("user_id", user_id).eq("id", expense_id)
+        .execute().data
+    )
+    return data[0] if data else None
+
+
+def get_bank_transaction(user_id: str, txn_id: str) -> dict[str, Any] | None:
+    data = (
+        get_supabase().table("bank_transactions").select("*").eq("user_id", user_id).eq("id", txn_id)
+        .execute().data
+    )
+    return data[0] if data else None
+
+
 def list_bank_transactions(user_id: str) -> list[dict[str, Any]]:
     return (
         get_supabase()

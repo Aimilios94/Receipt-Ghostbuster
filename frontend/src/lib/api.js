@@ -75,7 +75,11 @@ export const api = {
   // Change values by hand; the expense keeps its status (unlike confirmExpense).
   updateExpense: (id, patch) =>
     request(`/expenses/${id}`, { method: "PATCH", body: patch }).then((r) => r.expense),
+  // Returns a snapshot that restoreExpense takes back to undo the delete.
   deleteExpense: (id) => request(`/expenses/${id}`, { method: "DELETE" }),
+  restoreExpense: (snapshot) => request("/expenses/restore", { method: "POST", body: snapshot }),
+  // expense id -> the photo's file name, for search.
+  photoNames: () => request("/expenses/photo-names").then((r) => r.photo_names),
   setExpenseStatus: (id, status) =>
     request(`/expenses/${id}/status`, { method: "POST", body: { status } }).then((r) => r.expense),
   setExpenseCategory: (id, category) =>

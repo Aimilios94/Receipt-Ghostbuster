@@ -7,6 +7,7 @@ import { Icon } from "../components/icons.jsx";
 import { ReviewItem } from "../components/sections.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import { useToast } from "../components/toast.jsx";
+import { useDeleteWithUndo } from "../lib/undo.jsx";
 import { useExpenseToast } from "../lib/month.jsx";
 
 // Confirmation message after posting — states what landed on the ledger, so the
@@ -22,6 +23,7 @@ export function postedMessage(posted, exp, patch) {
 export default function ReviewQueue() {
   const qc = useQueryClient();
   const toast = useToast();
+  const removeWithUndo = useDeleteWithUndo();
   const expenseToast = useExpenseToast();
   const [busyId, setBusyId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -76,11 +78,7 @@ export default function ReviewQueue() {
   const discard = async (exp) => {
     setBusyId(exp.id);
     try {
-      await api.deleteExpense(exp.id);
-      ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
-        qc.invalidateQueries({ queryKey: [k] })
-      );
-      toast("Discarded");
+      await removeWithUndo(exp, { message: `Discarded ${exp.vendor || "receipt"} ${money(exp.amount)}` });
     } catch (e) {
       toast(e.message, "err");
     } finally {

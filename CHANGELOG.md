@@ -3,6 +3,20 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.12] — 2026-11-07
+
+**Search, Cash or Card in Edit, and Undo after a change.** Asked for while preparing the first timed close. No prompt, model or scored figure changed.
+
+### Added
+- **A search bar on the dashboard** finds any expense in any month by vendor or by the name of the photo it was read from. Uploads now save the photo's file name, and older receipts are found through the read log where it recorded one.
+- **Paid with: Card or Cash** in every Edit form, including the review queue. Moving a matched card expense to cash removes its bank match, because cash isn't reconciled.
+- **Undo in Reconciliation results** for Match, Unmatch, No bank line, No receipt and Not a match. It only undoes an action while it can still be undone as it was.
+- **Undo after an edit,** which also puts back a bank match that a change to cash removed, if that bank line is still free.
+- **Undo after a delete,** everywhere an expense can be deleted. `DELETE /expenses/{id}` returns a snapshot, and `POST /expenses/restore` puts the row back with its id, VAT lines and bank match.
+
+### Changed
+- **The close page says what "ready" rests on.** When rows are only marked "No bank line", it says how many, instead of "Everything reconciles". The dashboard's Reconciled tile says the same.
+
 ## [0.5.11] — 2026-11-07
 
 **A "No bank line" row no longer holds a month back.** Found while preparing the first timed close ([D28](DECISIONS.md)). No prompt, model or scored figure changed.

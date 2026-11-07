@@ -60,8 +60,11 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   const [txnDetail, setTxnDetail] = useState(null);
   const [view, setView] = useState("all");
   const [dismissed, setDismissed] = useState(new Set()); // "expId::txnId" suggestions rejected as "not a match"
-  const [unmatched, setUnmatched] = useState([]); // pairs unmatched in this popup, newest last
+  const [history, setHistory] = useState([]); // actions taken in this popup, newest last, for Undo
   const toast = useToast();
+
+  const record = (entry) =>
+    setHistory((h) => [...h, { ...entry, key: Math.random().toString(36).slice(2) }]);
 
   const dismiss = (expId, txnId) =>
     setDismissed((prev) => new Set(prev).add(`${expId}::${txnId}`));
@@ -86,8 +89,11 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
 
   const match = async (expId, txnId) => {
     setBusy(expId);
+    const exp = unmatchedExp.find((x) => x.id === expId);
+    const txn = unmatchedBank.find((t) => t.id === txnId);
     try {
       apply(await api.matchExpense(expId, txnId));
+      if (exp && txn) record({ kind: "match", exp, txn });
       setPickFor(null);
       toast("Matched to the bank transaction");
     } catch (e) {
@@ -101,7 +107,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     setBusy(pair.expense.id);
     try {
       apply(await api.unmatchExpense(pair.expense.id, pair.transaction.id));
-      setUnmatched((prev) => [...prev, pair]);
+      record({ kind: "unmatch", exp: pair.expense, txn: pair.transaction });
       toast("Unmatched");
     } catch (e) {
       toast(e.message, "err");
@@ -110,22 +116,38 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     }
   };
 
-  // Only offer Undo while both sides are still free, so it can't double-link a bank
-  // line the user has since matched to something else.
-  const undoable = unmatched.filter(
-    (p) =>
-      unmatchedExp.some((e) => e.id === p.expense.id) &&
-      unmatchedBank.some((t) => t.id === p.transaction.id)
-  );
-  const lastUnmatched = undoable[undoable.length - 1];
+  // Undo the latest action that can still be undone as it was. An Unmatch is only
+  // undone while both sides are free, so it can't double-link a bank line the user
+  // has since matched to something else; the others check the same way.
+  const isMatched = (expId, txnId) => pairs.some((p) => p.expense.id === expId && p.transaction.id === txnId);
+  const expOpen = (id) => unmatchedExp.some((e) => e.id === id);
+  const txnOpen = (id) => unmatchedBank.some((t) => t.id === id);
+  const canUndo = (h) => {
+    if (h.kind === "unmatch") return expOpen(h.exp.id) && txnOpen(h.txn.id);
+    if (h.kind === "match") return isMatched(h.exp.id, h.txn.id);
+    if (h.kind === "nobank") return !expOpen(h.exp.id) && !pairs.some((p) => p.expense.id === h.exp.id);
+    if (h.kind === "noreceipt") return !txnOpen(h.txn.id) && !pairs.some((p) => p.transaction.id === h.txn.id);
+    if (h.kind === "dismiss") return dismissed.has(`${h.exp.id}::${h.txn.id}`);
+    return false;
+  };
+  const last = [...history].reverse().find(canUndo);
 
-  const undoUnmatch = async () => {
-    const pair = lastUnmatched;
-    setBusy(pair.expense.id);
+  const undoLast = async () => {
+    const h = last;
+    setBusy("undo");
     try {
-      apply(await api.matchExpense(pair.expense.id, pair.transaction.id));
-      setUnmatched((prev) => prev.filter((p) => p !== pair));
-      toast("Match restored");
+      if (h.kind === "unmatch") apply(await api.matchExpense(h.exp.id, h.txn.id));
+      else if (h.kind === "match") apply(await api.unmatchExpense(h.exp.id, h.txn.id));
+      else if (h.kind === "nobank") apply(await api.markNoBankMatch(h.exp.id, false));
+      else if (h.kind === "noreceipt") apply(await api.markNoReceipt(h.txn.id, false));
+      else if (h.kind === "dismiss")
+        setDismissed((prev) => {
+          const next = new Set(prev);
+          next.delete(`${h.exp.id}::${h.txn.id}`);
+          return next;
+        });
+      setHistory((list) => list.filter((x) => x.key !== h.key));
+      toast("Undone");
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -133,12 +155,33 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     }
   };
 
+  const amt = (x) => money(Math.abs(Number(x)));
+  const describe = (h) => {
+    const ev = (
+      <>
+        <b>{h.exp?.vendor || "Expense"}</b> <span className="num">{amt(h.exp?.amount)}</span>
+      </>
+    );
+    const tv = (
+      <>
+        <b>{h.txn?.description || "Bank payment"}</b> <span className="num">{amt(h.txn?.amount)}</span>
+      </>
+    );
+    if (h.kind === "unmatch") return <>Unmatched {ev} from {tv}</>;
+    if (h.kind === "match") return <>Matched {ev} to {tv}</>;
+    if (h.kind === "nobank") return <>Marked {ev} as No bank line</>;
+    if (h.kind === "noreceipt") return <>Marked {tv} as No receipt</>;
+    return <>Hid {tv} as not a match for {ev}</>;
+  };
+
   // Acknowledge a bank payment that will never have a receipt (an online payment) —
   // it leaves the reconciliation cycle.
   const markNoReceipt = async (txnId) => {
     setBusy(txnId);
+    const txn = unmatchedBank.find((t) => t.id === txnId);
     try {
       apply(await api.markNoReceipt(txnId, true));
+      if (txn) record({ kind: "noreceipt", txn });
       toast("Marked as an online payment (no receipt)");
     } catch (e) {
       toast(e.message, "err");
@@ -151,8 +194,10 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   // Unmatched list (the expense-side mirror of "No receipt").
   const noBankMatch = async (expId) => {
     setBusy(expId);
+    const exp = unmatchedExp.find((x) => x.id === expId);
     try {
       apply(await api.markNoBankMatch(expId, true));
+      if (exp) record({ kind: "nobank", exp });
       toast("Cleared — no bank line for this expense");
     } catch (e) {
       toast(e.message, "err");
@@ -194,15 +239,10 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   return (
     <Modal title="Reconciliation results" onClose={onClose} width={920}>
       <div className="modal-body">
-        {lastUnmatched ? (
+        {last ? (
           <div className="recon-undo" role="status">
-            <span className="recon-undo-text">
-              Unmatched <b>{lastUnmatched.expense.vendor || "Expense"}</b>{" "}
-              <span className="num">{money(lastUnmatched.expense.amount)}</span> from{" "}
-              <b>{lastUnmatched.transaction.description || "Bank payment"}</b>{" "}
-              <span className="num">{money(Math.abs(Number(lastUnmatched.transaction.amount)))}</span>
-            </span>
-            <button className="btn btn-sm" disabled={busy === lastUnmatched.expense.id} onClick={undoUnmatch}>
+            <span className="recon-undo-text">{describe(last)}</span>
+            <button className="btn btn-sm" disabled={busy === "undo"} onClick={undoLast}>
               Undo
             </button>
           </div>
@@ -351,7 +391,10 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                               </button>
                               <button
                                 className="btn btn-sm btn-ghost"
-                                onClick={() => dismiss(e.id, best.t.id)}
+                                onClick={() => {
+                                  dismiss(e.id, best.t.id);
+                                  record({ kind: "dismiss", exp: e, txn: best.t });
+                                }}
                                 title="Not the same payment — keep this expense unmatched"
                               >
                                 Not a match

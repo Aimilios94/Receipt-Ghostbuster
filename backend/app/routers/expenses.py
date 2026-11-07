@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import get_current_user_id
 from ..config import Settings, get_settings
-from ..models import ExpenseCategoryUpdate, ExpenseCreate, ExpenseStatusUpdate
-from ..services import categorization, vat
+from ..models import ExpenseCategoryUpdate, ExpenseCreate, ExpenseRestore, ExpenseStatusUpdate
+from ..services import categorization, expense_edit, vat
 from .. import repository as repo
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -68,6 +68,37 @@ def all_line_items(user_id: str = Depends(get_current_user_id)) -> dict:
     return {"line_items": repo.list_all_line_items(user_id)}
 
 
+@router.get("/photo-names")
+def photo_names(user_id: str = Depends(get_current_user_id)) -> dict:
+    """expense id -> the file name of the photo it was read from, for search."""
+    expenses = repo.list_expenses(user_id)
+    traces = repo.list_llm_traces(user_id, limit=5000)
+    return {"photo_names": expense_edit.photo_names(expenses, traces)}
+
+
+@router.post("/restore")
+def restore_expense(body: ExpenseRestore, user_id: str = Depends(get_current_user_id)) -> dict:
+    """Undo a delete: put the expense back with its id, VAT lines and bank match.
+    The match comes back only if that bank line is still free."""
+    try:
+        row, lines = expense_edit.restorable(body.expense, body.line_items)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if repo.get_expense(user_id, row["id"]):
+        raise HTTPException(status_code=409, detail="That expense is already in the ledger.")
+    tid = row.get("matched_transaction_id")
+    txn = repo.get_bank_transaction(user_id, tid) if tid else None
+    relink = bool(txn) and not txn.get("matched_expense_id")
+    if tid and not relink:
+        row.update({"matched_transaction_id": None, "reconciled": False})
+    created = repo.insert_expense(user_id, row)
+    if lines:
+        repo.insert_line_items(user_id, created["id"], lines)
+    if relink:
+        repo.update_bank_transaction(user_id, tid, {"matched_expense_id": created["id"]})
+    return {"expense": created, "match_restored": relink}
+
+
 @router.get("/{expense_id}/line-items")
 def expense_line_items(
     expense_id: str,
@@ -111,6 +142,14 @@ def _edit_patch(user_id: str, expense_id: str, body: ExpenseCreate) -> dict:
     """The ledger fields a user's edit changes. Stored VAT lines are replaced only
     when the edit carries lines, so renaming a vendor leaves the VAT untouched."""
     patch: dict = {}
+    if "source" in body.model_fields_set:
+        current = repo.get_expense(user_id, expense_id)
+        if not current:
+            raise HTTPException(status_code=404, detail="Expense not found")
+        change, free_txn = expense_edit.source_change(current, body.source)
+        patch.update(change)
+        if free_txn:
+            repo.update_bank_transaction(user_id, free_txn, {"matched_expense_id": None})
     if body.amount:
         patch["amount"] = body.amount
     if body.category:
@@ -203,8 +242,12 @@ def delete_expense(
     expense_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
-    """Permanently remove an expense (e.g. discarding a bad receipt read)."""
+    """Remove an expense (e.g. discarding a bad receipt read). The response carries
+    a snapshot of the row and its VAT lines, which POST /expenses/restore takes back
+    to undo it. The receipt photo stays in storage, so nothing is lost on undo."""
+    snapshot = repo.get_expense(user_id, expense_id)
+    lines = repo.list_line_items(user_id, expense_id) if snapshot else []
     ok = repo.delete_expense(user_id, expense_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Expense not found")
-    return {"deleted": True}
+    return {"deleted": True, "snapshot": {"expense": snapshot, "line_items": lines}}

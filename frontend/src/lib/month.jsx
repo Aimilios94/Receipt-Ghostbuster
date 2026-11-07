@@ -104,10 +104,10 @@ export function useExpenseToast() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  return (expense, message, verb = "Posted") => {
+  return (expense, message, verb = "Posted", extraActions = []) => {
     const target = (expense?.expense_date || "").slice(0, 7);
     if (!target || target === month || expense?.status === "pending_review") {
-      toast(message);
+      toast(message, "ok", extraActions.length ? { duration: LONG_TOAST_MS, actions: extraActions } : {});
       return;
     }
     const onMonthPage = MONTH_PAGES.has(pathname);
@@ -118,6 +118,7 @@ export function useExpenseToast() {
       "ok",
       {
         duration: LONG_TOAST_MS,
+        actions: extraActions,
         action: {
           label: `View ${monthName(target, month)}`,
           onClick: () => {

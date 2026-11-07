@@ -297,6 +297,7 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
     amount: expense.amount ?? "",
     expense_date: (expense.expense_date || "").slice(0, 10),
     category: expense.category || "",
+    source: expense.source || "card",
   });
   const estimated = !!expense.raw_extraction?.vat_estimated;
   const [lines, setLines] = useState(() => seedLines(expense, null, estimated));
@@ -325,6 +326,7 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
     const patch = { expense_date: form.expense_date, amount: amountNum };
     if (form.vendor) patch.vendor = form.vendor;
     if (form.category) patch.category = form.category;
+    if (form.source !== (expense.source || "card")) patch.source = form.source;
     patch.line_items = validLines.map((l) => ({
       description: l.description || null,
       amount: Number(l.amount),
@@ -372,6 +374,16 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
                 {cat.name}
               </option>
             ))}
+          </select>
+        </div>
+        <div className="field" style={{ maxWidth: 130 }}>
+          <label>Paid with</label>
+          <select className="select" value={form.source} onChange={set("source")}>
+            <option value="card">Card</option>
+            <option value="cash">Cash</option>
+            {form.source !== "card" && form.source !== "cash" ? (
+              <option value={form.source}>{form.source}</option>
+            ) : null}
           </select>
         </div>
       </div>

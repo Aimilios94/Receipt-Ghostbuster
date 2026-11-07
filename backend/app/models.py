@@ -172,6 +172,12 @@ class BankNoReceiptRequest(BaseModel):
     no_receipt: bool = True
 
 
+class ExpenseRestore(BaseModel):
+    """A deleted expense's snapshot, as DELETE /expenses/{id} returned it."""
+    expense: dict
+    line_items: list[dict] = Field(default_factory=list)
+
+
 class ExpenseNoBankMatchRequest(BaseModel):
     """Acknowledge (or un-acknowledge) a card expense as having no matching bank
     line — the expense-side mirror of BankNoReceiptRequest."""

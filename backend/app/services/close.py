@@ -49,6 +49,8 @@ def monthly_close(
     by_category: dict[str, Decimal] = {}
     by_source: dict[str, Decimal] = {}
     unreconciled = 0
+    reconciled_count = 0
+    no_bank_line = 0
 
     for e in rows:
         amount = Decimal(str(e["amount"]))
@@ -66,8 +68,13 @@ def monthly_close(
 
         # Cash is never expected to reconcile, and a "No bank line" row has left the
         # reconciliation cycle (D28), so neither counts as unreconciled.
-        if e.get("source") != "cash" and not e.get("reconciled") and not e.get("no_bank_match"):
-            unreconciled += 1
+        if e.get("source") != "cash":
+            if e.get("reconciled"):
+                reconciled_count += 1
+            elif e.get("no_bank_match"):
+                no_bank_line += 1
+            else:
+                unreconciled += 1
 
     # Cash-flow view from the bank statement.
     bank_in = Decimal(0)
@@ -96,4 +103,8 @@ def monthly_close(
         "bank_out": _q(bank_out),
         "net_cash_flow": _q(bank_in - bank_out),
         "unreconciled_count": unreconciled,
+        # Card rows matched to a bank line, and card rows marked "No bank line": the
+        # close page says which, so a month of marked rows doesn't read as matched.
+        "reconciled_count": reconciled_count,
+        "no_bank_line_count": no_bank_line,
     }

@@ -8,6 +8,7 @@ import { Modal, Badge } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
+import { useDeleteWithUndo } from "../lib/undo.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 import { money, shortDate, sourceLabel, vatByRate } from "../lib/format.js";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
@@ -41,6 +42,7 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
   const [editing, setEditing] = useState(null);
   const qc = useQueryClient();
   const toast = useToast();
+  const removeWithUndo = useDeleteWithUndo();
 
   // Keep in sync if the caller passes a new list.
   useEffect(() => setRows(expenses || []), [expenses]);
@@ -53,16 +55,11 @@ export default function DrillModal({ title, subtitle, expenses, mode = "amount",
   };
 
   const remove = async (e) => {
-    if (!window.confirm(`Delete ${e.vendor || "this expense"} (${money(e.amount)})? This can't be undone.`))
-      return;
+    if (!window.confirm(`Delete ${e.vendor || "this expense"} (${money(e.amount)})?`)) return;
     setBusyId(e.id);
     try {
-      await api.deleteExpense(e.id);
-      ["expenses", "close", "exceptions", "review-queue", "subscriptions", "line-items"].forEach((k) =>
-        qc.invalidateQueries({ queryKey: [k] })
-      );
+      await removeWithUndo(e, { onRestored: (r) => r && setRows((rs) => [...rs, r]) });
       setRows((rs) => rs.filter((r) => r.id !== e.id));
-      toast(`Deleted ${e.vendor || "expense"}`);
     } catch (err) {
       toast(err.message, "err");
     } finally {
