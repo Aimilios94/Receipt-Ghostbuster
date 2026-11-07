@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Modal, MissingFlag } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
-import { missingDetails, money, paidWithLabel, shortDate } from "../lib/format.js";
+import { missingDetails, money, normText, paidWithLabel, shortDate } from "../lib/format.js";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
@@ -73,6 +74,19 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   const pairs = state.pairs || [];
   const unmatchedExp = state.unmatched_expense_list || [];
   const unmatchedBank = state.unmatched_bank_list || [];
+
+  // Search the lists by vendor, bank description or photo name. Suggestions and
+  // Undo still work on the full lists; only what's shown is filtered.
+  const [q, setQ] = useState("");
+  const { data: photoNames } = useQuery({ queryKey: ["photo-names"], queryFn: api.photoNames });
+  const needle = normText(q);
+  const hit = (...vals) => !needle || vals.some((v) => normText(v).includes(needle));
+  const shownPairs = pairs.filter((p) =>
+    hit(p.expense.vendor, p.transaction.description, photoNames?.[p.expense.id])
+  );
+  const shownExp = unmatchedExp.filter((e) => hit(e.vendor, photoNames?.[e.id]));
+  const shownBank = unmatchedBank.filter((t) => hit(t.description));
+  const emptyNote = (text) => (needle ? `Nothing here matches “${q.trim()}”.` : text);
 
   const apply = (next) => {
     setState(next);
@@ -207,9 +221,9 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
 
   const tabs = [
     { key: "all", label: "All" },
-    { key: "matched", label: "Matched", n: pairs.length },
-    { key: "unmatched", label: "Unmatched expenses", n: unmatchedExp.length },
-    { key: "bank", label: "Bank without receipt", n: unmatchedBank.length },
+    { key: "matched", label: "Matched", n: shownPairs.length },
+    { key: "unmatched", label: "Unmatched expenses", n: shownExp.length },
+    { key: "bank", label: "Bank without receipt", n: shownBank.length },
   ];
   const show = (k) => view === "all" || view === k;
 
@@ -243,15 +257,26 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
               {t.n != null ? <b className="num"> {t.n}</b> : null}
             </button>
           ))}
+          <div className="exp-search recon-search">
+            <Icon.search size={14} />
+            <input
+              className="input exp-search-input"
+              type="search"
+              placeholder="Search vendor or photo name"
+              aria-label="Search these results by vendor, bank description or photo name"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* ---- Matched pairs ---- */}
         {show("matched") ? (
           <>
             <div className="recon-head">Matched · receipt ↔ bank transaction</div>
-            {pairs.length ? (
+            {shownPairs.length ? (
               <div className="recon-list">
-                {pairs.map((p) => (
+                {shownPairs.map((p) => (
                   <div className="recon-pair" key={p.expense.id}>
                     <div className="recon-side">
                       <div className="recon-vendor">{p.expense.vendor || "Expense"}</div>
@@ -298,7 +323,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                 ))}
               </div>
             ) : (
-              <div className="recon-empty">Nothing matched automatically.</div>
+              <div className="recon-empty">{emptyNote("Nothing matched automatically.")}</div>
             )}
           </>
         ) : null}
@@ -307,11 +332,11 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
         {show("unmatched") ? (
           <>
             <div className="recon-head">
-              Card expenses with no bank match <span style={{ color: "var(--text-dim)" }}>· {unmatchedExp.length}</span>
+              Card expenses with no bank match <span style={{ color: "var(--text-dim)" }}>· {shownExp.length}</span>
             </div>
-            {unmatchedExp.length ? (
+            {shownExp.length ? (
               <div className="recon-list">
-                {unmatchedExp.map((e) => {
+                {shownExp.map((e) => {
                   const cands = candidatesFor(e);
                   const best = cands.find(plausible); // only a believable suggestion
                   const open = pickFor === e.id;
@@ -424,7 +449,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                 })}
               </div>
             ) : (
-              <div className="recon-empty">Every card expense is matched. 🎉</div>
+              <div className="recon-empty">{emptyNote("Every card expense is matched. 🎉")}</div>
             )}
           </>
         ) : null}
@@ -434,11 +459,11 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
           <>
             <div className="recon-head">
               Bank payments still waiting for a receipt{" "}
-              <span style={{ color: "var(--text-dim)" }}>· {unmatchedBank.length}</span>
+              <span style={{ color: "var(--text-dim)" }}>· {shownBank.length}</span>
             </div>
-            {unmatchedBank.length ? (
+            {shownBank.length ? (
               <div className="recon-list">
-                {unmatchedBank.map((t) => (
+                {shownBank.map((t) => (
                   <div className="recon-bankrow" key={t.id}>
                     <span className="recon-vendor">{t.description || "Bank payment"}</span>
                     <span className="recon-meta">{shortDate(t.txn_date)}</span>
@@ -456,7 +481,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                 ))}
               </div>
             ) : (
-              <div className="recon-empty">No bank payments are waiting for a receipt.</div>
+              <div className="recon-empty">{emptyNote("No bank payments are waiting for a receipt.")}</div>
             )}
           </>
         ) : null}

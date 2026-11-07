@@ -3,6 +3,11 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.15] — 2026-11-07
+
+### Added
+- **Search in Reconciliation results:** filter the matched pairs, unmatched expenses and bank lines by vendor, bank description or photo name. The tab counts follow the search. No prompt, model or scored figure changed.
+
 ## [0.5.14] — 2026-11-07
 
 **"Other card" replaces "No bank line", and a (!) says what's missing.** No prompt, model or scored figure changed.

@@ -3,15 +3,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { money, paidWithLabel, shortDate } from "../lib/format.js";
+import { money, normText, paidWithLabel, shortDate } from "../lib/format.js";
 import { Icon } from "./icons.jsx";
 
-const norm = (s) =>
-  String(s || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
+const norm = normText;
 
 export default function ExpenseSearch({ expenses, onOpen }) {
   const [q, setQ] = useState("");

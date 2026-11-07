@@ -2701,3 +2701,9 @@ button.ask-rank-row:hover .ask-rank-label {
   vertical-align: middle;
   cursor: help;
 }
+
+/* Search inside Reconciliation results, at the end of the tabs row. */
+.recon-search {
+  margin-left: auto;
+  min-width: 220px;
+}

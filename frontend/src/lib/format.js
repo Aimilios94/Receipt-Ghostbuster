@@ -51,6 +51,15 @@ export function sourceLabel(src) {
   return { card: "Card", cash: "Cash", bank: "Bank" }[src] || src || "—";
 }
 
+// Lower-case, accent-free text for search.
+export function normText(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 // How an expense was paid, as the Edit form offers it. "Other card" is a card that
 // isn't on the imported bank statement, so it never waits for a bank line.
 export function paidWithValue(e) {
