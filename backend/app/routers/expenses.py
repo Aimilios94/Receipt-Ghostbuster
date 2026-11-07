@@ -142,11 +142,11 @@ def _edit_patch(user_id: str, expense_id: str, body: ExpenseCreate) -> dict:
     """The ledger fields a user's edit changes. Stored VAT lines are replaced only
     when the edit carries lines, so renaming a vendor leaves the VAT untouched."""
     patch: dict = {}
-    if "source" in body.model_fields_set:
+    if body.paid_with is not None or "source" in body.model_fields_set:
         current = repo.get_expense(user_id, expense_id)
         if not current:
             raise HTTPException(status_code=404, detail="Expense not found")
-        change, free_txn = expense_edit.source_change(current, body.source)
+        change, free_txn = expense_edit.payment_change(current, body.paid_with or body.source)
         patch.update(change)
         if free_txn:
             repo.update_bank_transaction(user_id, free_txn, {"matched_expense_id": None})

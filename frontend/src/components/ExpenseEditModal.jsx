@@ -8,7 +8,7 @@ import { VatLinesEditor, seedLines } from "./sections.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
 import { useExpenseToast } from "../lib/month.jsx";
-import { money } from "../lib/format.js";
+import { money, paidWithValue } from "../lib/format.js";
 import { useRefreshLedger, UNDO_TOAST_MS } from "../lib/undo.jsx";
 
 // Compare VAT lines by what would be saved, so loading them doesn't count as a change.
@@ -26,7 +26,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
     amount: expense.amount ?? "",
     expense_date: (expense.expense_date || "").slice(0, 10),
     category: expense.category || "",
-    source: expense.source || "card",
+    paid: paidWithValue(expense),
   });
   const refresh = useRefreshLedger();
   const estimated = !!expense.raw_extraction?.vat_estimated;
@@ -57,7 +57,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
   const linesTotal = Math.round(validLines.reduce((s, l) => s + Number(l.amount || 0), 0) * 100) / 100;
   const amountNum = Math.round((Number(form.amount) || 0) * 100) / 100;
   const vatMismatch = validLines.length > 0 && Math.abs(linesTotal - amountNum) > 0.01;
-  const sourceChanged = form.source !== (expense.source || "card");
+  const sourceChanged = form.paid !== paidWithValue(expense);
 
   const toApiLines = (ls) =>
     ls
@@ -76,7 +76,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
       const back = { expense_date: (expense.expense_date || "").slice(0, 10), amount: Number(expense.amount) };
       if (expense.vendor) back.vendor = expense.vendor;
       if (expense.category) back.category = expense.category;
-      if (sourceChanged) back.source = expense.source || "card";
+      if (sourceChanged) back.paid_with = paidWithValue(expense);
       if (linesChanged) back.line_items = toApiLines(initialLines);
       await api.updateExpense(expense.id, back);
       let relinked = true;
@@ -104,7 +104,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
       const patch = { expense_date: form.expense_date, amount: amountNum };
       if (form.vendor) patch.vendor = form.vendor;
       if (form.category) patch.category = form.category;
-      if (sourceChanged) patch.source = form.source;
+      if (sourceChanged) patch.paid_with = form.paid;
       // Send the lines only if they changed: saving them recalculates the VAT, which
       // a vendor or date edit must not do.
       const linesChanged = linesKey(lines) !== savedLinesKey;
@@ -160,24 +160,21 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
               ))}
             </select>
           </div>
-          <div className="field" style={{ maxWidth: 130 }}>
+          <div className="field" style={{ maxWidth: 140 }}>
             <label>Paid with</label>
-            <select className="select" value={form.source} onChange={set("source")}>
+            <select className="select" value={form.paid} onChange={set("paid")}>
               <option value="card">Card</option>
+              <option value="other_card">Other card</option>
               <option value="cash">Cash</option>
-              {form.source !== "card" && form.source !== "cash" ? (
-                <option value={form.source}>{form.source}</option>
-              ) : null}
             </select>
           </div>
         </div>
         {sourceChanged ? (
           <p className="vat-lines-hint">
-            {form.source === "cash"
-              ? expense.matched_transaction_id
-                ? "Cash isn't reconciled, so this expense's bank match will be removed. Undo puts it back."
-                : "Cash isn't reconciled, so this expense leaves reconciliation."
-              : "As a card payment it joins reconciliation, unmatched until you match it to a bank line."}
+            {form.paid === "card"
+              ? "Paid with your bank card, so it waits for its line on your bank statement."
+              : `${form.paid === "cash" ? "Cash" : "Another card"} isn't on your bank statement, so it won't be matched.` +
+                (expense.matched_transaction_id ? " Its bank match will be removed. Undo puts it back." : "")}
           </p>
         ) : null}
 

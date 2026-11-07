@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { money, shortDate } from "../lib/format.js";
+import { money, paidWithLabel, shortDate } from "../lib/format.js";
 import { Icon } from "./icons.jsx";
 
 const norm = (s) =>
@@ -64,7 +64,7 @@ export default function ExpenseSearch({ expenses, onOpen }) {
               >
                 <span className="exp-search-vendor">{e.vendor || "Expense"}</span>
                 <span className="exp-search-meta">
-                  {shortDate(e.expense_date)} {(e.expense_date || "").slice(0, 4)} · {e.source}
+                  {shortDate(e.expense_date)} {(e.expense_date || "").slice(0, 4)} · {paidWithLabel(e)}
                   {e.status === "pending_review" ? " · in review" : ""}
                   {photoNames?.[e.id] ? ` · ${photoNames[e.id]}` : ""}
                 </span>

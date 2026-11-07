@@ -67,6 +67,8 @@ class ExpenseCreate(BaseModel):
     note: str | None = None
     vendor: str | None = None
     source: Literal["cash", "card"] = "cash"
+    # Edit only: how it was paid. "other_card" is a card not on the bank statement.
+    paid_with: Literal["card", "other_card", "cash"] | None = None
     expense_date: date | None = None       # defaults to today server-side
     currency: str | None = None            # defaults to DEFAULT_CURRENCY
     vat_rate: float | None = None          # optional; if given we compute vat_amount

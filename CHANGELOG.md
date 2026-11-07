@@ -3,6 +3,18 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.14] — 2026-11-07
+
+**"Other card" replaces "No bank line", and a (!) says what's missing.** No prompt, model or scored figure changed.
+
+### Added
+- **Paid with: Card, Other card or Cash.** Other card is a card that isn't on your imported bank statement, so the app doesn't wait for its bank line. It's stored as a card payment with the existing no-bank-match flag ([D28](DECISIONS.md)), so no schema change. `PATCH /expenses/{id}` takes `paid_with`.
+- **A (!) next to an expense with a missing detail** in the Ledger and in Reconciliation results. Hovering it says what's missing and that you fix it in Edit: a card payment not matched to the statement yet, or VAT not known.
+
+### Changed
+- **The "No bank line" button is gone** from Reconciliation results. Choose Other card or Cash in Edit instead, which Undo can reverse.
+- **Rows paid with another card** read "Other card", and the close page, the Reconciled tile and the Ledger's Unmatched filter treat them like cash: they aren't waiting for a bank line.
+
 ## [0.5.13] — 2026-11-07
 
 **No made-up card number, nearer suggestions, and search in the Ledger.** No prompt, model or scored figure changed.

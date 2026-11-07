@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Modal } from "./ui.jsx";
+import { Modal, MissingFlag } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
-import { money, shortDate } from "../lib/format.js";
+import { missingDetails, money, paidWithLabel, shortDate } from "../lib/format.js";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
@@ -126,7 +126,6 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   const canUndo = (h) => {
     if (h.kind === "unmatch") return expOpen(h.exp.id) && txnOpen(h.txn.id);
     if (h.kind === "match") return isMatched(h.exp.id, h.txn.id);
-    if (h.kind === "nobank") return !expOpen(h.exp.id) && !pairs.some((p) => p.expense.id === h.exp.id);
     if (h.kind === "noreceipt") return !txnOpen(h.txn.id) && !pairs.some((p) => p.transaction.id === h.txn.id);
     if (h.kind === "dismiss") return dismissed.has(`${h.exp.id}::${h.txn.id}`);
     return false;
@@ -139,7 +138,6 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     try {
       if (h.kind === "unmatch") apply(await api.matchExpense(h.exp.id, h.txn.id));
       else if (h.kind === "match") apply(await api.unmatchExpense(h.exp.id, h.txn.id));
-      else if (h.kind === "nobank") apply(await api.markNoBankMatch(h.exp.id, false));
       else if (h.kind === "noreceipt") apply(await api.markNoReceipt(h.txn.id, false));
       else if (h.kind === "dismiss")
         setDismissed((prev) => {
@@ -170,7 +168,6 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     );
     if (h.kind === "unmatch") return <>Unmatched {ev} from {tv}</>;
     if (h.kind === "match") return <>Matched {ev} to {tv}</>;
-    if (h.kind === "nobank") return <>Marked {ev} as No bank line</>;
     if (h.kind === "noreceipt") return <>Marked {tv} as No receipt</>;
     return <>Hid {tv} as not a match for {ev}</>;
   };
@@ -191,21 +188,6 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
     }
   };
 
-  // Acknowledge a card expense that has no matching bank line — it leaves the
-  // Unmatched list (the expense-side mirror of "No receipt").
-  const noBankMatch = async (expId) => {
-    setBusy(expId);
-    const exp = unmatchedExp.find((x) => x.id === expId);
-    try {
-      apply(await api.markNoBankMatch(expId, true));
-      if (exp) record({ kind: "nobank", exp });
-      toast("Cleared — no bank line for this expense");
-    } catch (e) {
-      toast(e.message, "err");
-    } finally {
-      setBusy(null);
-    }
-  };
 
   // Unmatched bank candidates for an expense, closest amount then date first.
   // Candidates the user marked "not a match" are hidden.
@@ -350,7 +332,8 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                             <div className="recon-vendor">{e.vendor || "Expense"}</div>
                           )}
                           <div className="recon-meta">
-                            {shortDate(e.expense_date)} · {e.category || "—"} · {e.source}
+                            {shortDate(e.expense_date)} · {e.category || "—"} · {paidWithLabel(e)}{" "}
+                            <MissingFlag items={missingDetails(e)} />
                           </div>
                           <div className="recon-amt num">{money(e.amount)}</div>
                           <div className="recon-receipt-actions">
@@ -369,14 +352,6 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                               onDone={refreshState}
                               hasPhoto={!!e.receipt_image_url}
                             />
-                            <button
-                              className="btn btn-sm btn-ghost"
-                              disabled={busy === e.id}
-                              onClick={() => noBankMatch(e.id)}
-                              title="This expense has no matching bank line (e.g. not on this statement, or a duplicate) — take it out of reconciliation"
-                            >
-                              No bank line
-                            </button>
                           </div>
                         </div>
                         <div className="recon-arrow">

@@ -51,6 +51,29 @@ export function sourceLabel(src) {
   return { card: "Card", cash: "Cash", bank: "Bank" }[src] || src || "—";
 }
 
+// How an expense was paid, as the Edit form offers it. "Other card" is a card that
+// isn't on the imported bank statement, so it never waits for a bank line.
+export function paidWithValue(e) {
+  if (e.source === "cash") return "cash";
+  if (e.source === "card" && e.no_bank_match) return "other_card";
+  return e.source === "card" ? "card" : e.source || "card";
+}
+export function paidWithLabel(e) {
+  return { cash: "Cash", other_card: "Other card", card: "Card payment" }[paidWithValue(e)] || sourceLabel(e.source);
+}
+
+// Details a user still has to fill in, each phrased as what to do in Edit. Shown as
+// a (!) whose hover text lists them.
+export function missingDetails(e) {
+  const out = [];
+  if (e.status === "pending_review") return out;
+  if (paidWithValue(e) === "card" && !(e.reconciled || e.matched_transaction_id))
+    out.push("Not matched to your bank statement yet. If you paid in cash or with another card, open Edit and change Paid with.");
+  if (e.input_method === "receipt" && e.vat_amount == null && e.vat_rate == null)
+    out.push("VAT not known. If the receipt shows the VAT, open Edit and set the rate.");
+  return out;
+}
+
 // Confidence as a percentage integer
 export function confPct(c) {
   if (c == null) return null;

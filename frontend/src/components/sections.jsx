@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "./icons.jsx";
-import { Button, Badge, StatusBadge, Card, Empty } from "./ui.jsx";
+import { Button, Badge, StatusBadge, Card, Empty, MissingFlag } from "./ui.jsx";
 import { api } from "../lib/api.js";
-import { money, shortDate, pct, sourceLabel, confPct, CATEGORY_COLORS, vatByRateLines } from "../lib/format.js";
+import { money, shortDate, pct, sourceLabel, confPct, CATEGORY_COLORS, vatByRateLines, paidWithLabel, paidWithValue, missingDetails } from "../lib/format.js";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 /* ---------- Spending by category ---------- */
@@ -297,7 +297,7 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
     amount: expense.amount ?? "",
     expense_date: (expense.expense_date || "").slice(0, 10),
     category: expense.category || "",
-    source: expense.source || "card",
+    paid: paidWithValue(expense),
   });
   const estimated = !!expense.raw_extraction?.vat_estimated;
   const [lines, setLines] = useState(() => seedLines(expense, null, estimated));
@@ -326,7 +326,7 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
     const patch = { expense_date: form.expense_date, amount: amountNum };
     if (form.vendor) patch.vendor = form.vendor;
     if (form.category) patch.category = form.category;
-    if (form.source !== (expense.source || "card")) patch.source = form.source;
+    if (form.paid !== paidWithValue(expense)) patch.paid_with = form.paid;
     patch.line_items = validLines.map((l) => ({
       description: l.description || null,
       amount: Number(l.amount),
@@ -376,14 +376,12 @@ function ReviewEditForm({ expense, onSave, onCancel, busy }) {
             ))}
           </select>
         </div>
-        <div className="field" style={{ maxWidth: 130 }}>
+        <div className="field" style={{ maxWidth: 140 }}>
           <label>Paid with</label>
-          <select className="select" value={form.source} onChange={set("source")}>
+          <select className="select" value={form.paid} onChange={set("paid")}>
             <option value="card">Card</option>
+            <option value="other_card">Other card</option>
             <option value="cash">Cash</option>
-            {form.source !== "card" && form.source !== "cash" ? (
-              <option value={form.source}>{form.source}</option>
-            ) : null}
           </select>
         </div>
       </div>
@@ -620,7 +618,9 @@ export function LedgerTable({ expenses, onDelete, busyId, duplicateIds, onRowCli
                 : {})}
             >
               <td className="cell-date">{shortDate(e.expense_date)}</td>
-              <td className="cell-vendor">{e.vendor || "—"}</td>
+              <td className="cell-vendor">
+                {e.vendor || "—"} <MissingFlag items={missingDetails(e)} />
+              </td>
               <td className="cell-muted">
                 {onCategoryChange ? (
                   <select
@@ -646,7 +646,7 @@ export function LedgerTable({ expenses, onDelete, busyId, duplicateIds, onRowCli
                 )}
               </td>
               <td className="cell-muted">
-                {e.source === "card" ? "Card payment" : sourceLabel(e.source)}
+                {paidWithLabel(e)}
               </td>
               <td className="right num cell-muted">{money(net)}</td>
               <td className="right num cell-muted">{e.vat_amount != null ? money(e.vat_amount) : "—"}</td>

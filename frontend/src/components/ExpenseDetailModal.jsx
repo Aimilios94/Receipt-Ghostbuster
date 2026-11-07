@@ -6,13 +6,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Modal, Badge, StatusBadge, Loading } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
-import { money, shortDate, sourceLabel } from "../lib/format.js";
+import { money, shortDate, sourceLabel, paidWithLabel } from "../lib/format.js";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
 import ReplacePhotoButton from "./ReplacePhotoButton.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 function paidWith(e) {
-  return e.source === "card" ? "Card payment" : sourceLabel(e.source);
+  return paidWithLabel(e);
 }
 
 export default function ExpenseDetailModal({ expense: expenseProp, onClose }) {

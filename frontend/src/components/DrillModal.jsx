@@ -10,12 +10,12 @@ import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
 import { useDeleteWithUndo } from "../lib/undo.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
-import { money, shortDate, sourceLabel, vatByRate } from "../lib/format.js";
+import { money, shortDate, sourceLabel, paidWithLabel, vatByRate } from "../lib/format.js";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
 import ReplacePhotoButton from "./ReplacePhotoButton.jsx";
 
 function paidWith(e) {
-  return e.source === "card" ? "Card payment" : sourceLabel(e.source);
+  return paidWithLabel(e);
 }
 
 function ReceiptCell({ expense, onView, onRescanned }) {

@@ -51,6 +51,18 @@ export function Badge({ tone = "muted", icon, children }) {
   );
 }
 
+// A small (!) whose hover text says which details are missing. Renders nothing
+// when there are none.
+export function MissingFlag({ items }) {
+  if (!items?.length) return null;
+  const text = items.join("\n");
+  return (
+    <span className="miss-flag" title={text} aria-label={`Missing details: ${items.join(" ")}`} role="img">
+      !
+    </span>
+  );
+}
+
 // Maps an expense row to its ledger status chip.
 export function StatusBadge({ expense }) {
   const { status, reconciled, source, vat_amount, matched_transaction_id } = expense;
@@ -58,6 +70,8 @@ export function StatusBadge({ expense }) {
     return <Badge tone="amber" icon={<Icon.warn size={12} />}>Needs review</Badge>;
   if (source === "cash")
     return <Badge tone="muted" icon={<Icon.receipt size={12} />}>Cash, not matched</Badge>;
+  if (expense.no_bank_match && !(reconciled || matched_transaction_id))
+    return <Badge tone="muted">Other card, not matched</Badge>;
   if (reconciled || matched_transaction_id)
     return <Badge tone="green" icon={<Icon.check size={12} />}>Reconciled</Badge>;
   if (vat_amount == null)

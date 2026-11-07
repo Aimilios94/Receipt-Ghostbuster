@@ -7,21 +7,37 @@ from __future__ import annotations
 
 from typing import Any
 
-PAYMENT_SOURCES = ("card", "cash")
+# How an expense was paid, as the Edit form offers it. "other_card" is a card that
+# isn't on the imported bank statement: stored as source "card" with the D28
+# no_bank_match flag, so it never waits for a bank line.
+PAID_WITH = ("card", "other_card", "cash")
 
 
-def source_change(current: dict[str, Any], new_source: str) -> tuple[dict[str, Any], str | None]:
+def paid_with(expense: dict[str, Any]) -> str:
+    if expense.get("source") == "cash":
+        return "cash"
+    return "other_card" if expense.get("no_bank_match") else "card"
+
+
+def payment_change(current: dict[str, Any], new: str) -> tuple[dict[str, Any], str | None]:
     """The expense patch for a change of payment method, plus the bank line to free.
 
-    Cash never reconciles (D3), so moving a row to cash drops its bank match and its
-    "No bank line" mark. Moving to card starts it unreconciled, ready to match.
-    Returns ({}, None) when nothing changes.
+    Cash never reconciles (D3) and another card isn't on the statement, so moving a
+    row to either drops its bank match. Moving to your card starts it unreconciled,
+    ready to match. Returns ({}, None) when nothing changes.
     """
-    if new_source not in PAYMENT_SOURCES:
-        raise ValueError(f"source must be one of {PAYMENT_SOURCES}")
-    if current.get("source") == new_source:
+    if new not in PAID_WITH:
+        raise ValueError(f"paid_with must be one of {PAID_WITH}")
+    if paid_with(current) == new:
         return {}, None
-    patch = {"source": new_source, "reconciled": False, "matched_transaction_id": None, "no_bank_match": False}
+    if new == "card":
+        return {"source": "card", "no_bank_match": False}, None
+    patch = {
+        "source": "cash" if new == "cash" else "card",
+        "reconciled": False,
+        "matched_transaction_id": None,
+        "no_bank_match": new == "other_card",
+    }
     return patch, current.get("matched_transaction_id")
 
 
