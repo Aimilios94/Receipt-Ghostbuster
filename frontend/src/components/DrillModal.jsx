@@ -11,7 +11,7 @@ import { useToast } from "./toast.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 import { money, shortDate, sourceLabel, vatByRate } from "../lib/format.js";
 import ExpenseEditModal from "./ExpenseEditModal.jsx";
-import EditReceiptButton from "./EditReceiptButton.jsx";
+import ReplacePhotoButton from "./ReplacePhotoButton.jsx";
 
 function paidWith(e) {
   return e.source === "card" ? "Card ending 4821" : sourceLabel(e.source);
@@ -27,7 +27,7 @@ function ReceiptCell({ expense, onView, onRescanned }) {
       ) : (
         <span className="cell-muted">No receipt</span>
       )}
-      <EditReceiptButton expenseId={expense.id} onDone={onRescanned} label={expense.receipt_image_url ? "Edit" : "Add"} />
+      <ReplacePhotoButton expenseId={expense.id} onDone={onRescanned} hasPhoto={!!expense.receipt_image_url} />
     </span>
   );
 }

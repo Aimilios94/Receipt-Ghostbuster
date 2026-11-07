@@ -156,8 +156,9 @@ export function VatLinesEditor({ lines, setLines, busy }) {
   const hasSuggested = lines.some((l) => l.suggested);
 
   const validLines = lines.filter((l) => Number(l.amount) > 0);
+  const vatKnown = validLines.some((l) => l.vat_rate !== "" && l.vat_rate != null);
   const linesTotal = Math.round(validLines.reduce((s, l) => s + Number(l.amount || 0), 0) * 100) / 100;
-  const breakdown = vatByRateLines(validLines);
+  const breakdown = vatKnown ? vatByRateLines(validLines) : [];
   const totalVat = Math.round(breakdown.reduce((s, r) => s + r.vat, 0) * 100) / 100;
   // Net = what was paid minus VAT. The gross total is shown in the Amount field above,
   // so here we decompose it: Net (excl. VAT) + VAT = that amount.
@@ -199,6 +200,9 @@ export function VatLinesEditor({ lines, setLines, busy }) {
               />
               {(() => {
                 const g = Number(l.amount) || 0;
+                if (g > 0 && (l.vat_rate === "" || l.vat_rate == null)) {
+                  return <span className="vat-line-split num">VAT not known</span>;
+                }
                 const rt = Number(l.vat_rate) || 0;
                 const v = Math.round((g - g / (1 + rt / 100)) * 100) / 100;
                 const n = Math.round((g - v) * 100) / 100;
@@ -244,7 +248,8 @@ export function VatLinesEditor({ lines, setLines, busy }) {
                 ))}
               </div>
               <span className="num" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                Net {money(netTotal)} · VAT {money(totalVat)} · Total {money(linesTotal)}
+                {vatKnown ? `Net ${money(netTotal)} · VAT ${money(totalVat)} · ` : "VAT not known · "}
+                Total {money(linesTotal)}
               </span>
             </div>
           ) : null}
@@ -252,7 +257,8 @@ export function VatLinesEditor({ lines, setLines, busy }) {
       ) : (
         <p className="vat-lines-hint">
           <b>Add a VAT line</b> for each rate on the receipt (e.g. 6% + 13% + 23%). The amount is the
-          sum of the lines, and VAT is summed per rate in code.
+          sum of the lines, and VAT is summed per rate in code. With no lines, the VAT is saved as not
+          known.
         </p>
       )}
     </div>
@@ -429,7 +435,7 @@ export function ExceptionItem({ type, data, onOpenExpense, isNew, onDelete }) {
     detail = `Receipt ${money(data.expense?.amount)} · bank ${money(Math.abs(data.transaction?.amount))}`;
   } else if (type === "missing_vat") {
     vendor = data.vendor || "Expense";
-    detail = `The VAT line on the receipt is unreadable · ${money(data.amount)}`;
+    detail = `No VAT recorded for this receipt · ${money(data.amount)}`;
   } else if (type === "unmatched_expenses") {
     vendor = data.vendor || "Card expense";
     detail = `${sourceLabel(data.source)} · ${shortDate(data.expense_date)} · ${money(data.amount)}`;

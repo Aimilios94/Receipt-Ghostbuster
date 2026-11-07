@@ -88,57 +88,88 @@ def confirm_expense(
     """Confirm (and optionally edit) a pending_review expense -> posted."""
     patch: dict = {"status": "posted"}
     if body is not None:
-        if body.amount:
-            patch["amount"] = body.amount
-        if body.category:
-            patch["category"] = body.category
-        if body.vendor:
-            patch["vendor"] = body.vendor
-        if body.note is not None:
-            patch["note"] = body.note
-        if body.expense_date:
-            patch["expense_date"] = body.expense_date.isoformat()
-
-        if body.line_items is not None:
-            # Multi-rate breakdown the user entered: VAT summed PER RATE in code.
-            # The lines become the source of truth for amount + VAT.
-            rows = [
-                {
-                    "description": li.description,
-                    "quantity": li.quantity,
-                    "unit_price": li.unit_price,
-                    "amount": li.amount,
-                    "vat_rate": li.vat_rate,
-                    "vat_amount": vat.line_vat(li.amount, li.vat_rate),
-                    "position": idx,
-                }
-                for idx, li in enumerate(body.line_items)
-            ]
-            breakdown = vat.vat_breakdown(rows)
-            repo.replace_line_items(user_id, expense_id, rows)
-            # The stated amount (the receipt's TOTAL A PAGAR) is the full amount paid and
-            # wins; the VAT lines only supply the VAT split. They should reconcile, but a
-            # reliable total must not be overwritten by a line-sum that missed a rate.
-            patch["amount"] = body.amount or breakdown["gross"]
-            patch["vat_amount"] = breakdown["vat_amount"]
-            if breakdown["rate_count"] > 0:
-                dominant = max(
-                    (r for r in breakdown["rates"] if r["rate"] > 0),
-                    key=lambda r: r["gross"],
-                )
-                patch["vat_rate"] = dominant["rate"]
-            else:
-                # All lines are zero-rated/exempt (e.g. tobacco at 0%). Record an
-                # EXPLICIT 0% so it reads as "confirmed zero-rated", not "VAT missing".
-                patch["vat_rate"] = 0
-        elif body.vat_rate is not None or body.vat_amount is not None:
-            amount = body.amount or patch.get("amount")
-            if amount:
-                vat_info = vat.resolve_vat(amount, body.vat_rate, body.vat_amount)
-                patch["vat_amount"] = vat_info["vat_amount"]
-                patch["vat_rate"] = vat_info["vat_rate"]
+        patch.update(_edit_patch(user_id, expense_id, body))
     updated = repo.update_expense(user_id, expense_id, patch)
     return {"expense": updated}
+
+
+@router.patch("/{expense_id}")
+def edit_expense(
+    expense_id: str,
+    body: ExpenseCreate,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """Change an expense's values by hand. Its status stays as it is, so editing a
+    row still in review doesn't post it."""
+    updated = repo.update_expense(user_id, expense_id, _edit_patch(user_id, expense_id, body))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    return {"expense": updated}
+
+
+def _edit_patch(user_id: str, expense_id: str, body: ExpenseCreate) -> dict:
+    """The ledger fields a user's edit changes. Stored VAT lines are replaced only
+    when the edit carries lines, so renaming a vendor leaves the VAT untouched."""
+    patch: dict = {}
+    if body.amount:
+        patch["amount"] = body.amount
+    if body.category:
+        patch["category"] = body.category
+    if body.vendor:
+        patch["vendor"] = body.vendor
+    if body.note is not None:
+        patch["note"] = body.note
+    if body.expense_date:
+        patch["expense_date"] = body.expense_date.isoformat()
+
+    if body.line_items is not None:
+        # Multi-rate breakdown the user entered: VAT summed PER RATE in code.
+        # The lines become the source of truth for amount + VAT.
+        rows = [
+            {
+                "description": li.description,
+                "quantity": li.quantity,
+                "unit_price": li.unit_price,
+                "amount": li.amount,
+                "vat_rate": li.vat_rate,
+                "vat_amount": vat.line_vat(li.amount, li.vat_rate),
+                "position": idx,
+            }
+            for idx, li in enumerate(body.line_items)
+        ]
+        # No rate on any line means the VAT isn't known, which is not a confirmed 0%.
+        # Store it as unknown so the receipt shows up as missing VAT.
+        vat_known = any(row["vat_rate"] is not None for row in rows)
+        if not vat_known:
+            rows = []
+        breakdown = vat.vat_breakdown(rows)
+        repo.replace_line_items(user_id, expense_id, rows)
+        # The stated amount (the receipt's TOTAL A PAGAR) is the full amount paid and
+        # wins; the VAT lines only supply the VAT split. They should reconcile, but a
+        # reliable total must not be overwritten by a line-sum that missed a rate.
+        patch["amount"] = body.amount or breakdown["gross"]
+        if not vat_known:
+            patch["vat_amount"] = None
+            patch["vat_rate"] = None
+        elif breakdown["rate_count"] > 0:
+            patch["vat_amount"] = breakdown["vat_amount"]
+            dominant = max(
+                (r for r in breakdown["rates"] if r["rate"] > 0),
+                key=lambda r: r["gross"],
+            )
+            patch["vat_rate"] = dominant["rate"]
+        else:
+            # All lines are zero-rated/exempt (e.g. tobacco at 0%). Record an
+            # EXPLICIT 0% so it reads as "confirmed zero-rated", not "VAT missing".
+            patch["vat_amount"] = breakdown["vat_amount"]
+            patch["vat_rate"] = 0
+    elif body.vat_rate is not None or body.vat_amount is not None:
+        amount = body.amount or patch.get("amount")
+        if amount:
+            vat_info = vat.resolve_vat(amount, body.vat_rate, body.vat_amount)
+            patch["vat_amount"] = vat_info["vat_amount"]
+            patch["vat_rate"] = vat_info["vat_rate"]
+    return patch
 
 
 @router.post("/{expense_id}/status")

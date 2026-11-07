@@ -7,6 +7,7 @@ import { Icon } from "../components/icons.jsx";
 import { ReviewItem } from "../components/sections.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import { useToast } from "../components/toast.jsx";
+import { useExpenseToast } from "../lib/month.jsx";
 
 // Confirmation message after posting — states what landed on the ledger, so the
 // user doesn't have to open the Ledger to confirm the amount + VAT went through.
@@ -21,6 +22,7 @@ export function postedMessage(posted, exp, patch) {
 export default function ReviewQueue() {
   const qc = useQueryClient();
   const toast = useToast();
+  const expenseToast = useExpenseToast();
   const [busyId, setBusyId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const { data, isLoading, error } = useQuery({
@@ -37,7 +39,7 @@ export default function ReviewQueue() {
       ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
-      toast(postedMessage(posted, exp, patch));
+      expenseToast(posted, postedMessage(posted, exp, patch));
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -59,11 +61,11 @@ export default function ReviewQueue() {
       ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
-      toast(
-        res.gated_to === "posted"
-          ? `Re-read ${res.expense?.vendor || "receipt"} — posted to your ledger`
-          : "Re-read — updated in the review queue"
-      );
+      if (res.gated_to === "posted") {
+        expenseToast(res.expense, `Re-read ${res.expense?.vendor || "receipt"} — posted to your ledger`);
+      } else {
+        toast("Re-read — updated in the review queue");
+      }
     } catch (e) {
       toast(e.message, "err");
     } finally {

@@ -1,36 +1,15 @@
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { money, monthLabel, currentMonth, latestMonth } from "../lib/format.js";
+import { money, monthLabel } from "../lib/format.js";
+import { MonthPicker, useMonth } from "../lib/month.jsx";
 import { Card, Loading, ErrorBanner, Button } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import { CategoryBars } from "../components/sections.jsx";
 import { useToast } from "../components/toast.jsx";
 
-// Build the last 6 month options for the picker.
-function recentMonths(n = 6) {
-  const out = [];
-  const d = new Date();
-  for (let i = 0; i < n; i++) {
-    const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
-    out.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`);
-  }
-  return out;
-}
-
 export default function MonthlyClose() {
-  const [month, setMonth] = useState(currentMonth());
-  const [picked, setPicked] = useState(false);
+  const { month } = useMonth();
   const toast = useToast();
-
-  // Default to the latest month that has data (until the user picks one).
-  const { data: expenses } = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
-  useEffect(() => {
-    if (!picked && expenses?.length) {
-      const m = latestMonth(expenses);
-      if (m) setMonth(m);
-    }
-  }, [expenses, picked]);
 
   const { data: close, isLoading, error } = useQuery({
     queryKey: ["close", month],
@@ -47,21 +26,7 @@ export default function MonthlyClose() {
           <div className="page-sub">Check a month's totals and produce a close summary.</div>
         </div>
         <div className="head-actions">
-          <select
-            className="select"
-            style={{ width: 170 }}
-            value={month}
-            onChange={(e) => {
-              setPicked(true);
-              setMonth(e.target.value);
-            }}
-          >
-            {recentMonths().map((m) => (
-              <option key={m} value={m}>
-                {monthLabel(m)}
-              </option>
-            ))}
-          </select>
+          <MonthPicker />
         </div>
       </div>
 

@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { money, monthLabel, currentMonth, latestMonth, pct } from "../lib/format.js";
+import { money, monthLabel, pct } from "../lib/format.js";
+import { MonthPicker, useExpenseToast, useMonth } from "../lib/month.jsx";
 import { Card, Button, Loading, ErrorBanner, Empty } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import {
@@ -43,6 +44,7 @@ export default function Dashboard() {
   const [busyId, setBusyId] = useState(null);
   const qc = useQueryClient();
   const toast = useToast();
+  const expenseToast = useExpenseToast();
   const navigate = useNavigate();
 
   const expQ = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
@@ -51,12 +53,20 @@ export default function Dashboard() {
   const liQ = useQuery({ queryKey: ["line-items"], queryFn: api.lineItems });
 
   const expenses = expQ.data || [];
-  // Open on the latest month that has data, not an empty current month.
-  const month = latestMonth(expenses) || currentMonth();
-  const closeQ = useQuery({ queryKey: ["close", month], queryFn: () => api.close(month) });
+  const { month } = useMonth();
+  // Keep the last figures on screen while another month loads, rather than flashing zeros.
+  const closeQ = useQuery({
+    queryKey: ["close", month],
+    queryFn: () => api.close(month),
+    placeholderData: keepPreviousData,
+  });
   // Exceptions are scoped to the same month so older bank history (Refund
   // Hunter) doesn't inflate this month's "needs attention".
-  const excQ = useQuery({ queryKey: ["exceptions", month], queryFn: () => api.exceptions(month) });
+  const excQ = useQuery({
+    queryKey: ["exceptions", month],
+    queryFn: () => api.exceptions(month),
+    placeholderData: keepPreviousData,
+  });
   const stmtQ = useQuery({ queryKey: ["statements"], queryFn: api.listStatements });
 
   // Imported statements that still have unmatched purchases AND cover the month on
@@ -238,7 +248,7 @@ export default function Dashboard() {
       ["review-queue", "expenses", "exceptions", "close", "line-items"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
-      toast(postedMessage(posted, exp, patch));
+      expenseToast(posted, postedMessage(posted, exp, patch));
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -288,19 +298,15 @@ export default function Dashboard() {
       {/* ---------- Header ---------- */}
       <div className="page-head">
         <div>
-          <div className="page-title-row">
-            <h1 className="page-title">{monthLabel(month)}</h1>
-            <span className="pill-open">
-              <Icon.lock size={11} /> Open
-            </span>
-          </div>
+          <h1 className="page-title">{monthLabel(month)}</h1>
           <div className="page-sub">
-            {close?.expense_count ?? expenses.length} expenses
+            {close?.expense_count ?? ledger.length} expenses
             {close?.bank_out ? " · bank statement imported" : ""}
             {attention ? ` · ${attention} item${attention > 1 ? "s" : ""} need your attention` : " · all clear"}
           </div>
         </div>
         <div className="head-actions">
+          <MonthPicker />
           <Button icon={<Icon.upload size={15} />} onClick={() => setModal("import")}>
             Import bank statement
           </Button>
@@ -318,7 +324,7 @@ export default function Dashboard() {
           <div className="stat-label">Total spent</div>
           <div className="stat-value num">{money(totalOut)}</div>
           <div className="stat-foot">
-            {close?.expense_count ?? expenses.length} expenses, {stats.cashCount} paid in cash
+            {close?.expense_count ?? ledger.length} expenses, {stats.cashCount} paid in cash
           </div>
         </Card>
 
@@ -414,7 +420,7 @@ export default function Dashboard() {
               const exp = exceptionExpense(x.type, x.data);
               return (
                 <ExceptionItem
-                  key={exp?.id || i}
+                  key={`${x.type}:${exp?.id || i}`}
                   type={x.type}
                   data={x.data}
                   isNew={exp ? !seen.has(exp.id) : false}

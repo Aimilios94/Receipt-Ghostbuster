@@ -3,6 +3,29 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.10] — 2026-11-07
+
+**The month stays where you put it, and Edit edits.** From the first real upload of a month's receipts (`[R12]`, [D54](DECISIONS.md)). No prompt, model or scored figure changed.
+
+### Added
+- **A month picker on the dashboard.** Dashboard, Reconciliation, Monthly close, Advice and the Reconciliation badge all share one month, and your choice survives a reload.
+- **A clearer pop-up for another month:** it names the receipt's month and the month on screen, stays longer, and has a button to go there. It covers uploads, manual entries, review queue posts, edits and new photos.
+- **`PATCH /expenses/{id}`** changes an expense's values and leaves its status alone.
+
+### Changed
+- **Uploads never move the month.** With no choice yet, the app opens on the newest month with data.
+- **Edit opens the values form** in the expense popup and in Reconciliation. Choosing a new photo is its own **Replace photo** button.
+- **A vendor or date edit no longer recalculates VAT.** VAT lines are saved only if they changed.
+
+### Fixed
+- **Saving a receipt with no VAT rate** recorded a confirmed 0%. It's now saved as not known and shows as missing VAT.
+- **Editing a receipt still in review** posted it.
+- **The missing-VAT exception** said the VAT line was unreadable, even when the receipt doesn't print one.
+- **A receipt with two exceptions** caused a duplicate-key warning on the dashboard.
+
+### Removed
+- **The "Open" label** on the dashboard, because the app doesn't track a closed state.
+
 ## [0.5.9] — 2026-11-07
 
 **Wording that claimed too much, found by an outside review.** No figure changed and no model was called. Engineering and docs only (`[eng]`); `feedback-notes.md` untouched. Backend tests **486 → 493**.

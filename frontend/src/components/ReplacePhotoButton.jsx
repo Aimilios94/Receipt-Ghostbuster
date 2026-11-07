@@ -2,14 +2,16 @@ import { useRef, useState } from "react";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
+import { useExpenseToast } from "../lib/month.jsx";
 
-// A small "Edit" action that sits next to a "View receipt" button. It opens the
-// photo picker, uploads a new photo of that receipt, replaces the stored image and
-// re-reads it (amount / VAT / vendor / date refreshed when it reads cleanly).
-export default function EditReceiptButton({ expenseId, onDone, label = "Edit" }) {
+// Opens the photo picker, uploads a new photo of this receipt, replaces the stored
+// image and re-reads it (amount / VAT / vendor / date refreshed when it reads
+// cleanly). To change values by hand, use ExpenseEditModal instead.
+export default function ReplacePhotoButton({ expenseId, onDone, hasPhoto = true }) {
   const inputRef = useRef();
   const [busy, setBusy] = useState(false);
   const toast = useToast();
+  const expenseToast = useExpenseToast();
 
   const onFile = async (e) => {
     const file = e.target.files?.[0];
@@ -21,7 +23,7 @@ export default function EditReceiptButton({ expenseId, onDone, label = "Edit" })
       if (res.readable === false) {
         toast(res.message || "New photo saved — couldn't read it, kept the amounts.", "err");
       } else {
-        toast(`Receipt updated${res.expense?.vendor ? ` — ${res.expense.vendor}` : ""}`);
+        expenseToast(res.expense, `Receipt updated${res.expense?.vendor ? ` — ${res.expense.vendor}` : ""}`, "Saved");
       }
       onDone?.(res.expense);
     } catch (err) {
@@ -38,9 +40,9 @@ export default function EditReceiptButton({ expenseId, onDone, label = "Edit" })
         className="btn btn-sm btn-ghost"
         onClick={() => inputRef.current?.click()}
         disabled={busy || !expenseId}
-        title="Replace this receipt's photo with a new one and re-read it"
+        title="Upload a new photo of this receipt and read it again. This can change the amounts."
       >
-        <Icon.edit size={13} /> {busy ? "Reading…" : label}
+        <Icon.camera size={13} /> {busy ? "Reading…" : hasPhoto ? "Replace photo" : "Add photo"}
       </button>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={onFile} />
     </>

@@ -289,6 +289,16 @@ Status: **shipped.** Backend tests **486 → 493**.
 
 ---
 
+## v0.5.10 — The month stays where you put it ✅
+
+**Goal:** the screen moves only when the user moves it, and Edit changes values.
+
+Scope delivered: one shared month with a dashboard picker, a pop-up that names another month, Edit split from Replace photo, unknown VAT kept apart from a confirmed 0%, and the "Open" label removed ([D54](DECISIONS.md)).
+
+Status: **shipped.** Backend tests **493 → 502**.
+
+---
+
 ## v0.6 — Payslip tracking ⬜
 
 **Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance

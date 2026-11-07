@@ -7,7 +7,8 @@ import { Modal, Badge, StatusBadge, Loading } from "./ui.jsx";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
 import { money, shortDate, sourceLabel } from "../lib/format.js";
-import EditReceiptButton from "./EditReceiptButton.jsx";
+import ExpenseEditModal from "./ExpenseEditModal.jsx";
+import ReplacePhotoButton from "./ReplacePhotoButton.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 function paidWith(e) {
@@ -16,6 +17,7 @@ function paidWith(e) {
 
 export default function ExpenseDetailModal({ expense: expenseProp, onClose }) {
   const [showReceipt, setShowReceipt] = useState(false);
+  const [editing, setEditing] = useState(false);
   // Local copy so a receipt re-scan updates this view in place.
   const [expense, setExpense] = useState(expenseProp);
   const qc = useQueryClient();
@@ -190,23 +192,34 @@ export default function ExpenseDetailModal({ expense: expenseProp, onClose }) {
           </span>
         </div>
 
-        {/* Receipt image + replace-photo */}
+        {/* Receipt image, edit the values, replace the photo */}
         <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
           {expense.receipt_image_url ? (
             <button type="button" className="btn btn-sm btn-ghost" onClick={() => setShowReceipt(true)}>
               <Icon.receipt size={13} /> View receipt
             </button>
           ) : null}
-          <EditReceiptButton
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}>
+            <Icon.edit size={13} /> Edit
+          </button>
+          <ReplacePhotoButton
             expenseId={expense.id}
             onDone={onRescanned}
-            label={expense.receipt_image_url ? "Edit" : "Add photo"}
+            hasPhoto={!!expense.receipt_image_url}
           />
         </div>
       </div>
 
       {showReceipt ? (
         <ReceiptLightbox src={expense.receipt_image_url} onClose={() => setShowReceipt(false)} />
+      ) : null}
+
+      {editing ? (
+        <ExpenseEditModal
+          expense={expense}
+          onClose={() => setEditing(false)}
+          onSaved={(saved) => saved && setExpense((e) => ({ ...e, ...saved }))}
+        />
       ) : null}
     </Modal>
   );

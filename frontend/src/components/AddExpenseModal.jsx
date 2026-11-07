@@ -5,6 +5,7 @@ import { Icon } from "./icons.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
+import { useExpenseToast } from "../lib/month.jsx";
 import { currentMonth, money, shortDate } from "../lib/format.js";
 
 // Invalidate everything the new expense could touch.
@@ -47,6 +48,7 @@ export default function AddExpenseModal({ onClose, defaultTab = "snap", defaultS
   const [tab, setTab] = useState(defaultTab);
   const qc = useQueryClient();
   const toast = useToast();
+  const expenseToast = useExpenseToast();
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
 
   return (
@@ -79,7 +81,7 @@ export default function AddExpenseModal({ onClose, defaultTab = "snap", defaultS
                   "err"
                 );
               } else {
-                toast(`Posted ${res.expense?.vendor || "receipt"}`);
+                expenseToast(res.expense, `Posted ${res.expense?.vendor || "receipt"}`);
               }
               onClose();
             }}
@@ -89,7 +91,7 @@ export default function AddExpenseModal({ onClose, defaultTab = "snap", defaultS
             categories={categories}
             onDone={(exp) => {
               refreshAll(qc);
-              toast(`Added ${exp.vendor || exp.category || "expense"}`);
+              expenseToast(exp, `Added ${exp.vendor || exp.category || "expense"}`, "Added");
               onClose();
             }}
           />

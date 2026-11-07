@@ -72,6 +72,9 @@ export const api = {
     request(`/expenses/${id}/confirm`, patch ? { method: "POST", body: patch } : { method: "POST" }).then(
       (r) => r.expense
     ),
+  // Change values by hand; the expense keeps its status (unlike confirmExpense).
+  updateExpense: (id, patch) =>
+    request(`/expenses/${id}`, { method: "PATCH", body: patch }).then((r) => r.expense),
   deleteExpense: (id) => request(`/expenses/${id}`, { method: "DELETE" }),
   setExpenseStatus: (id, status) =>
     request(`/expenses/${id}/status`, { method: "POST", body: { status } }).then((r) => r.expense),

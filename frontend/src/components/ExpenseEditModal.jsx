@@ -7,11 +7,17 @@ import { Modal, Button } from "./ui.jsx";
 import { VatLinesEditor, seedLines } from "./sections.jsx";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
+import { useExpenseToast } from "../lib/month.jsx";
 import { money } from "../lib/format.js";
+
+// Compare VAT lines by what would be saved, so loading them doesn't count as a change.
+const linesKey = (lines) =>
+  JSON.stringify(lines.map((l) => [l.description || "", Number(l.amount) || 0, String(l.vat_rate ?? "")]));
 
 export default function ExpenseEditModal({ expense, onClose, onSaved }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const expenseToast = useExpenseToast();
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -22,6 +28,7 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
   });
   const estimated = !!expense.raw_extraction?.vat_estimated;
   const [lines, setLines] = useState(() => seedLines(expense, null, estimated));
+  const [savedLinesKey, setSavedLinesKey] = useState(() => linesKey(seedLines(expense, null, estimated)));
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
@@ -29,7 +36,11 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
     api
       .expenseLineItems(expense.id)
       .then((res) => {
-        if (active && res.line_items?.length) setLines(seedLines(expense, res.line_items, estimated));
+        if (active && res.line_items?.length) {
+          const seeded = seedLines(expense, res.line_items, estimated);
+          setLines(seeded);
+          setSavedLinesKey(linesKey(seeded));
+        }
       })
       .catch(() => {});
     return () => {
@@ -48,16 +59,20 @@ export default function ExpenseEditModal({ expense, onClose, onSaved }) {
       const patch = { expense_date: form.expense_date, amount: amountNum };
       if (form.vendor) patch.vendor = form.vendor;
       if (form.category) patch.category = form.category;
-      patch.line_items = validLines.map((l) => ({
-        description: l.description || null,
-        amount: Number(l.amount),
-        vat_rate: l.vat_rate === "" || l.vat_rate == null ? null : Number(l.vat_rate),
-      }));
-      const saved = await api.confirmExpense(expense.id, patch);
+      // Send the lines only if they changed: saving them recalculates the VAT, which
+      // a vendor or date edit must not do.
+      if (linesKey(lines) !== savedLinesKey) {
+        patch.line_items = validLines.map((l) => ({
+          description: l.description || null,
+          amount: Number(l.amount),
+          vat_rate: l.vat_rate === "" || l.vat_rate == null ? null : Number(l.vat_rate),
+        }));
+      }
+      const saved = await api.updateExpense(expense.id, patch);
       ["expenses", "close", "exceptions", "review-queue", "line-items", "subscriptions"].forEach((k) =>
         qc.invalidateQueries({ queryKey: [k] })
       );
-      toast(`Saved ${saved?.vendor || "expense"} — ${money(saved?.amount)} updated`);
+      expenseToast(saved, `Saved ${saved?.vendor || "expense"} — ${money(saved?.amount)} updated`, "Saved");
       onSaved?.(saved);
       onClose();
     } catch (e) {

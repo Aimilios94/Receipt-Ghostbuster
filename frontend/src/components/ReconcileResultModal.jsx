@@ -4,7 +4,8 @@ import { Icon } from "./icons.jsx";
 import { money, shortDate } from "../lib/format.js";
 import { api } from "../lib/api.js";
 import { useToast } from "./toast.jsx";
-import EditReceiptButton from "./EditReceiptButton.jsx";
+import ExpenseEditModal from "./ExpenseEditModal.jsx";
+import ReplacePhotoButton from "./ReplacePhotoButton.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 function dayDiff(a, b) {
@@ -55,6 +56,7 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
   const [busy, setBusy] = useState(null);
   const [pickFor, setPickFor] = useState(null);
   const [lightbox, setLightbox] = useState(null);
+  const [editing, setEditing] = useState(null);
   const [txnDetail, setTxnDetail] = useState(null);
   const [view, setView] = useState("all");
   const [dismissed, setDismissed] = useState(new Set()); // "expId::txnId" suggestions rejected as "not a match"
@@ -242,7 +244,14 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                         ) : (
                           <span className="recon-noreceipt">No receipt image</span>
                         )}
-                        <EditReceiptButton expenseId={p.expense.id} onDone={refreshState} />
+                        <button className="btn btn-sm btn-ghost" onClick={() => setEditing(p.expense)}>
+                          <Icon.edit size={13} /> Edit
+                        </button>
+                        <ReplacePhotoButton
+                          expenseId={p.expense.id}
+                          onDone={refreshState}
+                          hasPhoto={!!p.expense.receipt_image_url}
+                        />
                       </div>
                     </div>
                     <div className="recon-arrow">
@@ -311,7 +320,14 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
                             ) : (
                               <span className="recon-noreceipt">No receipt image</span>
                             )}
-                            <EditReceiptButton expenseId={e.id} onDone={refreshState} />
+                            <button className="btn btn-sm btn-ghost" onClick={() => setEditing(e)}>
+                              <Icon.edit size={13} /> Edit
+                            </button>
+                            <ReplacePhotoButton
+                              expenseId={e.id}
+                              onDone={refreshState}
+                              hasPhoto={!!e.receipt_image_url}
+                            />
                             <button
                               className="btn btn-sm btn-ghost"
                               disabled={busy === e.id}
@@ -428,6 +444,9 @@ export default function ReconcileResultModal({ initialState, onClose, onChanged 
       </div>
 
       {lightbox ? <ReceiptLightbox src={lightbox} onClose={() => setLightbox(null)} /> : null}
+      {editing ? (
+        <ExpenseEditModal expense={editing} onClose={() => setEditing(null)} onSaved={refreshState} />
+      ) : null}
 
       {txnDetail ? <BankTxnDetail txn={txnDetail} onClose={() => setTxnDetail(null)} /> : null}
     </Modal>

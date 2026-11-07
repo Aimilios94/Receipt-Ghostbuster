@@ -7,10 +7,11 @@ export const useToast = () => useContext(ToastCtx);
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  const push = useCallback((message, tone = "ok") => {
+  // `options`: { duration (ms), action: { label, onClick } }.
+  const push = useCallback((message, tone = "ok", options = {}) => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((t) => [...t, { id, message, tone }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200);
+    setToasts((t) => [...t, { id, message, tone, action: options.action }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), options.duration ?? 3200);
   }, []);
 
   return (
@@ -25,6 +26,18 @@ export function ToastProvider({ children }) {
               <Icon.warn size={16} />
             )}
             <span>{t.message}</span>
+            {t.action ? (
+              <button
+                type="button"
+                className="btn btn-sm toast-action"
+                onClick={() => {
+                  setToasts((list) => list.filter((x) => x.id !== t.id));
+                  t.action.onClick();
+                }}
+              >
+                {t.action.label}
+              </button>
+            ) : null}
           </div>
         ))}
       </div>

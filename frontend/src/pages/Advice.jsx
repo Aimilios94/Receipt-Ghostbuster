@@ -2,21 +2,11 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { money, monthLabel, currentMonth, latestMonth, pct } from "../lib/format.js";
+import { money, monthLabel, pct } from "../lib/format.js";
+import { MonthPicker, useMonth } from "../lib/month.jsx";
 import { Card, Button, Badge, Loading, ErrorBanner, Empty } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
 import { useToast } from "../components/toast.jsx";
-
-// Last 6 months for the picker (same helper shape as MonthlyClose).
-function recentMonths(n = 6) {
-  const out = [];
-  const d = new Date();
-  for (let i = 0; i < n; i++) {
-    const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
-    out.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`);
-  }
-  return out;
-}
 
 // Categories that never carry a budget / spend nudge.
 const SKIP_CATEGORIES = new Set(["Income", "Uncategorized"]);
@@ -27,19 +17,9 @@ const SEVERITY_TONE = { alert: "red", warning: "amber", info: "muted" };
 const slug = (name) => (name || "").replace(/[^a-z0-9]+/gi, "-");
 
 export default function Advice() {
-  const [month, setMonth] = useState(currentMonth());
-  const [picked, setPicked] = useState(false);
+  const { month } = useMonth();
   const qc = useQueryClient();
   const toast = useToast();
-
-  // Default to the latest month that has data (until the user picks one).
-  const { data: expenses } = useQuery({ queryKey: ["expenses"], queryFn: () => api.listExpenses() });
-  useEffect(() => {
-    if (!picked && expenses?.length) {
-      const m = latestMonth(expenses);
-      if (m) setMonth(m);
-    }
-  }, [expenses, picked]);
 
   const closeQ = useQuery({ queryKey: ["close", month], queryFn: () => api.close(month) });
   const catsQ = useQuery({ queryKey: ["categories"], queryFn: () => api.categories() });
@@ -90,21 +70,7 @@ export default function Advice() {
           </div>
         </div>
         <div className="head-actions">
-          <select
-            className="select"
-            style={{ width: 170 }}
-            value={month}
-            onChange={(e) => {
-              setPicked(true);
-              setMonth(e.target.value);
-            }}
-          >
-            {recentMonths().map((m) => (
-              <option key={m} value={m}>
-                {monthLabel(m)}
-              </option>
-            ))}
-          </select>
+          <MonthPicker />
         </div>
       </div>
 

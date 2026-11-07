@@ -378,3 +378,26 @@ October, covering a period that overlaps statements already imported. The real s
 **Round 11 outcome:** the real PDF imported correctly, adding only the 16 new rows, and importing the other language added
 nothing. Ask moved to a short summary plus cards, with every total opening to its rows, and the tester confirmed each in a manual pass. Reconciliation and the Breakdown looked right on the new data. Re-importing filled in the recipient names (third parties
 sent €643.42 to 7 people, and the own-movements section emptied), and Undo restored a match in the tester's own run.
+
+## Round 12 — 2026-11-07 (self-testing, developer) — uploading the month's receipts into the app
+
+**Setup:** local build (backend `:8000`, frontend `:5173`), live Supabase. The tester uploaded the real receipts not yet in
+the app, including the scored test photos, ahead of a timed close. The photos are PII and are kept **out of the repo**.
+
+**What was exercised:** the upload, review and post flow, the dashboard, and editing posted rows.
+
+**Observations & fixes:**
+
+- **"I upload a receipt and all expenses vanish."** One November receipt moved the whole dashboard to November, before the
+  previous month was closed. The dashboard always showed the newest month with a receipt and had no picker. → **FIXED
+  ([D54](DECISIONS.md)):** a month picker on the dashboard, and uploads never move the month.
+- **"I need to get informed when it's a different dashboard than the one I'm on."** An October receipt uploaded while viewing
+  November said only "Posted", then appeared nowhere on screen. → **FIXED ([D54](DECISIONS.md)):** the pop-up names the
+  receipt's month and the month on screen, stays longer, and has a button to go there.
+- **"I just want to edit the values."** Edit in the expense popups opened the file picker, because it was the replace-photo
+  button with the wrong name. → **FIXED ([D54](DECISIONS.md)):** Edit opens the values form and Replace photo is its own button.
+- **A card slip with no VAT printed.** Asked whether to enter zero or leave it out, the answer was to leave it unknown, but
+  saving with no rate recorded a confirmed 0%. → **FIXED ([D54](DECISIONS.md)):** no rate on any line now saves as not known.
+- **The vendor read as the street.** One receipt's store name, printed under the logo, was read as the vendor. The tester fixed it
+  by hand; left as read, it wouldn't have matched its bank line automatically. The eval label accepts that name, so it wouldn't
+  catch this. The prompt and the label stay as they are until after the fair test in [D53](DECISIONS.md).

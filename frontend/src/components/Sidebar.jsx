@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "./icons.jsx";
 import { api } from "../lib/api.js";
+import { useMonth } from "../lib/month.jsx";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: Icon.dashboard, end: true },
@@ -17,12 +18,13 @@ const NAV = [
 ];
 
 export default function Sidebar() {
+  const { month } = useMonth();
   // Live badge counts — cheap, cached, shared with the pages.
   const { data: review } = useQuery({
     queryKey: ["review-queue"],
     queryFn: api.reviewQueue,
   });
-  const { data: exc } = useQuery({ queryKey: ["exceptions"], queryFn: () => api.exceptions() });
+  const { data: exc } = useQuery({ queryKey: ["exceptions", month], queryFn: () => api.exceptions(month) });
   const { data: subs } = useQuery({ queryKey: ["subscriptions"], queryFn: api.listSubscriptions });
   const { data: statements } = useQuery({ queryKey: ["statements"], queryFn: api.listStatements });
 
