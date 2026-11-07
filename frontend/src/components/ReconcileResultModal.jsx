@@ -31,12 +31,13 @@ function vendorMatch(a, b) {
   return tok(b).some((w) => ta.has(w));
 }
 
-// Only SUGGEST a match when there's a real reason: the SAME vendor, or an EXACT
-// amount within a few days (e.g. a payment gateway vs the merchant name). A merely
-// close amount on an unrelated vendor is NOT suggested — no random pairings. The
-// "Others" picker (opt-in) still lets the user force any link by hand.
+// Only SUGGEST a match when there's a real reason, the SAME vendor or an EXACT amount,
+// and the dates are at most 3 days apart, the same window the auto-matcher uses. A
+// same-vendor line a week away, or a close amount on an unrelated vendor, is NOT
+// suggested. The "Others" picker (opt-in) still lets the user force any link by hand.
+const SUGGEST_MAX_DAYS = 3;
 function plausible(c) {
-  return c.vm || (c.ad <= 0.01 && c.dd <= 7);
+  return (c.vm || c.ad <= 0.01) && c.dd <= SUGGEST_MAX_DAYS;
 }
 
 function fitNote(c) {

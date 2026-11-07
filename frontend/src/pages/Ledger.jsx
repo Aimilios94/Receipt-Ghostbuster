@@ -9,6 +9,7 @@ import { LedgerTable } from "../components/sections.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import DrillModal from "../components/DrillModal.jsx";
 import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
+import ExpenseSearch from "../components/ExpenseSearch.jsx";
 import BreakdownModal from "../components/BreakdownModal.jsx";
 import { useToast } from "../components/toast.jsx";
 import { useDeleteWithUndo } from "../lib/undo.jsx";
@@ -147,6 +148,7 @@ export default function Ledger() {
           </div>
         </div>
         <div className="head-actions">
+          <ExpenseSearch expenses={expenses} onOpen={setDetail} />
           <Button variant="primary" icon={<Icon.plus size={15} />} onClick={() => setShowAdd(true)}>
             Add expense
           </Button>

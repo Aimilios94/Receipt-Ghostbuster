@@ -646,7 +646,7 @@ export function LedgerTable({ expenses, onDelete, busyId, duplicateIds, onRowCli
                 )}
               </td>
               <td className="cell-muted">
-                {e.source === "card" ? "Card ending 4821" : sourceLabel(e.source)}
+                {e.source === "card" ? "Card payment" : sourceLabel(e.source)}
               </td>
               <td className="right num cell-muted">{money(net)}</td>
               <td className="right num cell-muted">{e.vat_amount != null ? money(e.vat_amount) : "—"}</td>

@@ -12,7 +12,7 @@ import ReplacePhotoButton from "./ReplacePhotoButton.jsx";
 import { ReceiptLightbox } from "./ReceiptLightbox.jsx";
 
 function paidWith(e) {
-  return e.source === "card" ? "Card ending 4821" : sourceLabel(e.source);
+  return e.source === "card" ? "Card payment" : sourceLabel(e.source);
 }
 
 export default function ExpenseDetailModal({ expense: expenseProp, onClose }) {

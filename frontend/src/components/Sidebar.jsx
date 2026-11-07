@@ -88,7 +88,7 @@ export default function Sidebar() {
         <div className="meta">
           <b>Personal account</b>
           <br />
-          <span>EUR · card ending 4821</span>
+          <span>EUR</span>
         </div>
       </div>
     </aside>

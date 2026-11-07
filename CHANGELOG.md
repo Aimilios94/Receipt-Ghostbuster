@@ -3,6 +3,19 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.13] — 2026-11-07
+
+**No made-up card number, nearer suggestions, and search in the Ledger.** No prompt, model or scored figure changed.
+
+### Added
+- **The Ledger has the same search** as the dashboard: vendor or photo name, any month.
+
+### Changed
+- **Reconciliation results suggest a match only within 3 days,** the same window the auto-matcher uses, and only for the same vendor or the exact amount. A line further away is still listed under Others.
+
+### Fixed
+- **A placeholder card number** ("card ending 4821") showed on every card payment and in the sidebar. Card rows now read "Card payment", and the sidebar shows only the currency.
+
 ## [0.5.12] — 2026-11-07
 
 **Search, Cash or Card in Edit, and Undo after a change.** Asked for while preparing the first timed close. No prompt, model or scored figure changed.

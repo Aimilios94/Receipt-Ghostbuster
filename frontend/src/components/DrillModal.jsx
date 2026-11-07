@@ -15,7 +15,7 @@ import ExpenseEditModal from "./ExpenseEditModal.jsx";
 import ReplacePhotoButton from "./ReplacePhotoButton.jsx";
 
 function paidWith(e) {
-  return e.source === "card" ? "Card ending 4821" : sourceLabel(e.source);
+  return e.source === "card" ? "Card payment" : sourceLabel(e.source);
 }
 
 function ReceiptCell({ expense, onView, onRescanned }) {
