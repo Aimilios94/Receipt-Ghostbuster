@@ -41,8 +41,8 @@ deep-linking to the fix.
 
 ## Observability & evaluation ✅ (v0.3)
 The LLM layer is **measured, not asserted**: validated structured outputs (Instructor),
-per-call tracing (latency/tokens/cost), a reproducible extraction-accuracy eval harness
-with a held-out test set and an accuracy-regression gate in CI, an in-app Model & Evals dashboard, and opt-in
+per-call tracing (latency/tokens/cost), an extraction-accuracy eval harness (its receipts are
+private, so only aggregates are published) with a held-out test set and an accuracy-regression gate in CI, an in-app Model & Evals dashboard, and opt-in
 LangSmith tracing + Sentry error tracking.
 
 ## Ask chatbot ✅ shipped (v0.5)
@@ -50,7 +50,7 @@ Natural-language Q&A over the one ledger, built as **tool-calling over a fixed, 
 unit-tested analytics surface** — the model picks the calculation, **every number is
 computed in code** (never by the model). It ships with its own eval harness
 (tool-selection accuracy + code-graded answers + refusals) and a **calibrated**
-faithfulness judge for the prose. Answers are a short summary plus cards drawn by the code,
+faithfulness judge for the prose, tested on a small set. Answers are a short summary plus cards drawn by the code,
 where every total opens to the rows behind it, and each question's latency and estimated
 cost are tracked. Routes now include Bank statements, Advice, Ask, and the Model & Evals
 dashboard alongside the Phase-1 screens.
@@ -61,7 +61,7 @@ monthly close summary · budget-vs-actual variance.
 
 ## Tech stack
 React + Vite (frontend) · Python/FastAPI (extraction, reconciliation, analytics logic) ·
-n8n (orchestration, refund emails) · Supabase (Postgres + auth + storage) ·
+n8n (orchestration, Gmail drafts) · Supabase (Postgres + auth + storage) ·
 vision LLM (OpenAI `gpt-5-mini`, provider-swappable incl. a local on-device option) for
 receipt extraction and the Ask chatbot · bank data via CSV or PDF import.
 

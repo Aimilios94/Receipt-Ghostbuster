@@ -20,7 +20,8 @@ backend/eval/chatbot/
 
 Unlike the extraction eval (`backend/eval/`), whose receipts + labels are **real personal
 spending** and therefore git-ignored, this ledger is **synthetic and committed** — so the
-whole chatbot eval is reproducible by anyone and safe to run in CI.
+whole chatbot eval can be re-run by anyone and is safe to run in CI. Live scores can still move
+between runs, because the model varies.
 
 ## What's scored (see `docs/design/chatbot.md` → Evaluation)
 
@@ -39,6 +40,11 @@ the calibration set (accuracy ≥ 90% **and** 100% recall on catching the unfait
 answer says a day's expenses "are shown in the list below". The judge only sees calculation results,
 not the cards, and the app does attach that day's expenses in a card below the answer, so this looks
 like a false alarm. The figure stays as measured, and the judge wasn't changed.
+
+**How far to trust the judge.** "TRUSTED" means it passed the project's own bar on 14 examples
+(2026-11-06). The labels are the tester's own, the 7 unfaithful examples are copies with a planted
+error, which are easier to catch than a real slip, and the judge is the same model as the chatbot.
+Read its score as a useful signal, not as strong evidence.
 
 ## Run it
 

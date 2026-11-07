@@ -14,11 +14,13 @@ Two workflows:
 ## Run n8n (Docker)
 
 ```bash
-docker run -d --name receipt-ghostbuster-n8n -p 5678:5678 \
+docker run -d --name receipt-ghostbuster-n8n -p 127.0.0.1:5678:5678 \
   -v rg_n8n_data:/home/node/.n8n n8nio/n8n
 ```
 
 Open **http://localhost:5678** and create the owner account (local only).
+
+> **Keep it on `127.0.0.1`.** The refund-draft webhook has no login, so anything that can reach this port can create Gmail drafts, though not send them. A plain `-p 5678:5678` would expose it to your whole network.
 
 > From inside the container, the backend is reachable at `http://host.docker.internal:8000`,
 > **not** `localhost` (localhost inside a container is the container itself).

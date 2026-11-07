@@ -3,6 +3,25 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.9] — 2026-11-07
+
+**Wording that claimed too much, found by an outside review.** No figure changed and no model was called. Engineering and docs only (`[eng]`); `feedback-notes.md` untouched. Backend tests **486 → 493**.
+
+### Changed
+- **The judge's badge is generated from its result,** like the other two, and a verdict other than TRUSTED turns it red.
+- **The numbers test also covers** the Opus comparison, the safety-net counts, the judge's sample size and the Ask results label.
+
+### Fixed
+- **The Refund Hunter code comments** said drafts use the configured model. A model only writes them on the Anthropic provider; on the default OpenAI setup they come from a template. The README now says so, and a test pins it.
+- **The Opus comparison** now explains why `gpt-5-mini` is $0.0082 there and $0.0076 in the table: 20 receipts against all 26.
+- **Ask's overall score** is labelled as excluding the judge.
+- **"The safety net is measured"** now states how few misses that rests on.
+- **Ask's cost and speed** now say they come from the app's private trace table.
+- **The judge's limits are stated,** next to its verdict and in the README.
+- **The model pages** explain the `+uncommitted` label on a row's commit.
+- **"Reproducible" removed where it claimed too much.** The extraction eval's receipts are private, and Ask's live scores move between runs.
+- **The n8n setup** binds to `127.0.0.1`, and the webhook's missing login and the broad duplicate rule are listed under Limitations.
+
 ## [0.5.8] — 2026-11-07
 
 **A locked test set, nine models compared, and published numbers a test now checks.** Engineering and docs only (`[eng]`, [D51](DECISIONS.md), [D52](DECISIONS.md), [D53](DECISIONS.md)); `feedback-notes.md` untouched. Backend tests **376 → 486**.

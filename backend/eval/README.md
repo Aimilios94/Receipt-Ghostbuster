@@ -11,7 +11,7 @@ backend/eval/
   RESULTS.md           aggregate accuracy + guardrail table   (committed — safe to publish)
   MODELS.md            the model comparison, generated from models.json (committed)
   metrics.json         machine-readable aggregates  (committed — served by /metrics/eval)
-  badges/              README badges, generated from the metrics (committed)
+  badges/              README badges, generated from the results (committed)
   results.detail.json  per-receipt breakdown        (git-ignored)
   test/                the held-out test set: same layout, its own results (photos + labels git-ignored)
   .cache/              cached LLM reads per image    (git-ignored)

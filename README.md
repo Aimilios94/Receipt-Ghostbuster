@@ -3,14 +3,14 @@
 [![CI](https://github.com/Aimilios94/Receipt-Ghostbuster/actions/workflows/ci.yml/badge.svg)](https://github.com/Aimilios94/Receipt-Ghostbuster/actions/workflows/ci.yml)
 [![extraction accuracy](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FAimilios94%2FReceipt-Ghostbuster%2Fmain%2Fbackend%2Feval%2Fbadges%2Fextraction.json)](backend/eval/RESULTS.md)
 [![chatbot tool-selection](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FAimilios94%2FReceipt-Ghostbuster%2Fmain%2Fbackend%2Feval%2Fbadges%2Fchatbot-tools.json)](backend/eval/chatbot/RESULTS.md)
-[![faithfulness judge](https://img.shields.io/badge/faithfulness_judge-calibrated-brightgreen)](backend/eval/chatbot/CALIBRATION.md)
+[![faithfulness judge](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FAimilios94%2FReceipt-Ghostbuster%2Fmain%2Fbackend%2Feval%2Fbadges%2Fjudge.json)](backend/eval/chatbot/CALIBRATION.md)
 
 **A personal money assistant that turns a snapped receipt or a typed cash expense into a clean, reconciled, VAT-split ledger. The AI reads; the code does the math.**
 
 - **99.3% field accuracy** on 26 real Portuguese receipts, including mixed VAT rates and rotated photos (141/142 fields, `gpt-5-mini`, read 2026-11-06, a development set: see [Limitations](#limitations)).
 - **100.0% on 9 new receipts held out from all tuning** (52/52 fields, and all 22 VAT rates, read 2026-11-06, true values locked first). A small, narrow set: see [Limitations](#limitations).
 - **Models are compared on evidence:** nine measured on accuracy, latency and cost, including a free on-device model at 89.4–97.2% across three runs. A cheaper, faster model is one field ahead of the one in use on the 26 and tied on the 9, and it gets its fair test on unseen November receipts.
-- **The safety net is measured too:** the review gate's misses are published, not just its catches.
+- **The safety net is measured, on few misses:** for `gpt-5-mini` the review gate caught 0 of its 1 wrong read on the 26 and had none to catch on the 9. Across all models it let 11 of 30 wrong reads on the 26 post, and 0 of 9 on the 9.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 *Dashboard, sample data, from an earlier build.*
@@ -30,7 +30,7 @@ People don't really know where their money goes. Receipts get lost, cash spend i
 - **Categorize and split VAT:** rules first, with the printed VAT table as the source of truth, per rate.
 - **Reconcile:** import a bank CSV or Revolut PDF, match it to expenses, and work through the exceptions by hand.
 - **Month-end summary:** money in and out, VAT, and what's still unreconciled.
-- **Refund Hunter:** finds recurring charges and drafts cancellation emails. Drafts only: nothing sends itself.
+- **Refund Hunter:** finds recurring charges and drafts cancellation emails, from a template on the default OpenAI setup. Drafts only: nothing sends itself.
 - **Advice:** budgets and three rule-based nudges, with no model involved.
 - **Ask:** plain-language questions answered with a short summary and cards. Every total opens to its rows.
 
@@ -78,7 +78,7 @@ Five separate systems, each answering a different question. Figures are as of 20
 2. **Model matrix: which model should read?** The same pipeline and scoring across models, on both sets. [Development](backend/eval/MODELS.md), [test](backend/eval/test/MODELS.md)
 3. **Guardrail metrics: does the gate catch bad reads?** Over-review and false auto-posts, reported below. [RESULTS.md](backend/eval/RESULTS.md#guardrail-effectiveness)
 4. **Ask eval: does the chatbot pick the right calculation?** Tool choice 22/22, answers 22/22, refusals 5/5, on a committed synthetic ledger (2026-11-06). A calibrated judge scored the wording 21/22 faithful. It flagged an answer saying the expenses are "shown in the list below", because it sees calculation results and not the cards on screen. The app does attach that list, so this looks like a false alarm, and the figure stays as measured. [RESULTS.md](backend/eval/chatbot/RESULTS.md), [CALIBRATION.md](backend/eval/chatbot/CALIBRATION.md)
-5. **Regression gate and tests: did a change break it?** CI runs 486 backend tests plus offline eval checks, and the frontend build. A test also fails if this README's figures stop matching the results files. [What the gate can't see](backend/eval/README.md#accuracy-regression-gate-ci--local)
+5. **Regression gate and tests: did a change break it?** CI runs 493 backend tests plus offline eval checks, and the frontend build. A test also fails if this README's figures stop matching the results files. [What the gate can't see](backend/eval/README.md#accuracy-regression-gate-ci--local)
 
 ![Model & Evals page](docs/screenshots/model-evals.png)
 *The in-app Model & Evals page, from an earlier build.*
@@ -100,7 +100,7 @@ Five separate systems, each answering a different question. Figures are as of 20
 Accuracy is fields correct. Latency and cost come from the development set. Reads are from 2026-11-06, except the local model (2026-11-07), Opus 4.8 (2026-10-21) and Haiku 4.5 (2026-10-21 and 22).
 
 - **Why `gpt-5-mini` is still in use:** Haiku 5.5 scored 100% on both sets, faster and at about a third of the estimated cost, and a second read of the 26 scored 142/142 again. But a model picked on these sets can't be confirmed by them, so the switch waits for unseen November receipts ([D53](DECISIONS.md)). Ask also needs OpenAI today, so a switch means separating the two settings. OpenAI lists `gpt-5-mini` as deprecated, with no shutdown date found as of 2026-11-06.
-- **Why not Opus:** on the same 20 receipts it scores 110/110 against 109/110, one date apart, at about 13× the estimated cost ($0.1067 vs $0.0082 a read). That's a cost decision: Opus is no less accurate.
+- **Why not Opus:** on the same 20 receipts it scores 110/110 against 109/110, one date apart, at about 13× the estimated cost ($0.1067 vs $0.0082 a read on those 20; the $0.0076 in the table covers all 26). That's a cost decision: Opus is no less accurate.
 - **The price of privacy, measured:** a free model that never lets the receipt leave the machine scored 89.4–97.2% across three runs of the 26 (2026-10-22, 2026-11-03 to 05, 2026-11-07), with the same prompt. Read that as a range: reads vary between runs, and most of the last two runs' reads also used different Ollama versions, so the cause of the latest rise isn't known. The catch is speed on CPU: 349.2s at p50 and 1253.6s at p95. On its latest run it also auto-posted 2 of its 4 wrong reads.
 - **Small samples:** with n=26 and n=9, differences of a few points aren't significant.
 - **Costs are estimates:** recorded tokens times each provider's list price, checked on 2026-11-06, not billed amounts.
@@ -127,7 +127,10 @@ The design accepts extra review so uncertain reads reach a person, but the thres
 - **Not multi-user:** there's no login or multi-tenancy. Any request without a token acts as `DEV_USER_ID`, so keep the backend on localhost.
 - **Self-tested:** all 11 testing rounds were run by me. No outside user has tested it.
 - **Impact not measured:** the goal is a month-end in minutes, but none has been timed. A close is also only a summary today, and it isn't saved or locked.
-- **Speed:** a `gpt-5-mini` read takes 23.9s at p50. Ask takes about 10s and $0.0022 an answer, from its first 23 questions on 2026-11-05, most of them test questions.
+- **Speed:** a `gpt-5-mini` read takes 23.9s at p50. Ask takes about 10s and $0.0022 an answer, from its first 23 questions on 2026-11-05, most of them test questions. Those two figures come from the app's private trace table, so no file in this repo backs them.
+- **The judge is lightly tested:** it passed its own bar on 14 examples (2026-11-06), with labels I wrote, planted errors in the 7 unfaithful ones, and the same model as Ask. It also can't see the cards on screen, which caused the false alarm above. See [its limits](backend/eval/chatbot/README.md).
+- **The duplicate check is broad:** the same vendor and total within ±30 days goes to review ([D29](DECISIONS.md)), so a normal repeat purchase can be flagged. That adds a review step, nothing more.
+- **The n8n webhook has no login:** anything that can reach its port can create Gmail drafts, though not send them. Keep n8n bound to localhost, as [its setup](n8n/README.md) shows. A shared secret is on the [roadmap](roadmap.md).
 - **Your data and the cloud:** receipts can stay on your machine with the local model, but Ask needs OpenAI. See [PRIVACY.md](docs/PRIVACY.md).
 
 ## Quickstart

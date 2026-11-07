@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from app import __version__
+from app.services.llm_trace import price_usd
 
 BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND.parent
@@ -115,6 +116,55 @@ def test_the_speed_quoted_in_the_docs_matches_the_results():
     assert f"read takes {p50} at p50" in README
     statement = (ROOT / "problem-statement.md").read_text(encoding="utf-8")
     assert f"read takes {p50} at p50 and {p95} at p95" in statement
+
+
+def test_the_opus_comparison_agrees_everywhere():
+    opus = next(r for r in DEV["models"] if r["model"] == "claude-opus-4-8")
+    note = next(n for n in DEV["notes"] if n.startswith("**Opus 4.8"))
+    opus_cost, mini_cost = re.search(r"\(\$(\d\.\d{4}) vs \$(\d\.\d{4}) per read", note).groups()
+    assert opus_cost == f"{opus['cost_usd']['avg_per_read']:.4f}"
+    assert round(float(opus_cost) / float(mini_cost)) == 13
+    assert "13\u00d7" in note and "about 13\u00d7" in README
+    in_use = IN_USE["cost_usd"]["avg_per_read"]
+    assert f"(${opus_cost} vs ${mini_cost} a read on those 20; the ${in_use:.4f} in the table covers all 26)" in README
+
+
+def test_the_opus_comparison_matches_the_saved_reads():
+    labels_path, cache = EVAL / "labels.json", EVAL / ".cache"
+    if not labels_path.exists() or not cache.exists():
+        pytest.skip("the receipts' saved reads are private, so this only runs where they exist")
+    stems = [l["file"].rsplit(".", 1)[0] for l in _json(labels_path)]
+    stems = [s for s in stems if (cache / f"{s}.anthropic.claude-opus-4-8.models.json").exists()]
+    costs = []
+    for stem in stems:
+        trace = _json(cache / f"{stem}.openai.gpt-5-mini.models.json")["trace"]
+        costs.append(price_usd("gpt-5-mini", int(trace.get("input_tokens") or 0), int(trace.get("output_tokens") or 0)))
+    note = next(n for n in DEV["notes"] if n.startswith("**Opus 4.8"))
+    assert len(stems) == 20 and f"vs ${sum(costs) / len(costs):.4f} per read" in note
+
+
+def test_the_safety_net_line_counts_every_models_wrong_reads():
+    def tally(doc):
+        wrong = sum(r["receipts_fully_correct"]["n"] - r["receipts_fully_correct"]["count"] for r in doc["models"])
+        return sum(r["guardrails"]["false_auto_posts"] for r in doc["models"]), wrong
+
+    dev_posted, dev_wrong = tally(DEV)
+    test_posted, test_wrong = tally(TEST)
+    assert f"{dev_posted} of {dev_wrong} wrong reads on the 26" in README
+    assert f"{test_posted} of {test_wrong} on the 9" in README
+    g = METRICS["guardrails"]
+    assert g["wrong_reads"] == 1 and g["false_auto_posts"] == 1 and TEST_METRICS["guardrails"]["wrong_reads"] == 0
+
+
+def test_the_ask_results_say_the_overall_excludes_the_judge():
+    assert "**Overall (excludes the judge)**" in (EVAL / "chatbot" / "RESULTS.md").read_text(encoding="utf-8")
+
+
+def test_the_judge_figures_match_its_calibration():
+    n = len(_json(EVAL / "chatbot" / "calibration.json")["examples"])
+    assert f"on {n} examples" in README
+    assert "badges%2Fjudge.json" in README and "img.shields.io/badge/faithfulness_judge" not in README
+    assert f"({n} examples" in (EVAL / "chatbot" / "CALIBRATION.md").read_text(encoding="utf-8")
 
 
 def test_a_corrected_figure_stays_out_of_the_current_docs():

@@ -14,6 +14,8 @@ Does the LLM faithfulness judge agree with **human-verified** labels? Measured o
 
 **Verdict: TRUSTED** — the judge is trusted only if it agrees with humans at least 90% of the time **and** catches 100% of the unfaithful answers (missing a bad answer is the failure that matters).
 
+**Limits:** this is the project's own bar, on a small set. The labels are the tester's own, the unfaithful examples are copies with a planted error, and the judge is the same model as the chatbot it grades. It also sees the calculation results but not the cards drawn on screen.
+
 Confusion (human → judge):
 
 | human \\ judge | faithful | unfaithful |

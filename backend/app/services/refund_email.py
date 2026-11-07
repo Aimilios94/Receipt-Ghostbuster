@@ -1,11 +1,12 @@
 """Draft a cancellation / refund email for a subscription (Phase 2, T14).
 
-The LLM only *writes* the draft text. It never sends anything and never touches
-money — the draft is persisted with status='draft' and a human approves it; n8n
+On the Anthropic provider a model writes the draft text. On every other provider,
+including the default OpenAI, a deterministic template writes it. Either way nothing
+is sent and no money is touched — the draft is persisted with status='draft' and a human approves it; n8n
 later pushes the approved draft into Gmail as a DRAFT (still not sent).
 
-Falls back to a deterministic template when no LLM is configured (provider=mock
-or missing key), so the feature is fully testable and demoable offline.
+The template is also the fallback when Anthropic has no key or its call fails, so the
+feature is fully testable and demoable offline.
 """
 from __future__ import annotations
 
@@ -89,7 +90,7 @@ def _draft_template(subscription: dict[str, Any], action: str) -> dict[str, str]
 
 
 def draft_email(subscription: dict[str, Any], action: str, settings: Settings) -> dict[str, str]:
-    """Return {subject, body}. Uses the configured LLM, else a safe template."""
+    """Return {subject, body}. Uses a model on the Anthropic provider, else a safe template."""
     provider = settings.llm_provider.lower()
     try:
         if provider == "anthropic" and settings.anthropic_api_key:

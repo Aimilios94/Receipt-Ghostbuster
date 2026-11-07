@@ -10,6 +10,7 @@ The same shipped pipeline (`extraction.extract_receipt` + the deterministic `rec
 - **The gate is only tested on wrong reads.** `gpt-5-mini`, Sonnet 5.5, Haiku 5.5 and Terra made none here, so their false auto-posts show `n/a` rather than a pass.
 - **Comparing models here costs independence.** A model picked because of its score on this set can't be confirmed by this set, so any switch waits for new receipts (D53).
 - Costs are estimates: recorded tokens times each provider's list price, checked on 2026-11-06. They aren't billed amounts.
+- **The commit column:** `+uncommitted` means changes that weren't committed when the row was scored. Those on `dedb262` landed in `afab9f6`. The prompts are the same throughout. The receipts and labels are private and reads vary, so these figures can't be reproduced from the repo alone.
 
 ## Accuracy
 

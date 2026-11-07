@@ -1,4 +1,4 @@
-"""A committed README badge must show what its metrics file says."""
+"""A committed README badge must show what its results say."""
 import json
 import sys
 from pathlib import Path
@@ -20,3 +20,10 @@ def test_badge_colour_follows_the_score():
     assert make_badges._badge("x", 0.993)["color"] == "brightgreen"
     assert make_badges._badge("x", 0.92)["color"] == "green"
     assert make_badges._badge("x", 0.8)["color"] == "yellow"
+
+
+def test_the_judge_badge_follows_its_verdict():
+    passed = make_badges._judge_badge("over a set (14 examples: real) **Verdict: TRUSTED** rest")
+    assert passed["message"] == "calibrated, n=14" and passed["color"] == "green"
+    failed = make_badges._judge_badge("over a set (14 examples: real) **Verdict: NOT TRUSTED** rest")
+    assert failed["message"] == "not calibrated" and failed["color"] == "red"

@@ -279,6 +279,16 @@ Status: **shipped.** Backend tests **376 → 486**.
 
 ---
 
+## v0.5.9 — Honest wording, from an outside review ✅
+
+**Goal:** public claims no stronger than their evidence. No figure changed.
+
+Scope delivered: the Refund Hunter's template default stated, the Opus cost explained, Ask's overall labelled, the judge's and the safety net's limits stated, the judge's badge generated from its result, and n8n's setup bound to localhost.
+
+Status: **shipped.** Backend tests **486 → 493**.
+
+---
+
 ## v0.6 — Payslip tracking ⬜
 
 **Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance
@@ -300,6 +310,10 @@ Status: **planned** — not started.
 - **A held-out accuracy number.** ✅ `eval/test/` holds 9 new receipts, frozen before any model read them and scored with the supermarket rules in place ([D51](DECISIONS.md)). It's small and narrow, so it should grow.
 - **A fair test of Haiku 5.5 on unseen November receipts.** ⬜ It's one field ahead of `gpt-5-mini` on the 26, tied on the 9, and cheaper and faster, but those sets helped pick it, so they can't confirm it ([D53](DECISIONS.md)). Score November's receipts before any prompt change, then decide.
 - **Separate provider settings for receipts and Ask.** ⬜ Ask, the bank PDF import and the refund emails all branch on one `LLM_PROVIDER`, so receipts can't move to Haiku without this.
+- **A shared secret on the n8n webhook.** ⬜ It has no login today. Do it in the demo step, when n8n is revived anyway: it means re-importing the workflow and re-testing Gmail. Recreate any running container bound to `127.0.0.1` at the same time.
+- **AI-written refund emails on OpenAI.** ⬜ Only the Anthropic provider uses a model today, so the default setup uses the template. It's a new feature, so build it with the separate provider settings.
+- **A bigger, harder judge test set.** ⬜ 14 examples with planted errors and the tester's own labels is thin. Add real slips, more examples, and ideally a different model as judge.
+- **Review the VAT consistency tolerance.** ⬜ `_vat_inconsistent` allows the larger of €1 or 10% of the total, which is loose on large receipts and assumes one chain's loyalty discounts. Revisit it with November's data, because tuning it now would change the gate after the test set was locked.
 - **Plan for `gpt-5-mini`'s deprecation.** ⬜ OpenAI lists `gpt-5-mini` and `gpt-4o` as deprecated and recommends GPT-5.6 Terra, with no shutdown date found as of 2026-11-06. Ask uses `gpt-5-mini` too, so it needs its own comparison on the chatbot eval.
 - **Why the local model's score moved.** ⬜ 90.1% to 97.2% between two runs, across two Ollama versions ([D53](DECISIONS.md)). A repeat on one version would separate the version from chance: free, about 5 hours.
 - **Duplicate check by ATCUD.** ⬜ After November is scored, since it needs a prompt change: every Portuguese receipt prints a unique ATCUD code, a far stronger duplicate key than vendor + total + date ([D49](DECISIONS.md)).

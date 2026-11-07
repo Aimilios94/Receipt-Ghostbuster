@@ -29,3 +29,8 @@ def test_never_raises_without_llm():
     settings = SimpleNamespace(llm_provider="anthropic", anthropic_api_key="", anthropic_model="x")
     d = refund_email.draft_email(SUB, "cancel", settings)
     assert d["subject"] and d["body"]
+
+
+def test_the_default_openai_provider_uses_the_template():
+    settings = SimpleNamespace(llm_provider="openai", anthropic_api_key="", anthropic_model="x")
+    assert refund_email.draft_email(SUB, "cancel", settings) == refund_email._draft_template(SUB, "cancel")
