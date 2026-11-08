@@ -12,8 +12,23 @@
 - **Models are compared on evidence:** nine measured on accuracy, latency and cost, including a free on-device model at 89.4–97.2% across three runs. A cheaper, faster model is one field ahead of the one in use on the 26 and tied on the 9, and it gets its fair test on unseen November receipts.
 - **The safety net is measured, on few misses:** for `gpt-5-mini` the review gate caught 0 of its 1 wrong read on the 26 and had none to catch on the 9. Across all models it let 11 of 30 wrong reads on the 26 post, and 0 of 9 on the 9.
 
+![A walkthrough: upload a receipt, change how it was paid, reconcile, close the month, ask a question](docs/demo/demo.gif)
+*A walkthrough on a synthetic demo user with invented receipts, recorded 2026-11-08 (v0.5.18). The GIF plays at 2× speed. In both the GIF and the [full video (MP4)](docs/demo/demo.mp4), the wait while the receipt is read is cut.*
+
 ![Dashboard](docs/screenshots/dashboard.png)
-*Dashboard, sample data, from an earlier build.*
+*Dashboard, synthetic demo user, 2026-11-08.*
+
+<details><summary>More screens</summary>
+
+| | |
+|---|---|
+| ![Edit: how it was paid](docs/screenshots/edit-paid-with.png) **Paid with:** Card, Other card, Cash or Bank transfer. Only Card waits for a bank line. | ![Reconciliation results](docs/screenshots/reconciliation.png) **Reconciliation results,** with search. |
+| ![Undo after a match](docs/screenshots/undo.png) **Undo** after every reconciliation action. | ![A saved monthly close](docs/screenshots/monthly-close-saved.png) **A closed month is saved** with its figures, and later changes are listed. |
+| ![Ask](docs/screenshots/ask.png) **Ask:** a short answer, then cards built in code. | ![Refund Hunter draft](docs/screenshots/draft-email.png) **Refund Hunter** drafts a cancellation. Nothing is sent. |
+
+All on a synthetic demo user with invented receipts, 2026-11-08.
+
+</details>
 
 ---
 
@@ -81,7 +96,7 @@ Five separate systems, each answering a different question. Figures are as of 20
 5. **Regression gate and tests: did a change break it?** CI runs 527 backend tests plus offline eval checks, and the frontend build. A test also fails if this README's figures stop matching the results files. [What the gate can't see](backend/eval/README.md#accuracy-regression-gate-ci--local)
 
 ![Model & Evals page](docs/screenshots/model-evals.png)
-*The in-app Model & Evals page, from an earlier build.*
+*The in-app Model & Evals page, 2026-11-08, showing the development set read on 2026-11-06.*
 
 ### Model matrix, as of 2026-11-07
 
