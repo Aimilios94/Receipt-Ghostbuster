@@ -20,7 +20,7 @@ docker run -d --name receipt-ghostbuster-n8n -p 127.0.0.1:5678:5678 \
 
 Open **http://localhost:5678** and create the owner account (local only).
 
-> **Keep it on `127.0.0.1`.** The refund-draft webhook has no login, so anything that can reach this port can create Gmail drafts, though not send them. A plain `-p 5678:5678` would expose it to your whole network.
+> **Keep it on `127.0.0.1`.** A plain `-p 5678:5678` would expose n8n to your whole network. The refund-draft webhook also checks a shared secret (below), so a caller without it can't create Gmail drafts.
 
 > From inside the container, the backend is reachable at `http://host.docker.internal:8000`,
 > **not** `localhost` (localhost inside a container is the container itself).
@@ -46,8 +46,12 @@ The Gmail node needs a Google OAuth credential (Gmail API). In n8n:
 
 1. n8n → **Workflows → Import from File** → pick each JSON in this folder.
 2. Open `refund-draft-to-gmail`, click the **Gmail - Create Draft** node and select
-   your Gmail credential (and verify the field mappings). **Save**, then **Activate**.
-3. Open `detect-subscriptions-cron` and **Activate** it (no credential needed).
+   your Gmail credential (and verify the field mappings).
+3. Click the **Webhook** node. Under **Authentication: Header Auth**, create a credential with
+   **Name** `X-RG-Webhook-Secret` and **Value** a long random string, for example the output of
+   `python -c "import secrets; print(secrets.token_urlsafe(32))"`. **Save**, then **Publish**
+   (older n8n versions: **Activate**).
+4. Open `detect-subscriptions-cron` and **Activate** it (no credential needed).
 
 ## Wire the backend to the webhook
 
@@ -56,7 +60,11 @@ With the webhook workflow **active**, copy its Production URL (it will be
 
 ```
 N8N_WEBHOOK_URL=http://localhost:5678/webhook/refund-draft
+N8N_WEBHOOK_SECRET=<the same value as the Header Auth credential>
 ```
+
+The backend sends the secret as the `X-RG-Webhook-Secret` header. A call without it, or with a
+different value, gets HTTP 403 ("Authorization data is wrong!") from n8n and creates no draft.
 
 Restart the backend. `GET /health` will now report `n8n_configured: true`, and the
 **"Save to Gmail drafts"** button in Refund Hunter becomes active. Clicking it posts

@@ -147,6 +147,10 @@ class Settings(BaseSettings):
     # The webhook URL of the imported "refund-draft-to-gmail" workflow, e.g.
     # http://localhost:5678/webhook/refund-draft . Draft-only; never sends.
     n8n_webhook_url: str = ""
+    # Shared secret sent as the X-RG-Webhook-Secret header. The workflow's webhook
+    # checks it with a Header Auth credential holding the same value, so a caller
+    # without it gets a 403 and no draft is created. Blank sends no header.
+    n8n_webhook_secret: str = ""
 
     @property
     def supabase_configured(self) -> bool:

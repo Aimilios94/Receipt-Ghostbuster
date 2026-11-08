@@ -3,6 +3,18 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.18] — 2026-11-08
+
+**A shared secret on the n8n webhook, and two fixes found while recording the demo.** The secret comes from the outside review on 2026-11-07. No prompt, model or scored figure changed.
+
+### Security
+- **The refund-draft webhook checks a shared secret.** The backend sends `N8N_WEBHOOK_SECRET` as the `X-RG-Webhook-Secret` header, and the workflow's Header Auth credential rejects a call without it. Before, anything that could reach n8n's port could create Gmail drafts, though not send them. Blank sends no header, so an existing setup keeps working until the workflow asks for the secret. See [n8n/README.md](n8n/README.md).
+- Backend tests 525 → 527.
+
+### Fixed
+- **A VAT line at a rate outside the usual list,** such as 24%, showed as "VAT?" in the Edit form. The stored rate was right; the list now includes the line's own rate.
+- **Deleting from the "Possible duplicate" card** could remove the copy that was matched to the bank, which left the other copy unmatched. The card now acts on a copy with no bank match.
+
 ## [0.5.17] — 2026-11-07
 
 **Paid by bank transfer, and VAT that the receipt doesn't show.** One new column (`db/schema.sql`). No prompt, model or scored figure changed.

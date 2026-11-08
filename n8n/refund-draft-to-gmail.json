@@ -8,6 +8,7 @@
         "httpMethod": "POST",
         "path": "refund-draft",
         "responseMode": "lastNode",
+        "authentication": "headerAuth",
         "options": {}
       },
       "id": "a1b2c3d4-0001-4001-8001-000000000001",
@@ -15,7 +16,13 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [260, 300],
-      "webhookId": "a1b2c3d4-0001-4001-8001-0000000000ff"
+      "webhookId": "a1b2c3d4-0001-4001-8001-0000000000ff",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Receipt Ghostbuster webhook secret"
+        }
+      }
     },
     {
       "parameters": {

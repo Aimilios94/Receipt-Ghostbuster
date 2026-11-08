@@ -136,6 +136,14 @@ export function ReviewItem({ expense, onPost, onDiscard, onRetake, busy }) {
 
 const VAT_RATE_OPTIONS = ["", "0", "6", "13", "23"];
 
+// The usual rates, plus the line's own rate if it isn't one of them (e.g. 24%),
+// so a stored rate is never displayed as "VAT?".
+function vatRateOptions(current) {
+  const cur = current === null || current === undefined ? "" : String(current);
+  if (VAT_RATE_OPTIONS.includes(cur)) return VAT_RATE_OPTIONS;
+  return [...VAT_RATE_OPTIONS, cur].sort((a, b) => (a === "" ? -1 : b === "" ? 1 : Number(a) - Number(b)));
+}
+
 // Reusable multi-rate VAT editor (used in the review queue + the Ledger edit modal).
 // `lines` is [{description, amount, vat_rate}]; all VAT lives here (there is no
 // separate single VAT field anymore). VAT is summed PER RATE for the live preview.
@@ -223,8 +231,8 @@ export function VatLinesEditor({ lines, setLines, busy }) {
                 style={{ maxWidth: 92 }}
                 title={l.suggested ? SUGGESTED_TIP : undefined}
               >
-                {VAT_RATE_OPTIONS.map((r) => (
-                  <option key={r || "none"} value={r}>{r === "" ? "VAT?" : `${r}%`}</option>
+                {vatRateOptions(l.vat_rate).map((r) => (
+                  <option key={r || "none"} value={r}>{r === "" ? "VAT?" : `${Number(r)}%`}</option>
                 ))}
               </select>
               <button
@@ -423,9 +431,18 @@ const EXC_META = {
 
 // The expense behind an exception (if any) — single source of truth for opening
 // the detail view, sorting by recency, and unread tracking. Bank-only rows return null.
+// Of a group of possible duplicates, the copy to offer for deletion: one with no bank
+// match (deleting the matched copy would leave the other unmatched), the newest first.
+export function duplicateToRemove(group) {
+  if (!group.length) return null;
+  const free = group.filter((e) => !e.matched_transaction_id);
+  const pool = free.length ? free : group;
+  return [...pool].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))[0];
+}
+
 export function exceptionExpense(type, data) {
   if (type === "amount_mismatch") return data.expense || null;
-  if (type === "duplicates") return Array.isArray(data) ? data[0] : null;
+  if (type === "duplicates") return Array.isArray(data) ? duplicateToRemove(data) : null;
   if (type === "unmatched_bank") return null;
   return data; // missing_vat, unmatched_expenses
 }

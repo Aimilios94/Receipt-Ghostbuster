@@ -37,6 +37,14 @@ def update_refund_action(
     return {"refund_action": row}
 
 
+WEBHOOK_SECRET_HEADER = "X-RG-Webhook-Secret"
+
+
+def webhook_headers(settings: Settings) -> dict[str, str]:
+    """The header n8n's webhook checks before it creates a draft."""
+    return {WEBHOOK_SECRET_HEADER: settings.n8n_webhook_secret} if settings.n8n_webhook_secret else {}
+
+
 @router.post("/{action_id}/deliver")
 def deliver_to_gmail(
     action_id: str,
@@ -64,7 +72,9 @@ def deliver_to_gmail(
         "message": action.get("email_draft") or "",
     }
     try:
-        resp = httpx.post(settings.n8n_webhook_url, json=payload, timeout=20)
+        resp = httpx.post(
+            settings.n8n_webhook_url, json=payload, headers=webhook_headers(settings), timeout=20
+        )
         resp.raise_for_status()
     except httpx.HTTPError as exc:
         monitoring.capture(exc, surface="refunds.n8n_webhook")
