@@ -3,6 +3,11 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.21] — 2026-11-08
+
+### Fixed
+- **Monthly close took the whole app down when its figures failed to load.** It read the month's totals from a reply that never arrived, so every page showed "Something went wrong" until a reload. Now the page shows the error message and the rest of the app keeps working. Found while checking the read-only demo build with no backend.
+
 ## [0.5.20] — 2026-11-08
 
 **A read-only mode for a hosted demo on invented data.** Off by default, so nothing changes for local use. No prompt, model or scored figure changed.

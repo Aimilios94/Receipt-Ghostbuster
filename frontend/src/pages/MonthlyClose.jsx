@@ -75,7 +75,7 @@ export default function MonthlyClose() {
 
       {isLoading ? (
         <Loading />
-      ) : (
+      ) : !close ? null : (
         <>
           <div className="grid grid-stats" style={{ marginBottom: 18 }}>
             <SummaryStat label="Money out" value={money(close.total_out)} />
