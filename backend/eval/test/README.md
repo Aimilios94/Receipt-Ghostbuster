@@ -55,3 +55,18 @@ python scripts/eval_models.py --models openai:gpt-4o anthropic:claude-haiku-4-5 
 `vat_lines` feeds a separate score, VAT per rate, reported next to the main accuracy and never added to it. That keeps the main number comparable with the development set, whose labels have no per-rate figures.
 
 If a true value turns out to be mistyped after scoring, `freeze --correction "reason"` updates it, and the reason is printed in the published results.
+
+## A later batch
+
+This set is frozen, so new receipts never join it. A later batch gets its own folder under `eval/`, named `test-` plus a suffix such as the month (`test-2026-11`), with its own photos, sheet, freeze, results and model matrix. The same rules apply, and a photo already in another held-out set is refused. Every command takes `--set`:
+
+```bash
+cd backend
+python scripts/prepare_test_set.py init --set test-2026-11
+python scripts/prepare_test_set.py check --set test-2026-11
+python scripts/prepare_test_set.py freeze --set test-2026-11
+python scripts/eval_extraction.py --set test-2026-11
+python scripts/eval_models.py --models anthropic:claude-haiku-5-5 --set test-2026-11
+```
+
+Each batch is published on its own, with its own n and date, and is never added to this one.

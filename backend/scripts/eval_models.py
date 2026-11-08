@@ -477,19 +477,29 @@ def main() -> int:
                     help="start a new matrix instead of updating only the models named here")
     ap.add_argument("--test-set", action="store_true",
                     help="use the frozen held-out set and write its own matrix in eval/test/")
+    ap.add_argument("--set", default=None, metavar="NAME",
+                    help="use another frozen held-out set under eval/, e.g. test-2026-11, "
+                         "and write its own matrix there (implies --test-set)")
     args = ap.parse_args()
 
     models_md, models_json = MODELS_MD, MODELS_JSON
-    if args.test_set:
+    test_dir = None
+    if args.test_set or args.set:
+        args.test_set = True
+        try:
+            test_dir = ev.test_set_dir(args.set)
+        except ValueError as e:
+            print(e)
+            return 2
         if args.refresh or args.limit:
             print("The test set is read once and scored whole, so --refresh and --limit don't apply.")
             return 2
-        problems = ev.check_frozen(ev.TEST_DIR)
+        problems = ev.check_frozen(test_dir)
         if problems:
             print("Can't score the test set:\n  " + "\n  ".join(problems))
             return 2
-        args.labels, args.receipts = str(ev.TEST_DIR / "labels.json"), str(ev.TEST_DIR / "receipts")
-        models_md, models_json = ev.TEST_DIR / "MODELS.md", ev.TEST_DIR / "models.json"
+        args.labels, args.receipts = str(test_dir / "labels.json"), str(test_dir / "receipts")
+        models_md, models_json = test_dir / "MODELS.md", test_dir / "models.json"
 
     labels_path = Path(args.labels)
     if not labels_path.exists():
@@ -513,8 +523,8 @@ def main() -> int:
     for provider, model in specs:
         r = _run_model(provider, model, labels, receipts_dir, today, use_cache=not args.refresh)
         if r is not None:
-            if args.test_set:
-                r["provenance"]["command"] += " --test-set"
+            if test_dir:
+                r["provenance"]["command"] += " " + ev.set_flag(test_dir)
             results.append(r)
 
     if not results:

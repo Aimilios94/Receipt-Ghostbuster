@@ -8,6 +8,9 @@ afterwards without a recorded reason. See backend/eval/test/README.md.
     python scripts/prepare_test_set.py check    # report problems, change nothing
     python scripts/prepare_test_set.py freeze   # write labels.json + freeze.json
     python scripts/prepare_test_set.py freeze --correction "why this label changed"
+
+Each command takes --set NAME for a later batch in its own folder, e.g. --set test-2026-11 for
+eval/test-2026-11/. Without it, the command works on the first set, eval/test/.
 """
 from __future__ import annotations
 
@@ -35,7 +38,6 @@ USUAL_VAT_RATES = {0, 6, 13, 23}
 SUGGESTED_MINIMUM = 10
 MONEY_TOLERANCE = 0.01
 TEST_DIR = ev.TEST_DIR
-VALUES_CSV = TEST_DIR / "true-values.csv"
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -189,16 +191,29 @@ def _photos(receipts_dir: Path) -> list[Path]:
     return sorted(p for p in receipts_dir.iterdir() if p.is_file())
 
 
+def other_sets(test_dir: Path) -> list[Path]:
+    """The receipts folders of every other held-out set under eval/."""
+    return [d / "receipts" for d in sorted(ev.EVAL_DIR.glob("test*"))
+            if d.is_dir() and d.resolve() != test_dir.resolve() and (d / "receipts").is_dir()]
+
+
 def validate(
     rows: list[dict[str, str]], receipts_dir: Path, dev_dir: Path, cache_dir: Path,
-    today: datetime.date, *, after_read: bool = False,
+    today: datetime.date, *, after_read: bool = False, other_receipts: list[Path] | tuple[Path, ...] = (),
 ) -> tuple[list[dict[str, Any]], list[str], list[str]]:
-    """Check the sheet against the photos and the eval's history. Returns labels, errors, warnings."""
+    """Check the sheet against the photos and the eval's history. Returns labels, errors, warnings.
+    `other_receipts` are other held-out sets' photo folders: a photo in one of them isn't new."""
     errors: list[str] = []
     warnings: list[str] = []
     labels: list[dict[str, Any]] = []
     photos = {p.name: p for p in _photos(receipts_dir)}
     seen: set[str] = set()
+    other_hashes: dict[str, str] = {}
+    other_names: dict[str, str] = {}
+    for folder in other_receipts:
+        for p in _photos(folder):
+            other_hashes[ev.sha256_of(p)] = f"{folder.parent.name}/{p.name}"
+            other_names[p.name] = folder.parent.name
 
     for number, row in enumerate(rows, start=1):
         name = row.get("file", "")
@@ -234,6 +249,10 @@ def validate(
         by_hash[digest] = name
         if (dev_dir / name).exists():
             errors.append(f"{name}: a development receipt already has this file name")
+        if digest in other_hashes:
+            errors.append(f"{name}: the same photo is already in the held-out set as {other_hashes[digest]}")
+        if name in other_names:
+            errors.append(f"{name}: a receipt in the held-out set {other_names[name]} already has this file name")
         if not after_read and any(cache_dir.glob(f"{path.stem}.*")):
             errors.append(f"{name}: the eval has already read this photo, so it isn't unseen")
 
@@ -249,33 +268,53 @@ def _report(errors: list[str], warnings: list[str]) -> None:
         print(f"  PROBLEM  {e}")
 
 
+def _set_dir(args: argparse.Namespace) -> Path | None:
+    try:
+        return ev.test_set_dir(args.set)
+    except ValueError as e:
+        print(e)
+        return None
+
+
+def _which(test_dir: Path) -> str:
+    return "" if test_dir == ev.TEST_DIR else f" --set {test_dir.name}"
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     """Add a blank row for each photo that doesn't have one. Existing rows are kept."""
-    TEST_DIR.mkdir(exist_ok=True)
-    (TEST_DIR / "receipts").mkdir(exist_ok=True)
-    rows = read_rows(VALUES_CSV) if VALUES_CSV.exists() else []
+    test_dir = _set_dir(args)
+    if test_dir is None:
+        return 2
+    values_csv = test_dir / "true-values.csv"
+    test_dir.mkdir(exist_ok=True)
+    (test_dir / "receipts").mkdir(exist_ok=True)
+    rows = read_rows(values_csv) if values_csv.exists() else []
     known = {row.get("file") for row in rows}
-    new = [p.name for p in _photos(TEST_DIR / "receipts") if p.name not in known]
+    new = [p.name for p in _photos(test_dir / "receipts") if p.name not in known]
     rows += [{"file": name} for name in new]
-    with VALUES_CSV.open("w", encoding="utf-8", newline="") as handle:
+    with values_csv.open("w", encoding="utf-8", newline="") as handle:
         handle.write("sep=;\r\n")
         writer = csv.DictWriter(handle, fieldnames=COLUMNS, delimiter=";", extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
-    print(f"{VALUES_CSV.name}: {len(rows)} rows, {len(new)} added.")
+    print(f"{test_dir.name}/{values_csv.name}: {len(rows)} rows, {len(new)} added.")
     return 0
 
 
-def _load(args: argparse.Namespace, *, after_read: bool = False):
-    if not VALUES_CSV.exists():
-        print(f"No {VALUES_CSV.name} yet. Run: python scripts/prepare_test_set.py init")
+def _load(test_dir: Path, *, after_read: bool = False):
+    values_csv = test_dir / "true-values.csv"
+    if not values_csv.exists():
+        print(f"No {test_dir.name}/{values_csv.name} yet. Run: python scripts/prepare_test_set.py init{_which(test_dir)}")
         return None
-    return validate(read_rows(VALUES_CSV), TEST_DIR / "receipts", ev.RECEIPTS_DIR, ev.CACHE_DIR,
-                    datetime.date.today(), after_read=after_read)
+    return validate(read_rows(values_csv), test_dir / "receipts", ev.RECEIPTS_DIR, ev.CACHE_DIR,
+                    datetime.date.today(), after_read=after_read, other_receipts=other_sets(test_dir))
 
 
 def cmd_check(args: argparse.Namespace) -> int:
-    loaded = _load(args)
+    test_dir = _set_dir(args)
+    if test_dir is None:
+        return 2
+    loaded = _load(test_dir)
     if loaded is None:
         return 2
     labels, errors, warnings = loaded
@@ -285,9 +324,12 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_freeze(args: argparse.Namespace) -> int:
-    freeze_path = TEST_DIR / "freeze.json"
+    test_dir = _set_dir(args)
+    if test_dir is None:
+        return 2
+    freeze_path = test_dir / "freeze.json"
     previous = json.loads(freeze_path.read_text(encoding="utf-8")) if freeze_path.exists() else None
-    loaded = _load(args, after_read=bool(args.correction))
+    loaded = _load(test_dir, after_read=bool(args.correction))
     if loaded is None:
         return 2
     labels, errors, warnings = loaded
@@ -299,27 +341,32 @@ def cmd_freeze(args: argparse.Namespace) -> int:
         print("Already frozen. A later change needs --correction with the reason, which is published.")
         return 1
 
-    labels_path = TEST_DIR / "labels.json"
+    labels_path = test_dir / "labels.json"
     labels_path.write_text(json.dumps(labels, indent=2, ensure_ascii=False), encoding="utf-8")
-    manifest = ev.freeze_manifest(labels_path, TEST_DIR / "receipts", labels)
+    manifest = ev.freeze_manifest(labels_path, test_dir / "receipts", labels)
     manifest["frozen_on"] = (previous or {}).get("frozen_on") or datetime.date.today().isoformat()
     manifest["corrections"] = list((previous or {}).get("corrections", []))
     if args.correction:
         manifest["corrections"].append({"date": datetime.date.today().isoformat(), "reason": args.correction})
     freeze_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(f"Frozen: {len(labels)} receipts. Run: python scripts/eval_extraction.py --test-set")
+    print(f"Frozen: {len(labels)} receipts in {test_dir.name}/. "
+          f"Run: python scripts/eval_extraction.py {ev.set_flag(test_dir)}")
     return 0
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Prepare the held-out test set.")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--set", default=None, metavar="NAME",
+                        help="a later held-out batch in its own folder under eval/, e.g. test-2026-11 "
+                             "(default: the first set, eval/test/)")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("init").set_defaults(run=cmd_init)
-    commands.add_parser("check").set_defaults(run=cmd_check)
-    freeze = commands.add_parser("freeze")
+    commands.add_parser("init", parents=[common]).set_defaults(run=cmd_init)
+    commands.add_parser("check", parents=[common]).set_defaults(run=cmd_check)
+    freeze = commands.add_parser("freeze", parents=[common])
     freeze.add_argument("--correction", default=None, help="why a frozen label changed; published with the result")
     freeze.set_defaults(run=cmd_freeze)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     return args.run(args)
 
 

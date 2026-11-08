@@ -3,6 +3,13 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.19] — 2026-11-08
+
+**Room for a second held-out batch, ready for November's receipts.** No prompt, model, app or scored figure changed.
+
+### Added
+- **A later held-out batch in its own folder** `[eng]`. `prepare_test_set.py`, `eval_extraction.py` and `eval_models.py` take `--set NAME`, for example `--set test-2026-11` for `backend/eval/test-2026-11/`. Each batch has its own freeze, results and model matrix, so a new batch never changes the first set's freeze, and a photo already in another held-out set is refused. Without `--set`, everything works on `backend/eval/test/` as before. Only the eval scripts changed. Backend tests 527 → 532.
+
 ## [0.5.18] — 2026-11-08
 
 **A shared secret on the n8n webhook, and two fixes found while recording the demo.** The secret comes from the outside review on 2026-11-07. No prompt, model or scored figure changed.

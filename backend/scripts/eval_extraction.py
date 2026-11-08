@@ -20,6 +20,7 @@ Usage (from the backend/ dir, with the provider's API key in backend/.env):
     python scripts/eval_extraction.py --provider mock # smoke-test the harness, no key
     python scripts/eval_extraction.py --limit 3       # first 3 only
     python scripts/eval_extraction.py --test-set      # the frozen held-out set, eval/test/
+    python scripts/eval_extraction.py --set test-2026-11   # a later held-out batch, eval/test-2026-11/
 
 Extraction is cached per image under backend/eval/.cache/ so you can iterate on the
 scorer without re-spending API calls; --refresh forces a fresh read.
@@ -291,12 +292,33 @@ def freeze_manifest(labels_path: Path, receipts_dir: Path, labels: list[dict[str
     }
 
 
+SET_NAME = re.compile(r"test(-[a-z0-9]+)*")
+
+
+def test_set_dir(name: str | None = None) -> Path:
+    """The folder of a held-out set under eval/. `test` is the first one. A later batch gets its own
+    folder, such as `test-2026-11`, so it's frozen, read and published on its own and never changes
+    an earlier set's freeze."""
+    if name is None or name == TEST_DIR.name:
+        return TEST_DIR
+    if not SET_NAME.fullmatch(name):
+        raise ValueError(f"'{name}' isn't a held-out set name. Use a folder name under eval/ "
+                         f"such as test-2026-11.")
+    return EVAL_DIR / name
+
+
+def set_flag(test_dir: Path) -> str:
+    """The flag that picks this set, for the commands printed and published."""
+    return "--test-set" if test_dir == TEST_DIR else f"--set {test_dir.name}"
+
+
 def check_frozen(test_dir: Path = TEST_DIR) -> list[str]:
     """What stops the test set being scored: nothing frozen, or a change since it was."""
     freeze_path = test_dir / "freeze.json"
     labels_path = test_dir / "labels.json"
     if not freeze_path.exists() or not labels_path.exists():
-        return ["The test set isn't frozen yet. Run: python scripts/prepare_test_set.py freeze"]
+        which = "" if test_dir == TEST_DIR else f" --set {test_dir.name}"
+        return [f"The test set isn't frozen yet. Run: python scripts/prepare_test_set.py freeze{which}"]
     frozen = json.loads(freeze_path.read_text(encoding="utf-8"))
     problems = []
     if sha256_of(labels_path) != frozen["labels_sha256"]:
@@ -348,20 +370,29 @@ def main() -> int:
     ap.add_argument("--results-out", default=None, help="where to write RESULTS.md (default eval/RESULTS.md)")
     ap.add_argument("--detail-out", default=None, help="where to write results.detail.json (default eval/results.detail.json)")
     ap.add_argument("--test-set", action="store_true", help="score the frozen held-out set in eval/test/")
+    ap.add_argument("--set", default=None, metavar="NAME",
+                    help="score another frozen held-out set under eval/, e.g. test-2026-11 (implies --test-set)")
     args = ap.parse_args()
 
-    if args.test_set:
+    test_dir = None
+    if args.test_set or args.set:
+        args.test_set = True
+        try:
+            test_dir = test_set_dir(args.set)
+        except ValueError as e:
+            print(e)
+            return 2
         if args.refresh or args.limit:
             print("The test set is read once and scored whole, so --refresh and --limit don't apply.")
             return 2
-        problems = check_frozen(TEST_DIR)
+        problems = check_frozen(test_dir)
         if problems:
             print("Can't score the test set:\n  " + "\n  ".join(problems))
             return 2
-        args.labels, args.receipts = str(TEST_DIR / "labels.json"), str(TEST_DIR / "receipts")
-        args.metrics_out = args.metrics_out or str(TEST_DIR / "metrics.json")
-        args.results_out = args.results_out or str(TEST_DIR / "RESULTS.md")
-        args.detail_out = args.detail_out or str(TEST_DIR / "results.detail.json")
+        args.labels, args.receipts = str(test_dir / "labels.json"), str(test_dir / "receipts")
+        args.metrics_out = args.metrics_out or str(test_dir / "metrics.json")
+        args.results_out = args.results_out or str(test_dir / "RESULTS.md")
+        args.detail_out = args.detail_out or str(test_dir / "results.detail.json")
 
     # Output paths default to the committed real artifacts, but can be redirected so a
     # mock/CI run (--provider mock) writes throwaway files and never clobbers the real
@@ -548,8 +579,8 @@ def main() -> int:
               "Check the provider/API errors above.")
         return 1
 
-    frozen = (json.loads((TEST_DIR / "freeze.json").read_text(encoding="utf-8"))
-              if args.test_set else None)
+    frozen = ({**json.loads((test_dir / "freeze.json").read_text(encoding="utf-8")), "flag": set_flag(test_dir)}
+              if test_dir else None)
     _write_results_md(settings, tally, total_correct, total_scored, receipts_fully_correct,
                       n, today, routing, calibration, slices, read_dates, declared, frozen,
                       per_rate=per_rate_summary, out=results_md)
@@ -601,7 +632,7 @@ def _write_results_md(settings, tally, total_correct, total_scored,
         intro = (f"Field-level accuracy over **{n_scored}** new receipts, kept apart from the development "
                  f"set. Their true values were written and frozen on {frozen['frozen_on']}, before any model "
                  f"read them, and no prompt changed afterwards. Generated by "
-                 f"`backend/scripts/eval_extraction.py --test-set`.")
+                 f"`backend/scripts/eval_extraction.py {frozen.get('flag', '--test-set')}`.")
     else:
         title = "# Extraction accuracy"
         intro = (f"Field-level accuracy of the receipt-extraction pipeline over a hand-labelled "

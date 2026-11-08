@@ -105,8 +105,8 @@ def test_a_clean_set_passes_and_a_small_one_is_only_a_note(tmp_path):
     assert any("10 or more" in w for w in warnings)
 
 
-def _frozen_set(tmp_path):
-    test_dir = tmp_path / "test"
+def _frozen_set(tmp_path, name="test"):
+    test_dir = tmp_path / name
     (test_dir / "receipts").mkdir(parents=True)
     (test_dir / "receipts" / "a.png").write_bytes(PNG)
     labels = [{"file": "a.png", "vendor": "Shop", "total": 1.0}]
@@ -202,6 +202,99 @@ def test_the_test_set_matrix_leaves_the_development_matrix_alone(monkeypatch, tm
 
     assert (em.MODELS_JSON.read_bytes(), em.MODELS_MD.read_bytes()) == before
     assert "held out from the development set" in (test_dir / "MODELS.md").read_text(encoding="utf-8")
+
+
+# ---- A later batch is its own set: frozen, read and published apart from the first ----------
+NOV = "test-2026-11"
+
+
+def _two_sets(monkeypatch, tmp_path):
+    """A frozen first set and an eval/ folder where later sets live, both in tmp_path."""
+    first = _frozen_set(tmp_path)
+    monkeypatch.setattr(ev, "EVAL_DIR", tmp_path)
+    monkeypatch.setattr(ev, "TEST_DIR", first)
+    return first
+
+
+def test_a_set_name_picks_a_folder_under_eval_and_nothing_else(monkeypatch, tmp_path):
+    monkeypatch.setattr(ev, "EVAL_DIR", tmp_path)
+    monkeypatch.setattr(ev, "TEST_DIR", tmp_path / "test")
+    assert ev.test_set_dir(None) == ev.test_set_dir("test") == tmp_path / "test"
+    assert ev.test_set_dir(NOV) == tmp_path / NOV
+    assert ev.set_flag(tmp_path / "test") == "--test-set"
+    assert ev.set_flag(tmp_path / NOV) == f"--set {NOV}"
+    for bad in ["receipts", "../test-1", "test/../receipts", "Test-2026", "test_2026", ""]:
+        with pytest.raises(ValueError):
+            ev.test_set_dir(bad)
+
+
+def test_a_photo_from_another_held_out_set_is_not_new(tmp_path):
+    receipts, dev, cache = _folders(tmp_path, "a.png", "b.png")
+    first = tmp_path / "test" / "receipts"
+    first.mkdir(parents=True)
+    (first / "old.png").write_bytes((receipts / "a.png").read_bytes())
+    (first / "b.png").write_bytes(PNG + b"other")
+    _, errors, _ = pts.validate([_row(), _row(file="b.png")], receipts, dev, cache, TODAY, other_receipts=[first])
+    assert any("a.png: the same photo is already in the held-out set as test/old.png" in e for e in errors)
+    assert any("b.png: a receipt in the held-out set test already has this file name" in e for e in errors)
+
+
+def test_a_second_set_freezes_without_touching_the_first(monkeypatch, tmp_path):
+    first = _two_sets(monkeypatch, tmp_path)
+    first_freeze = (first / "freeze.json").read_bytes()
+    dev, cache = tmp_path / "dev", tmp_path / "cache"
+    dev.mkdir()
+    cache.mkdir()
+    monkeypatch.setattr(ev, "RECEIPTS_DIR", dev)
+    monkeypatch.setattr(ev, "CACHE_DIR", cache)
+
+    assert pts.main(["init", "--set", NOV]) == 0
+    (tmp_path / NOV / "receipts" / "n.png").write_bytes(PNG + b"november")
+    (tmp_path / NOV / "true-values.csv").write_text("sep=;\nfile;total\nn.png;8,50\n", encoding="utf-8")
+    assert pts.main(["check", "--set", NOV]) == 0
+    assert pts.main(["freeze", "--set", NOV]) == 0
+
+    assert (first / "freeze.json").read_bytes() == first_freeze
+    assert ev.check_frozen(first) == []
+    assert ev.check_frozen(tmp_path / NOV) == []
+    frozen = json.loads((tmp_path / NOV / "freeze.json").read_text(encoding="utf-8"))
+    assert list(frozen["receipts_sha256"]) == ["n.png"]
+    assert pts.main(["freeze", "--set", NOV]) == 1  # a second freeze still needs --correction
+
+
+def test_scoring_a_named_set_writes_its_own_results(monkeypatch, tmp_path, capsys):
+    _two_sets(monkeypatch, tmp_path)
+    assert _run_main(monkeypatch, tmp_path, "--set", NOV) == 2
+    assert f"prepare_test_set.py freeze --set {NOV}" in capsys.readouterr().out
+
+    nov = _frozen_set(tmp_path, NOV)
+    read = ev.ExtractionResult(vendor="Shop", total=1.0, confidence=0.9)
+    monkeypatch.setattr(ev, "read_receipt", lambda *a, **k: (read, {"read_date": "2026-12-01"}))
+    monkeypatch.setattr(sys, "argv", ["eval_extraction.py", "--provider", "mock", "--set", NOV])
+    assert ev.main() == 0
+    results = (nov / "RESULTS.md").read_text(encoding="utf-8")
+    assert "held-out test set" in results
+    assert f"eval_extraction.py --set {NOV}" in results
+    assert json.loads((nov / "metrics.json").read_text(encoding="utf-8"))["set"] == "held_out_test"
+    assert not (tmp_path / "test" / "RESULTS.md").exists()
+
+
+def test_the_matrix_for_a_named_set_stays_in_its_folder(monkeypatch, tmp_path):
+    import eval_models as em
+
+    first = _two_sets(monkeypatch, tmp_path)
+    nov = _frozen_set(tmp_path, NOV)
+    read = ev.ExtractionResult(vendor="Shop", total=1.0, confidence=0.9)
+    monkeypatch.setattr(ev, "read_receipt", lambda *a, **k: (read, {"read_date": "2026-12-01", "latency_ms": 5}))
+    before = em.MODELS_JSON.read_bytes(), em.MODELS_MD.read_bytes()
+    monkeypatch.setattr(sys, "argv", ["eval_models.py", "--models", "mock:mock", "--set", NOV])
+
+    assert em.main() == 0
+
+    assert (em.MODELS_JSON.read_bytes(), em.MODELS_MD.read_bytes()) == before
+    assert not (first / "models.json").exists()
+    row = json.loads((nov / "models.json").read_text(encoding="utf-8"))["models"][0]
+    assert row["provenance"]["command"].endswith(f"--set {NOV}")
 
 
 # ---- VAT per rate: a separate score that can't move the main number --------------------------

@@ -150,6 +150,10 @@ Scoring refuses to run if the set isn't frozen, or changed after freezing. `--re
 apply, because the set is read once. A label corrected later needs
 `freeze --correction "reason"`, and that reason is printed in the published results.
 
+A later batch gets its own folder, such as `test-2026-11/`, and every command above takes
+`--set test-2026-11` in place of `--test-set`. It's frozen and published on its own and never
+joins the first set. See [test/README.md](test/README.md#a-later-batch).
+
 ## LangSmith (optional)
 
 With `LANGSMITH_TRACING=true` + a key, `python scripts/langsmith_eval.py` uploads
