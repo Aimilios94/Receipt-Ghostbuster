@@ -1,4 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
   "crons": [{ "path": "/health/db", "schedule": "0 6 * * *" }]
 }
