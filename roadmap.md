@@ -313,6 +313,20 @@ Status: **shipped.** Backend tests **502 → 525**.
 
 ---
 
+## v0.5.18 to v0.5.21 — A demo, a live read-only demo, and room for November ✅
+
+**Goal:** let someone see the app without running it, and get ready to score November's receipts.
+
+Scope delivered:
+- **A walkthrough video and screenshots** on a separate synthetic user, and a shared secret on the n8n webhook (v0.5.18).
+- **November's held-out batch gets its own folder** (`--set test-2026-11`), so it's frozen and published apart from the first 9 (v0.5.19).
+- **A live, read-only demo** on invented data, with its own database and no model key ([D57](DECISIONS.md), v0.5.20).
+- **Monthly close no longer takes the whole app down** when its figures fail to load (v0.5.21).
+
+Status: **shipped.** Backend tests **525 → 568**.
+
+---
+
 ## v0.6 — Payslip tracking ⬜
 
 **Goal:** bring income into the picture — upload a payslip and track gross/net, tax and social-insurance
@@ -344,7 +358,8 @@ Status: **planned** — not started.
 - **A "paid by transfer" option.** ✅ Built in v0.5.17 ([D55](DECISIONS.md)): Bank transfer in Paid with. It isn't linked to its transfer line yet.
 - **A faster model for Ask.** ⬜ After November: compare models on the chatbot eval, since Ask takes about 10 seconds an answer ([D47](DECISIONS.md)).
 - **Ask's cache ignores the date.** ⬜ A question like "this month" can repeat an earlier answer until the ledger changes or the backend restarts.
-- **An outside tester.** ⬜ All feedback rounds so far are self-tests.
+- **An outside tester.** ⬜ All feedback rounds so far are self-tests. The [live demo](https://receipt-ghostbuster-demo.vercel.app) lets someone look around, but it's read-only, so it can't replace a test of the full flow.
+- **Refund Hunter in the read-only demo.** ⬜ Detect and Draft email stay clickable there and only show the read-only message, unlike the other buttons that change data ([D57](DECISIONS.md)).
 - **Fewer correct reads sent to review.** ⬜ The gate holds back 52% of correct reads because model confidence is poorly calibrated ([D30](DECISIONS.md)).
 
 ---

@@ -12,6 +12,8 @@
 - **Models are compared on evidence:** nine measured on accuracy, latency and cost, including a free on-device model at 89.4–97.2% across three runs. A cheaper, faster model is one field ahead of the one in use on the 26 and tied on the 9, and it gets its fair test on unseen November receipts.
 - **The safety net is measured, on few misses:** for `gpt-5-mini` the review gate caught 0 of its 1 wrong read on the 26 and had none to catch on the 9. Across all models it let 11 of 30 wrong reads on the 26 post, and 0 of 9 on the 9.
 
+**[Live demo](https://receipt-ghostbuster-demo.vercel.app)**, read-only, with invented data. Every page can be browsed, but nothing can be changed, and uploads and Ask are off, so it shows the screens rather than the model reading a receipt. The video below shows that part ([D57](DECISIONS.md)).
+
 ![A walkthrough: upload a receipt, change how it was paid, reconcile, close the month, ask a question](docs/demo/demo.gif)
 *A walkthrough on a synthetic demo user with invented receipts, recorded 2026-11-08 (v0.5.18). The GIF plays at 2× speed. In both the GIF and the [full video (MP4)](docs/demo/demo.mp4), the wait while the receipt is read is cut.*
 
@@ -139,7 +141,7 @@ The design accepts extra review so uncertain reads reach a person, but the thres
 - **A development set:** the 26 receipts come from one person in Portugal, the labels are mine, and some were used to tune the prompts. The receipts and labels are private, so nobody else can reproduce the figure.
 - **A small, narrow test set:** the 9 held-out receipts had their true values locked before any model read them, and no prompt changed afterwards. But 8 are groceries, 6 come from one supermarket chain, and all come from one shopper and one phone. 9/9 receipts correct is still consistent with a true rate as low as about 72%. Two have no scored vendor, because the name couldn't be read at the top of the paper. See [the notes](backend/eval/test/MODELS.md).
 - **Models vary between runs:** two reads of one slip returned different vendor names, and a label widened after seeing that result moved one row by one field ([D50](DECISIONS.md)). Fresh `gpt-5-mini` reads on 2026-11-06 repeated October's 141/142 with the same single miss, but Haiku 5.5's review share went from 19% to 35% between two reads, and the local model's score moved as above.
-- **Not multi-user:** there's no login or multi-tenancy. Any request without a token acts as `DEV_USER_ID`, so keep the backend on localhost.
+- **Not multi-user:** there's no login or multi-tenancy. Any request without a token acts as `DEV_USER_ID`, so keep the backend on localhost. The live demo is public only because it runs read-only, on a separate database that holds invented data ([D57](DECISIONS.md)).
 - **Self-tested:** all 13 testing rounds were run by me. No outside user has tested it.
 - **Impact, measured once as a rehearsal:** the last pass of the October close, 21 decisions, took 3 min 10 s (n=1, 2026-11-07). Uploading and matching the month's receipts came earlier and wasn't timed, so the full month-end isn't measured yet. November's close will be timed from first upload to closed. A closed month is saved with its figures, and the close page shows anything that changes afterwards, but the month isn't locked against edits.
 - **Speed:** a `gpt-5-mini` read takes 23.9s at p50. Ask takes about 10s and $0.0022 an answer, from its first 23 questions on 2026-11-05, most of them test questions. Those two figures come from the app's private trace table, so no file in this repo backs them.

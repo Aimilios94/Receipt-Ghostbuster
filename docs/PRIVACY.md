@@ -29,6 +29,10 @@ built; it is not legal advice.
 | Error reports (Sentry) | Sentry cloud | **Opt-in, off by default** — only with a DSN. Exception and stack trace only: request body, headers, cookies and query string are stripped. See [MONITORING.md](MONITORING.md). |
 | Refund-draft email | Gmail **draft** via n8n | Draft-only; nothing is ever sent automatically. On the Anthropic provider the subscription's details also go to Anthropic to write the draft; otherwise a local template writes it. |
 
+## The live demo
+
+The [public demo](https://receipt-ghostbuster-demo.vercel.app) runs on Vercel against a separate Supabase project that holds only invented data: the public September sample and a recurring-charge history from `sample-data/`. No real receipt, statement or ledger is in it. It has no model API key and refuses every request that would change data ([D57](../DECISIONS.md)), so nothing a visitor does reaches a model. No analytics are switched on. Vercel and Supabase see each request, as any host would.
+
 ## The local-model option (data never leaves the machine)
 
 The reading model is pluggable. With `LLM_PROVIDER=ollama` the receipt is read by a

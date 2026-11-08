@@ -73,6 +73,7 @@ These post into the ledger of `DEV_USER_ID`. If that ledger holds real data, poi
 - **Gmail drafts for Refund Hunter:** needs n8n. See [n8n/README.md](../n8n/README.md).
 - **Local, on-device reading:** set `LLM_PROVIDER=ollama`. See the comments in `backend/.env.example`. Ask doesn't work on this provider.
 - **Error tracking and tracing:** see [MONITORING.md](MONITORING.md). Both are off by default.
+- **A public read-only demo:** set `DEMO_READ_ONLY=true` on the backend and `VITE_DEMO_READ_ONLY=true` on the frontend. Every write and paid call is refused, and a banner says so. Use a separate Supabase project and user holding only sample data, set `LLM_PROVIDER=mock` with no model key, and set `CORS_ORIGINS` to the site's address. `backend/vercel.json` and `frontend/vercel.json` deploy each folder as its own Vercel project, and each folder's `.vercelignore` uploads only the code. Load the sample data before turning read-only on ([D57](../DECISIONS.md)).
 
 ## Tests and evals
 
