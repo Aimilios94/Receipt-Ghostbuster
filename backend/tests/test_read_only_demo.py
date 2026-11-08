@@ -85,7 +85,9 @@ def test_a_preflight_still_succeeds(client):
 
 
 def test_writes_reach_their_route_when_the_mode_is_off(client):
-    # /extract with no file fails validation (422) inside the route: the guard let it through.
+    # The route itself answers: 401 where no owner is configured (CI), or 422 for the missing
+    # file where one is (a local .env). Either way the guard let it through.
     response = client(False).post("/extract")
-    assert response.status_code == 422
+    assert response.status_code in {401, 422}
+    assert response.json()["detail"] != main.READ_ONLY_MESSAGE
     assert client(False).get("/health").json()["config"]["read_only"] is False
