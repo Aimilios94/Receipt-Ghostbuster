@@ -3,6 +3,17 @@
 All notable changes to Receipt Ghostbuster. Format based on [Keep a Changelog](https://keepachangelog.com).
 The *why* behind changes lives in [DECISIONS.md](DECISIONS.md).
 
+## [0.5.20] — 2026-11-08
+
+**A read-only mode for a hosted demo on invented data.** Off by default, so nothing changes for local use. No prompt, model or scored figure changed.
+
+### Added
+- **`DEMO_READ_ONLY`** on the backend refuses every request that would change data or call a paid model with HTTP 403 and a plain message, before any route runs. That covers all 28 write operations today, and any added later. The one exception is `POST /insights/generate`, which the Advice feed sends when a page loads; it's rule-based with no model call ([D36](DECISIONS.md)) and only rewrites insight rows from the data already there. `/health` reports the mode.
+- **`VITE_DEMO_READ_ONLY`** on the frontend shows a "read-only demo with invented data" banner, greys out the buttons that change data (Add expense, Import bank statement, Match manually, Run reconciliation, Close, Close again, Reopen, and Ask), and refuses other writes before they're sent. When it's off, the build contains none of this code.
+- **`GET /health/db`,** one small database read, so a daily call can keep a free Supabase project from pausing.
+- **Vercel config:** `vercel.json` for the API (the daily call) and the site (page links that survive a reload), `backend/.python-version` (3.14), and `.vercelignore` allow-lists, so a deploy uploads only the code and the committed eval results, never `.env`, the eval photos or labels.
+- Backend tests 532 → 568: every write operation the app registers is refused in read-only mode, reads still answer, and with the mode off writes reach their route.
+
 ## [0.5.19] — 2026-11-08
 
 **Room for a second held-out batch, ready for November's receipts.** No prompt, model, app or scored figure changed.

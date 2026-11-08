@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api.js";
+import { api, readOnlyProps } from "../lib/api.js";
 import { money } from "../lib/format.js";
 import { Card, Loading, ErrorBanner, Button } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
@@ -151,7 +151,7 @@ export default function Ledger() {
         </div>
         <div className="head-actions">
           <ExpenseSearch expenses={expenses} onOpen={setDetail} />
-          <Button variant="primary" icon={<Icon.plus size={15} />} onClick={() => setShowAdd(true)}>
+          <Button variant="primary" icon={<Icon.plus size={15} />} onClick={() => setShowAdd(true)} {...readOnlyProps}>
             Add expense
           </Button>
         </div>

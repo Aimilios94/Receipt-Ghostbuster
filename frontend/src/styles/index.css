@@ -321,6 +321,18 @@ button {
   width: 100%;
 }
 
+/* The hosted read-only demo (VITE_DEMO_READ_ONLY) */
+.demo-banner {
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--amber);
+  border-radius: 10px;
+  background: var(--amber-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .page-head {
   display: flex;
   align-items: flex-start;

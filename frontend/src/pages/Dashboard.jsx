@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api.js";
+import { api, readOnlyProps } from "../lib/api.js";
 import { money, monthLabel, pct } from "../lib/format.js";
 import { MonthPicker, useExpenseToast, useMonth } from "../lib/month.jsx";
 import { Card, Button, Loading, ErrorBanner, Empty } from "../components/ui.jsx";
@@ -309,10 +309,10 @@ export default function Dashboard() {
         <div className="head-actions">
           <ExpenseSearch expenses={expenses} onOpen={setExcDetail} />
           <MonthPicker />
-          <Button icon={<Icon.upload size={15} />} onClick={() => setModal("import")}>
+          <Button icon={<Icon.upload size={15} />} onClick={() => setModal("import")} {...readOnlyProps}>
             Import bank statement
           </Button>
-          <Button variant="primary" icon={<Icon.plus size={15} />} onClick={() => setModal("add")}>
+          <Button variant="primary" icon={<Icon.plus size={15} />} onClick={() => setModal("add")} {...readOnlyProps}>
             Add expense
           </Button>
         </div>

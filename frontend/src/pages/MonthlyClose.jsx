@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api.js";
+import { api, readOnlyProps } from "../lib/api.js";
 import { money, monthLabel } from "../lib/format.js";
 import { MonthPicker, useMonth } from "../lib/month.jsx";
 import { Card, Loading, ErrorBanner, Button } from "../components/ui.jsx";
@@ -154,11 +154,11 @@ export default function MonthlyClose() {
             {saved ? (
               <div style={{ display: "flex", gap: 8 }}>
                 {changed.length ? (
-                  <Button variant="primary" disabled={busy || !ready} onClick={saveClose} style={{ flex: 1, justifyContent: "center" }}>
+                  <Button variant="primary" disabled={busy || !ready} onClick={saveClose} style={{ flex: 1, justifyContent: "center" }} {...readOnlyProps}>
                     <Icon.check size={14} /> Close again
                   </Button>
                 ) : null}
-                <Button disabled={busy} onClick={reopen} style={{ flex: 1, justifyContent: "center" }}>
+                <Button disabled={busy} onClick={reopen} style={{ flex: 1, justifyContent: "center" }} {...readOnlyProps}>
                   Reopen {monthLabel(month)}
                 </Button>
               </div>
@@ -168,6 +168,7 @@ export default function MonthlyClose() {
                 style={{ width: "100%", justifyContent: "center" }}
                 disabled={busy}
                 onClick={() => (ready ? saveClose() : toast("Resolve open exceptions before closing", "err"))}
+                {...readOnlyProps}
               >
                 <Icon.check size={14} /> {ready ? `Close ${monthLabel(month)}` : "Not ready to close"}
               </Button>

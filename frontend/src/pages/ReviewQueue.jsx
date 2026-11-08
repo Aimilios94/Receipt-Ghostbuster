@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api.js";
+import { api, readOnlyProps } from "../lib/api.js";
 import { money } from "../lib/format.js";
 import { Card, Loading, ErrorBanner, Empty, Button } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
@@ -96,7 +96,7 @@ export default function ReviewQueue() {
           </div>
         </div>
         <div className="head-actions">
-          <Button variant="primary" icon={<Icon.plus size={15} />} onClick={() => setShowAdd(true)}>
+          <Button variant="primary" icon={<Icon.plus size={15} />} onClick={() => setShowAdd(true)} {...readOnlyProps}>
             Add expense
           </Button>
         </div>

@@ -1,0 +1,15 @@
+# Upload only what the hosted API needs. Everything else in backend/ stays on this
+# machine: .env, the eval photos and labels, the venv, tests and scripts.
+/*
+!/app
+!/requirements.txt
+!/.python-version
+!/vercel.json
+!/eval
+/eval/*
+!/eval/metrics.json
+!/eval/chatbot
+/eval/chatbot/*
+!/eval/chatbot/metrics.json
+!/eval/chatbot/questions.json
+__pycache__

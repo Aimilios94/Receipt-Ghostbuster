@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { api } from "../lib/api.js";
+import { api, READ_ONLY, readOnlyProps } from "../lib/api.js";
 import { money, shortDate } from "../lib/format.js";
 import { Card, Button, Modal, ErrorBanner } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
@@ -389,7 +389,7 @@ export default function Ask() {
             <p>Try one of these:</p>
             <div className="ask-suggestions">
               {SUGGESTIONS.map((s) => (
-                <button key={s} className="chip" onClick={() => send(s)}>
+                <button key={s} className="chip" onClick={() => send(s)} {...readOnlyProps}>
                   {s}
                 </button>
               ))}
@@ -434,6 +434,7 @@ export default function Ask() {
                 disabled={busy}
                 title={busy ? "Available once this answer arrives" : undefined}
                 onClick={() => send(s)}
+                {...readOnlyProps}
               >
                 {s}
               </button>
@@ -450,12 +451,13 @@ export default function Ask() {
         >
           <input
             className="input"
-            placeholder="Ask about your spending, VAT, subscriptions, transfers…"
+            placeholder={READ_ONLY ? "Ask is off in this read-only demo" : "Ask about your spending, VAT, subscriptions, transfers…"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={busy}
+            {...readOnlyProps}
           />
-          <Button variant="primary" icon={<Icon.chat size={15} />} disabled={busy || !input.trim()}>
+          <Button variant="primary" icon={<Icon.chat size={15} />} disabled={busy || !input.trim()} {...readOnlyProps}>
             {busy ? "…" : "Ask"}
           </Button>
         </form>

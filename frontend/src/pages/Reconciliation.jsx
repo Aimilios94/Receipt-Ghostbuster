@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api.js";
+import { api, readOnlyProps } from "../lib/api.js";
 import { monthLabel } from "../lib/format.js";
 import { MonthPicker, useMonth } from "../lib/month.jsx";
 import { Card, Loading, ErrorBanner, Empty, Button } from "../components/ui.jsx";
@@ -122,16 +122,16 @@ export default function Reconciliation() {
         </div>
         <div className="head-actions">
           <MonthPicker width={160} />
-          <Button icon={<Icon.upload size={15} />} onClick={() => setShowImport(true)}>
+          <Button icon={<Icon.upload size={15} />} onClick={() => setShowImport(true)} {...readOnlyProps}>
             Import bank statement
           </Button>
-          <Button icon={<Icon.search size={15} />} onClick={openManual}>
+          <Button icon={<Icon.search size={15} />} onClick={openManual} {...readOnlyProps}>
             Match manually
           </Button>
           <Button icon={<Icon.ledger size={15} />} onClick={() => setShowBreakdown(true)}>
             Breakdown
           </Button>
-          <Button variant="primary" icon={<Icon.reconcile size={15} />} onClick={run} disabled={running}>
+          <Button variant="primary" icon={<Icon.reconcile size={15} />} onClick={run} disabled={running} {...readOnlyProps}>
             {running ? "Matching…" : "Run reconciliation"}
           </Button>
         </div>

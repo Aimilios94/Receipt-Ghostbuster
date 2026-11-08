@@ -6,12 +6,25 @@
 
 const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
+// The hosted demo is built with VITE_DEMO_READ_ONLY=true over invented data. Changes are
+// turned off here and refused by the backend too (DEMO_READ_ONLY). The one POST allowed is
+// the Advice feed's insight refresh, which is rule-based and runs when a page loads.
+export const READ_ONLY = import.meta.env.VITE_DEMO_READ_ONLY === "true";
+export const READ_ONLY_MESSAGE =
+  "This is a read-only demo with invented data, so changes are turned off. Run the app locally to try them.";
+const READ_ONLY_ALLOWED = ["/insights/generate"];
+// Spread onto a button that changes data: disabled, with the reason on hover.
+export const readOnlyProps = READ_ONLY ? { disabled: true, title: READ_ONLY_MESSAGE } : {};
+
 let authToken = null;
 export function setToken(t) {
   authToken = t;
 }
 
 async function request(path, { method = "GET", body, form, signal } = {}) {
+  if (READ_ONLY && method !== "GET" && !READ_ONLY_ALLOWED.includes(path.split("?")[0])) {
+    throw new ApiError(READ_ONLY_MESSAGE, 403);
+  }
   const headers = {};
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 

@@ -1,0 +1,10 @@
+# Upload only what the build needs. .env (with any local keys), node_modules and dist
+# stay on this machine; Vercel installs and builds from these files.
+/*
+!/index.html
+!/src
+!/public
+!/package.json
+!/package-lock.json
+!/vite.config.js
+!/vercel.json

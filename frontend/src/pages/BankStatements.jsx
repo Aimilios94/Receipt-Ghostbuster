@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api.js";
+import { api, readOnlyProps } from "../lib/api.js";
 import { money, shortDate } from "../lib/format.js";
 import { Card, Button, Loading, ErrorBanner, Empty } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
@@ -75,7 +75,7 @@ export default function BankStatements() {
           </div>
         </div>
         <div className="head-actions">
-          <Button variant="primary" icon={<Icon.upload size={15} />} onClick={() => setShowImport(true)}>
+          <Button variant="primary" icon={<Icon.upload size={15} />} onClick={() => setShowImport(true)} {...readOnlyProps}>
             Import bank statement
           </Button>
         </div>

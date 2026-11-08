@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     # Local/demo fallback owner id, used only when no JWT is verified. Lets the
     # app run end-to-end before auth is wired. Leave blank in production.
     dev_user_id: str = ""
+    # A public demo on invented data: refuse every request that would change data
+    # or call a paid model (see main.py). Leave it off for your own use.
+    demo_read_only: bool = False
 
     # --- Vision LLM ---
     llm_provider: str = "openai"             # openai | anthropic | mistral | ollama | mock

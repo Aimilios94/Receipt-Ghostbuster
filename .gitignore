@@ -46,3 +46,6 @@ update-chat-catchup.py
 docs/screenshots/prompt-injectin-image.png
 docs/screenshots/sentry-fix-after -erro-handling.png
 docs/screenshots/sentry-issues.png
+
+# ---- Vercel project link (created by `vercel link`, local only) ----
+.vercel/
