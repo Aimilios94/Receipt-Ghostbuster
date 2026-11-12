@@ -160,4 +160,28 @@ def test_both_harnesses_score_the_same_read(monkeypatch, tmp_path):
 
     assert calls == ["r.jpg"]
     assert from_results.vendor == from_matrix.vendor == "Shop"
-    assert trace["read_date"] == TODAY.isoformat()
+    assert trace["read_date"] == em.ev._read_on(tmp_path / "r.openai.m.models.json")
+
+
+def test_a_fresh_read_is_dated_when_it_was_saved_not_when_the_run_started(monkeypatch, tmp_path):
+    """A run that started on 2026-11-11 and read past midnight dated every read 2026-11-11, so
+    scoring the same saved reads later gave a different date range and a duplicate history line."""
+    import datetime
+    import os
+
+    result = em.ev.ExtractionResult(vendor="Shop", total=1.0, confidence=0.9)
+    monkeypatch.setattr(em.ev, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(em.ev.extraction, "extract_receipt",
+                        lambda image_bytes, name, settings: (result, b"oriented", {"latency_ms": 5}))
+    image = tmp_path / "r.jpg"
+    image.write_bytes(b"x")
+    settings = em.Settings(_env_file=None, llm_provider="openai", openai_model="m")
+    run_started = datetime.date(2020, 1, 1)  # long before the read is actually saved
+
+    _, fresh = em._extract_with_trace(image, settings, run_started, use_cache=False)
+    _, saved = em._extract_with_trace(image, settings, run_started, use_cache=True)
+
+    assert fresh["read_date"] != run_started.isoformat()
+    assert fresh["read_date"] == saved["read_date"]
+    cache = tmp_path / "r.openai.m.models.json"
+    assert fresh["read_date"] == datetime.date.fromtimestamp(os.stat(cache).st_mtime).isoformat()

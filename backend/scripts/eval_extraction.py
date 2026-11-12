@@ -235,8 +235,7 @@ def read_receipt(
     cache = CACHE_DIR / f"{path.stem}.{settings.llm_provider}.{_slug(_model_of(settings))}.models.json"
     if use_cache and cache.exists():
         blob = json.loads(cache.read_text(encoding="utf-8"))
-        read_on = datetime.date.fromtimestamp(cache.stat().st_mtime).isoformat()
-        trace = {**blob["trace"], "read_date": read_on}
+        trace = {**blob["trace"], "read_date": _read_on(cache)}
         # The tokens were measured when the read was made; the cost is tokens times the price
         # table, so it's worked out again and a price correction reaches saved reads too.
         if trace.get("input_tokens") or trace.get("output_tokens"):
@@ -267,7 +266,15 @@ def read_receipt(
         json.dumps({"result": result.model_dump(mode="json"), "trace": trace}),
         encoding="utf-8",
     )
-    return result, {**trace, "read_date": today.isoformat()}
+    # The day the read was saved, not the day the run started: a run that crosses midnight
+    # would otherwise date its later reads a day early, and scoring the same saved reads
+    # again would then look like a new run and add a history line (found 2026-11-12).
+    return result, {**trace, "read_date": _read_on(cache)}
+
+
+def _read_on(cache: Path) -> str:
+    """When a saved read was made: the day its cache file was written."""
+    return datetime.date.fromtimestamp(cache.stat().st_mtime).isoformat()
 
 
 def _extract(path: Path, settings: Settings, today: datetime.date, *, use_cache: bool) -> ExtractionResult:
