@@ -1,5 +1,5 @@
 {
-  "run_date": "2026-11-07",
+  "run_date": "2026-11-11",
   "n_receipts": 26,
   "notes": [
     "**`qwen2.5vl-receipt` is the local, on-device column** (the privacy-first option \u2014 the image never leaves the machine, and it is deliberately never traced to LangSmith). It is `qwen2.5vl:7b` run through Ollama with the context window raised to **16384** via `backend/ollama/Modelfile` (the default 4096 is too small for a full-res receipt image). It runs on **CPU only, no GPU**, so reads take minutes rather than seconds \u2014 but at **$0 cost** and **privately**: a concrete privacy\u2194accuracy\u2194latency trade-off.",
@@ -475,10 +475,10 @@
       "n_missing": 0,
       "error_types": {},
       "provenance": {
-        "run_date": "2026-11-07",
-        "reads_from": "2026-11-07",
-        "reads_to": "2026-11-07",
-        "commit": "dedb262+uncommitted",
+        "run_date": "2026-11-11",
+        "reads_from": "2026-11-11",
+        "reads_to": "2026-11-11",
+        "commit": "c3820c2",
         "command": "python backend/scripts/eval_models.py --models ollama:qwen2.5vl-receipt",
         "machine": "Windows-10-10.0.19045-SP0 \u00b7 16 logical CPUs",
         "runtime": "Python 3.14.4 \u00b7 Ollama 0.40.14"
@@ -490,8 +490,8 @@
           "scored": 25
         },
         "date": {
-          "accuracy": 0.88,
-          "correct": 22,
+          "accuracy": 0.92,
+          "correct": 23,
           "scored": 25
         },
         "total": {
@@ -516,18 +516,18 @@
         }
       },
       "overall": {
-        "accuracy": 0.971830985915493,
-        "correct": 138,
+        "accuracy": 0.9788732394366197,
+        "correct": 139,
         "scored": 142
       },
       "receipts_fully_correct": {
-        "count": 22,
+        "count": 23,
         "n": 26
       },
       "latency_ms": {
-        "p50": 349172,
-        "p95": 1253571,
-        "avg": 559992
+        "p50": 391158,
+        "p95": 1295180,
+        "avg": 595396
       },
       "cost_usd": {
         "total": 0.0,
@@ -535,9 +535,9 @@
       },
       "fell_back": 0,
       "guardrails": {
-        "false_auto_posts": 2,
-        "false_auto_post_rate": 0.5,
-        "over_review_rate": 0.3636
+        "false_auto_posts": 1,
+        "false_auto_post_rate": 0.3333,
+        "over_review_rate": 0.3043
       },
       "slices": {
         "crumpled": {
@@ -565,10 +565,10 @@
           "accuracy": 0.9444
         },
         "multi_rate": {
-          "correct": 93,
+          "correct": 94,
           "scored": 96,
           "n_receipts": 16,
-          "accuracy": 0.9688
+          "accuracy": 0.9792
         },
         "no_vat": {
           "correct": 17,
@@ -589,10 +589,10 @@
           "accuracy": 0.8333
         },
         "rotated": {
-          "correct": 24,
+          "correct": 25,
           "scored": 25,
           "n_receipts": 5,
-          "accuracy": 0.96
+          "accuracy": 1.0
         },
         "upright": {
           "correct": 114,
@@ -616,6 +616,16 @@
           "reads_to": "2026-11-05",
           "accuracy": 0.9014084507042254,
           "correct": 128,
+          "scored": 142,
+          "n_receipts": 26,
+          "n_errored": 0
+        },
+        {
+          "run_date": "2026-11-07",
+          "reads_from": "2026-11-07",
+          "reads_to": "2026-11-07",
+          "accuracy": 0.971830985915493,
+          "correct": 138,
           "scored": 142,
           "n_receipts": 26,
           "n_errored": 0

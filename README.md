@@ -9,8 +9,8 @@
 
 - **99.3% field accuracy** on 26 real Portuguese receipts, including mixed VAT rates and rotated photos (141/142 fields, `gpt-5-mini`, read 2026-11-06, a development set: see [Limitations](#limitations)).
 - **100.0% on 9 new receipts held out from all tuning** (52/52 fields, and all 22 VAT rates, read 2026-11-06, true values locked first). A small, narrow set: see [Limitations](#limitations).
-- **Models are compared on evidence:** nine measured on accuracy, latency and cost, including a free on-device model at 89.4–97.2% across three runs. A cheaper, faster model is one field ahead of the one in use on the 26 and tied on the 9, and it gets its fair test on unseen November receipts.
-- **The safety net is measured, on few misses:** for `gpt-5-mini` the review gate caught 0 of its 1 wrong read on the 26 and had none to catch on the 9. Across all models it let 11 of 30 wrong reads on the 26 post, and 0 of 9 on the 9.
+- **Models are compared on evidence:** nine measured on accuracy, latency and cost, including a free on-device model at 89.4–97.9% across four runs. A cheaper, faster model is one field ahead of the one in use on the 26 and tied on the 9, and it gets its fair test on unseen November receipts.
+- **The safety net is measured, on few misses:** for `gpt-5-mini` the review gate caught 0 of its 1 wrong read on the 26 and had none to catch on the 9. Across all models it let 10 of 29 wrong reads on the 26 post, and 0 of 9 on the 9.
 
 **[Live demo](https://receipt-ghostbuster-demo.vercel.app)**, read-only, with invented data. Every page can be browsed, but nothing can be changed, and uploads and Ask are off, so it shows the screens rather than the model reading a receipt. The video below shows that part ([D57](DECISIONS.md)).
 
@@ -109,16 +109,16 @@ Five separate systems, each answering a different question. Figures are as of 20
 | `claude-sonnet-5-5` | 100.0% | 100.0% | 22/22 | 4.6s | $0.0374 |
 | `gpt-5.6-terra` | 99.3% | 100.0% | 22/22 | 6.8s | $0.0317 |
 | `claude-opus-4-8` | 100.0% (n=20) | not run | not run | 7.5s | $0.1067 |
-| `qwen2.5vl-receipt` (local, CPU) | 97.2% | 98.1% | 22/22 | 349.2s | $0 |
+| `qwen2.5vl-receipt` (local, CPU) | 97.9% | 98.1% | 22/22 | 391.2s | $0 |
 | `gpt-4o` | 91.5% | 82.7% | 9/22 | 3.8s | $0.0181 |
 | `mistral-small-2603` | 89.4% | 88.5% | 17/22 | 3.4s | $0.0018 |
 | `claude-haiku-4-5` | 88.0% | not run | not run | 7.0s | $0.0135 |
 
-Accuracy is fields correct. Latency and cost come from the development set. Reads are from 2026-11-06, except the local model (2026-11-07), Opus 4.8 (2026-10-21) and Haiku 4.5 (2026-10-21 and 22).
+Accuracy is fields correct. Latency and cost come from the development set. Reads are from 2026-11-06, except the local model (2026-11-11), Opus 4.8 (2026-10-21) and Haiku 4.5 (2026-10-21 and 22).
 
 - **Why `gpt-5-mini` is still in use:** Haiku 5.5 scored 100% on both sets, faster and at about a third of the estimated cost, and a second read of the 26 scored 142/142 again. But a model picked on these sets can't be confirmed by them, so the switch waits for unseen November receipts ([D53](DECISIONS.md)). Ask also needs OpenAI today, so a switch means separating the two settings. OpenAI lists `gpt-5-mini` as deprecated, with no shutdown date found as of 2026-11-06.
 - **Why not Opus:** on the same 20 receipts it scores 110/110 against 109/110, one date apart, at about 13× the estimated cost ($0.1067 vs $0.0082 a read on those 20; the $0.0076 in the table covers all 26). That's a cost decision: Opus is no less accurate.
-- **The price of privacy, measured:** a free model that never lets the receipt leave the machine scored 89.4–97.2% across three runs of the 26 (2026-10-22, 2026-11-03 to 05, 2026-11-07), with the same prompt. Read that as a range: reads vary between runs, and most of the last two runs' reads also used different Ollama versions, so the cause of the latest rise isn't known. The catch is speed on CPU: 349.2s at p50 and 1253.6s at p95. On its latest run it also auto-posted 2 of its 4 wrong reads.
+- **The price of privacy, measured:** a free model that never lets the receipt leave the machine scored 89.4–97.9% across four runs of the 26 (2026-10-22, 2026-11-03 to 05, 2026-11-07, 2026-11-11), with the same prompt. Read that as a range. The last two runs used the same Ollama version (0.40.14) and landed one field apart (138 then 139 of 142), with 23 of the 26 receipts read the same on every scored field. The earlier rise from 90.1% came with a version change; two runs can't prove the version caused it. The catch is speed on CPU: 391.2s at p50 and 1295.2s at p95. On its latest run it also auto-posted 1 of its 3 wrong reads.
 - **Small samples:** with n=26 and n=9, differences of a few points aren't significant.
 - **Costs are estimates:** recorded tokens times each provider's list price, checked on 2026-11-06, not billed amounts.
 
